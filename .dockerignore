@@ -1,0 +1,38 @@
+.git/
+.gitignore
+
+# node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+bun.lock
+bun.lockb
+
+# next.js
+.next/
+out/
+build/
+dist/
+
+# env files
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env
+
+# tauri/rust
+src-tauri/target/
+src-tauri/Cargo.lock
+
+# macOS
+.DS_Store
+
+# AI Agents & Assistants
+.agent/
+.cline/
+.cursor/
+.history/
+.gemini/
+

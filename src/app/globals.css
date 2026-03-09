@@ -1,0 +1,66 @@
+@import "tailwindcss";
+
+@theme {
+    --color-accent-blue: #60A5FA;
+    --color-accent-ember: #F97316;
+}
+
+:root {
+    --background: #000000;
+    --foreground: #ffffff;
+    --glass-background: rgba(0, 0, 0, 0.45);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --glass-blur: 40px;
+}
+
+/* V7 Stability Law: Centering & Shielding */
+body,
+html,
+main {
+    background: transparent !important;
+    margin: 0;
+    overflow: hidden;
+}
+
+* {
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-user-drag: none;
+}
+
+body {
+    color: var(--foreground);
+    background: transparent;
+    font-family: 'Inter', -apple-system, system-ui, sans-serif;
+    antialiased: true;
+}
+
+/* V7 Static Glassmorphism Pill */
+.glass-v7 {
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(40px) saturate(180%);
+    -webkit-backdrop-filter: blur(40px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+}
+
+.text-transcript {
+    font-size: 0.9375rem;
+    line-height: 1.6;
+    letter-spacing: -0.01em;
+}
+
+/* Tauri Drag Region Wrapper */
+.tauri-drag {
+    -webkit-app-region: drag;
+}
+
+/* Custom Scrollbar for Expanded View */
+.custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+}
