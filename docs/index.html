@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -36,7 +37,6 @@
             line-height: 1.6;
         }
 
-        /* Ambient Background Shadows */
         .ambient-bg {
             position: fixed;
             top: 0;
@@ -44,7 +44,7 @@
             width: 100vw;
             height: 100vh;
             z-index: -1;
-            background: 
+            background:
                 radial-gradient(circle at 20% 20%, rgba(59, 130, 246, 0.15) 0%, transparent 40%),
                 radial-gradient(circle at 80% 80%, rgba(147, 51, 234, 0.1) 0%, transparent 40%);
         }
@@ -56,7 +56,6 @@
             z-index: 1;
         }
 
-        /* Glassmorphism Card */
         .card {
             background: var(--glass-bg);
             backdrop-filter: blur(20px);
@@ -66,11 +65,79 @@
             padding: 60px 40px;
             box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
             animation: fadeIn 1s ease-out;
+            position: relative;
         }
 
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Language Switcher */
+        .lang-switcher {
+            position: absolute;
+            top: 24px;
+            right: 32px;
+            display: flex;
+            gap: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 4px 12px;
+            border-radius: 12px;
+            border: 1px solid var(--glass-border);
+        }
+
+        .lang-btn {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: color 0.2s;
+            padding: 4px 0;
+        }
+
+        .lang-btn.active {
+            color: #fff;
+        }
+
+        .lang-btn:hover {
+            color: #fff;
+        }
+
+        [data-lang] {
+            display: none;
+        }
+
+        html[lang="en"] [data-lang="en"] {
+            display: block;
+        }
+
+        html[lang="en"] p[data-lang="en"] {
+            display: block;
+        }
+
+        html[lang="en"] div[data-lang="en"] {
+            display: block;
+        }
+
+        html[lang="ru"] [data-lang="ru"] {
+            display: block;
+        }
+
+        html[lang="ru"] p[data-lang="ru"] {
+            display: block;
+        }
+
+        html[lang="ru"] div[data-lang="ru"] {
+            display: block;
         }
 
         .logo {
@@ -78,7 +145,7 @@
             font-weight: 700;
             letter-spacing: -0.05em;
             margin-bottom: 20px;
-            background: linear-gradient(135deg, #fff 0%, rgba(255,255,255,0.4) 100%);
+            background: linear-gradient(135deg, #fff 0%, rgba(255, 255, 255, 0.4) 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
@@ -154,38 +221,89 @@
         }
     </style>
 </head>
-<body>
+
+<body onload="checkLang()">
     <div class="ambient-bg"></div>
 
     <div class="container">
         <div class="card">
+            <div class="lang-switcher">
+                <button class="lang-btn" id="btn-en" onclick="setLang('en')">EN</button>
+                <button class="lang-btn" id="btn-ru" onclick="setLang('ru')">RU</button>
+            </div>
+
             <h1 class="logo">NYX Vox</h1>
-            <p class="tagline">A rapid, private, and stunning AI voice interface for macOS. Zero latency, maximum elegance.</p>
-            
+
+            <p class="tagline" data-lang="en">A rapid, private, and stunning AI voice interface for macOS. Zero latency,
+                maximum elegance.</p>
+            <p class="tagline" data-lang="ru">Быстрый, приватный и потрясающий AI-голосовой интерфейс для macOS. Нулевая
+                задержка, максимальная элегантность.</p>
+
             <a href="https://github.com/AVP-Dev/nyx-vox/releases/latest" class="download-btn">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-                Download for macOS
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                    stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" />
+                </svg>
+                <span data-lang="en">Download for macOS</span>
+                <span data-lang="ru">Скачать для macOS</span>
             </a>
 
             <div class="features">
                 <div class="feature-item">
-                    <h3>Swift Delivery</h3>
-                    <p>Powered by Cloud acceleration (Deepgram) and local Whisper for instant results.</p>
+                    <h3 data-lang="en">Swift Delivery</h3>
+                    <h3 data-lang="ru">Мгновенный ввод</h3>
+                    <p data-lang="en">Powered by Cloud acceleration (Deepgram) and local Whisper for instant results.
+                    </p>
+                    <p data-lang="ru">Использует облачное ускорение (Deepgram) и локальный Whisper для мгновенных
+                        результатов.</p>
                 </div>
                 <div class="feature-item">
-                    <h3>Private by Default</h3>
-                    <p>Switch to Offline mode to process everything locally on your Mac. No data leaves.</p>
+                    <h3 data-lang="en">Private by Default</h3>
+                    <h3 data-lang="ru">Приватно по умолчанию</h3>
+                    <p data-lang="en">Switch to Offline mode to process everything locally on your Mac. No data leaves.
+                    </p>
+                    <p data-lang="ru">Переключитесь в офлайн-режим, чтобы обрабатывать всё локально на вашем Mac. Данные
+                        никуда не уходят.</p>
                 </div>
                 <div class="feature-item">
-                    <h3>Glass UI</h3>
-                    <p>Beautiful translucent interface that sits perfectly on your desktop.</p>
+                    <h3 data-lang="en">Glass UI</h3>
+                    <h3 data-lang="ru">Элегантный дизайн</h3>
+                    <p data-lang="en">Beautiful translucent interface that sits perfectly on your desktop.</p>
+                    <p data-lang="ru">Красивый полупрозрачный интерфейс, который идеально вписывается в ваш рабочий
+                        стол.</p>
                 </div>
             </div>
         </div>
 
         <footer>
-            Built with Rust & Tauri by <a href="https://github.com/AVP-Dev">AVP-Dev</a>
+            <span data-lang="en">Built with Rust & Tauri by <a href="https://github.com/AVP-Dev">AVP-Dev</a></span>
+            <span data-lang="ru">Создано на Rust & Tauri разработчиком <a
+                    href="https://github.com/AVP-Dev">AVP-Dev</a></span>
         </footer>
     </div>
+
+    <script>
+        function setLang(lang) {
+            document.documentElement.setAttribute('lang', lang);
+            document.querySelectorAll('.lang-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById('btn-' + lang).classList.add('active');
+            localStorage.setItem('preferredLang', lang);
+        }
+
+        function checkLang() {
+            const saved = localStorage.getItem('preferredLang');
+            if (saved) {
+                setLang(saved);
+            } else {
+                const nav = navigator.language || navigator.userLanguage;
+                if (nav.startsWith('ru')) {
+                    setLang('ru');
+                } else {
+                    setLang('en');
+                }
+            }
+        }
+    </script>
 </body>
+
 </html>
