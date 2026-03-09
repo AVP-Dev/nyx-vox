@@ -353,6 +353,20 @@ export function SettingsPanel({ onClose, autoPaste, clearOnPaste, onToggleAutoPa
         catch (err) { setDownloading(false); setDownloadProgress(`Error: ${err}`); }
     }, []);
 
+    const handleDeleteModel = useCallback(async () => {
+        try {
+            await invoke('delete_whisper_model');
+            setModelAvailable(false);
+        } catch (err) { console.error('Delete model error:', err); }
+    }, []);
+
+    // ── Auto-Download Effect ───────────────────────────────────────────────
+    useEffect(() => {
+        if (sttMode === 'whisper' && !modelAvailable && !downloading) {
+            handleDownload();
+        }
+    }, [sttMode, modelAvailable, downloading, handleDownload]);
+
     const tabs: { id: Tab; icon: React.ReactNode; label: string }[] = [
         { id: 'guide', icon: <BookOpen className="w-[14px] h-[14px]" />, label: lang === 'ru' ? 'Инструкция' : 'Guide' },
         { id: 'settings', icon: <Settings2 className="w-[14px] h-[14px]" />, label: lang === 'ru' ? 'Настройки' : 'Settings' },
@@ -363,10 +377,11 @@ export function SettingsPanel({ onClose, autoPaste, clearOnPaste, onToggleAutoPa
         <>
             {showFeedback && <FeedbackModal onClose={() => setShowFeedback(false)} />}
             <div
+                data-tauri-drag-region
                 className="w-full h-full bg-[#0D0D0D]/95 border border-white/10 rounded-[28px] flex flex-col overflow-hidden relative pointer-events-auto"
             >
                 {/* HEADER */}
-                <div className="flex items-center justify-between px-4 pt-4 pb-2 shrink-0">
+                <div data-tauri-drag-region className="flex items-center justify-between px-4 pt-4 pb-2 shrink-0">
                     <div className="flex gap-0.5 p-1 bg-white/5 rounded-xl">
                         {tabs.map(t => (
                             <button
@@ -631,38 +646,50 @@ export function SettingsPanel({ onClose, autoPaste, clearOnPaste, onToggleAutoPa
 
                                 {/* Offline Model Status */}
                                 {sttMode === 'whisper' && (
-                                    <div>
-                                        <div className="text-[11px] font-bold text-white/30 uppercase tracking-widest mb-2">{c.settings.modelStatus}</div>
-                                        <div className="p-3 rounded-xl bg-white/3 border border-white/5">
-                                            {modelAvailable ? (
-                                                <div className="flex items-center gap-2">
-                                                    <Check className="w-4 h-4 text-emerald-400" />
-                                                    <div>
-                                                        <div className="text-[12px] font-medium text-emerald-400">{c.settings.modelInstalled}</div>
-                                                        <div className="text-[10px] text-white/30">ggml-medium.bin · {c.settings.modelSize}</div>
+                                    <div className="space-y-4">
+                                        <div>
+                                            <div className="text-[11px] font-bold text-white/30 uppercase tracking-widest mb-2">{c.settings.modelStatus}</div>
+                                            <div className="p-3 rounded-xl bg-white/3 border border-white/5">
+                                                {modelAvailable ? (
+                                                    <div className="flex items-center gap-2">
+                                                        <Check className="w-4 h-4 text-emerald-400" />
+                                                        <div>
+                                                            <div className="text-[12px] font-medium text-emerald-400">{c.settings.modelInstalled}</div>
+                                                            <div className="text-[10px] text-white/30">ggml-medium.bin · {c.settings.modelSize}</div>
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            ) : downloading ? (
-                                                <div className="flex items-center gap-2">
-                                                    <Loader2 className="w-4 h-4 text-white/50 animate-spin" />
-                                                    <div>
-                                                        <div className="text-[12px] text-white/60">{c.settings.modelDownloading}</div>
-                                                        <div className="text-[10px] text-white/30">{downloadProgress}</div>
+                                                ) : downloading ? (
+                                                    <div className="flex items-center gap-2">
+                                                        <Loader2 className="w-4 h-4 text-white/50 animate-spin" />
+                                                        <div>
+                                                            <div className="text-[12px] text-white/60">{c.settings.modelDownloading}</div>
+                                                            <div className="text-[10px] text-white/30">{downloadProgress}</div>
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            ) : (
-                                                <div className="flex items-center justify-between">
-                                                    <div>
-                                                        <div className="text-[12px] text-white/50">{c.settings.modelNotFound}</div>
-                                                        <div className="text-[10px] text-white/30">{c.settings.modelSize}</div>
+                                                ) : (
+                                                    <div className="flex items-center justify-between">
+                                                        <div className="flex flex-col">
+                                                            <div className="text-[12px] text-white/50">{c.settings.modelNotFound}</div>
+                                                            <div className="text-[10px] text-white/30">{c.settings.modelSize}</div>
+                                                        </div>
+                                                        <button onClick={handleDownload} className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/15 rounded-lg text-[11px] font-medium text-white/80 transition-all">
+                                                            <Download className="w-3.5 h-3.5" />
+                                                            {c.settings.modelDownload}
+                                                        </button>
                                                     </div>
-                                                    <button onClick={handleDownload} className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/15 rounded-lg text-[11px] font-medium text-white/80 transition-colors">
-                                                        <Download className="w-3.5 h-3.5" />
-                                                        {c.settings.modelDownload}
-                                                    </button>
-                                                </div>
-                                            )}
+                                                )}
+                                            </div>
                                         </div>
+
+                                        {modelAvailable && (
+                                            <button
+                                                onClick={handleDeleteModel}
+                                                className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg bg-red-500/5 hover:bg-red-500/10 border border-red-500/10 text-red-400/60 hover:text-red-400 text-[11px] font-medium transition-all"
+                                            >
+                                                <X className="w-3 h-3" />
+                                                {lang === 'ru' ? 'Удалить модель' : 'Delete model'}
+                                            </button>
+                                        )}
                                     </div>
                                 )}
 
@@ -810,7 +837,7 @@ export function SettingsPanel({ onClose, autoPaste, clearOnPaste, onToggleAutoPa
                         </div>
                     )}
                 </div>
-            </div>
+            </div >
         </>
     );
 }

@@ -32,6 +32,12 @@ struct AutoPause(Mutex<bool>);
 // Auto-Paste flag
 struct AutoPaste(Mutex<bool>);
 
+// Target application name (tracked on show)
+struct TargetApp(Mutex<String>);
+
+// Position initialized flag (to only center once on launch)
+struct PositionInitialized(AtomicBool);
+
 // Deepgram API key (cached from store)
 struct DgApiKey(Mutex<Option<String>>);
 
@@ -61,23 +67,73 @@ pub fn resample_to_16k(samples: &[f32], src_rate: u32, dst_rate: u32) -> Vec<f32
         .collect()
 }
 
+// ── Helper to detect frontmost app ───────────────────────────────────────────
+fn get_frontmost_app_name() -> String {
+    #[cfg(target_os = "macos")]
+    {
+        let script = "tell application \"System Events\" to get name of first process whose frontmost is true";
+        let output = std::process::Command::new("osascript").arg("-e").arg(script).output();
+        if let Ok(o) = output {
+            let name = String::from_utf8_lossy(&o.stdout).trim().to_string();
+            // Don't report ourselves or empty strings
+            if !name.is_empty() && name != "NYX Vox" && name != "nyx-vox" {
+                return name;
+            }
+        }
+    }
+    "Unknown".to_string()
+}
+
 // ── Position overlay at top-center ────────────────────────────────────────────
 fn show_overlay<R: Runtime>(app: &AppHandle<R>) {
+    // 1. Capture target app BEFORE we show our window and take focus
+    let target_name = get_frontmost_app_name();
+    if target_name != "Unknown" {
+        if let Ok(mut lock) = app.state::<TargetApp>().0.lock() {
+            *lock = target_name;
+        }
+    }
+
+    if let Some(window) = app.get_webview_window("main") {
+        // Only position the window if it's the first time being shown
+        let init_state = app.state::<PositionInitialized>();
+        if !init_state.0.load(Ordering::SeqCst) {
+            if let Ok(Some(monitor)) = window.primary_monitor() {
+                let scale = monitor.scale_factor();
+                let screen_w = monitor.size().width as f64 / scale;
+                
+                let win_w = window.outer_size().unwrap_or_default().width as f64 / scale;
+                let actual_win_w = if win_w > 0.0 { win_w } else { 140.0 };
+                let x = ((screen_w - actual_win_w) / 2.0 * scale) as i32;
+                let y = (28.0 * scale) as i32;
+                let _ = window.set_position(tauri::PhysicalPosition::new(x, y));
+                
+                // Mark as initialized so user positioning is respected from now on
+                init_state.0.store(true, Ordering::SeqCst);
+            }
+        }
+        
+        let _ = window.show();
+        let _ = window.set_focus();
+    }
+}
+
+// ── Reset Position ───────────────────────────────────────────────────────────
+#[tauri::command]
+fn reset_window_position(app: AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         if let Ok(Some(monitor)) = window.primary_monitor() {
             let scale = monitor.scale_factor();
             let screen_w = monitor.size().width as f64 / scale;
-
-            if !window.is_visible().unwrap_or(false) {
-                let win_w = window.outer_size().unwrap_or_default().width as f64 / scale;
-                let actual_win_w = if win_w > 0.0 { win_w } else { 500.0 };
-                let x = ((screen_w - actual_win_w) / 2.0 * scale) as i32;
-                let y = (28.0 * scale) as i32;
-                let _ = window.set_position(tauri::PhysicalPosition::new(x, y));
-            }
+            
+            // Standard centered size for idle pill
+            let win_w = 140.0; 
+            let x = ((screen_w - win_w) / 2.0 * scale) as i32;
+            let y = (28.0 * scale) as i32;
+            
+            let _ = window.set_position(tauri::PhysicalPosition::new(x, y));
+            let _ = app.emit("reset-position", ());
         }
-        let _ = window.show();
-        let _ = window.set_focus();
     }
 }
 
@@ -92,31 +148,70 @@ fn dismiss_overlay(app: AppHandle) {
 // ── Paste ─────────────────────────────────────────────────────────────────────
 #[tauri::command]
 fn paste_text(app: AppHandle, text: String) -> Result<(), String> {
+    // 1. Write to clipboard first
     use tauri_plugin_clipboard_manager::ClipboardExt;
     app.clipboard()
         .write_text(text)
         .map_err(|e| format!("Clipboard error: {}", e))?;
 
+    // 2. Hide window IMMEDIATELY to trigger OS focus restoration to previous app
     #[cfg(target_os = "macos")]
     let _ = app.hide();
     
     let enigo_arc = app.state::<EnigoState>().0.clone();
-    let app_clone = app.clone();
 
+    // 3. Spawn async task with enough delay for focus to land
     tauri::async_runtime::spawn(async move {
-        tokio::time::sleep(std::time::Duration::from_millis(150)).await;
-        let _ = app_clone.run_on_main_thread(move || {
-            if let Ok(mut g) = enigo_arc.lock() {
-                use enigo::{Direction, Key, Keyboard};
-                let enigo = &mut g.0;
-                enigo.key(Key::Meta, Direction::Press).ok();
-                enigo.key(Key::Unicode('v'), Direction::Click).ok();
-                enigo.key(Key::Meta, Direction::Release).ok();
+        // 300ms is usually plenty for focus to bounce back to the previous app
+        tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+        
+        let _ = app.run_on_main_thread(move || {
+            // Native Enigo simulation (faster and more reliable than osascript)
+            if let Ok(mut enigo) = enigo_arc.lock() {
+                use enigo::{Keyboard, Key, Direction};
+                #[cfg(target_os = "macos")]
+                {
+                    // Command + V
+                    let _ = enigo.0.key(Key::Meta, Direction::Press);
+                    let _ = enigo.0.key(Key::Unicode('v'), Direction::Click);
+                    let _ = enigo.0.key(Key::Meta, Direction::Release);
+                }
+                #[cfg(target_os = "windows")]
+                {
+                    // Control + V
+                    let _ = enigo.0.key(Key::Control, Direction::Press);
+                    let _ = enigo.0.key(Key::Unicode('v'), Direction::Click);
+                    let _ = enigo.0.key(Key::Control, Direction::Release);
+                }
             }
         });
     });
 
     Ok(())
+}
+
+#[tauri::command]
+fn get_target_app(state: State<'_, TargetApp>) -> String {
+    state.0.lock().unwrap().clone()
+}
+
+#[tauri::command]
+fn update_tray_lang(app: AppHandle, lang: String) {
+    if let Some(tray) = app.tray_by_id("main") {
+        // In Tauri 2.0, the most reliable way to update the tray menu is to rebuild it
+        let show_label = if lang == "ru" { "Показать NYX Vox" } else { "Show NYX Vox" };
+        let settings_label = if lang == "ru" { "Настройки" } else { "Settings" };
+        let reset_label = if lang == "ru" { "Сбросить позицию (Reset)" } else { "Reset Position" };
+        let quit_label = if lang == "ru" { "Выйти (Quit)" } else { "Quit" };
+
+        let show_i = MenuItem::with_id(&app, "show", show_label, true, None::<&str>).unwrap();
+        let settings_i = MenuItem::with_id(&app, "settings", settings_label, true, None::<&str>).unwrap();
+        let reset_pos_i = MenuItem::with_id(&app, "reset_pos", reset_label, true, None::<&str>).unwrap();
+        let quit_i = MenuItem::with_id(&app, "quit", quit_label, true, None::<&str>).unwrap();
+        
+        let tray_menu = Menu::with_items(&app, &[&show_i, &settings_i, &reset_pos_i, &quit_i]).unwrap();
+        let _ = tray.set_menu(Some(tray_menu));
+    }
 }
 
 // ── Start recording (mode-aware) ──────────────────────────────────────────────
@@ -138,7 +233,7 @@ async fn start_recording(
 ) -> Result<(), String> {
     let mode = stt_mode.0.lock().map_err(|e| e.to_string())?.clone();
     
-    let lang = match mode.as_str() {
+    let _lang = match mode.as_str() {
         "deepgram" => dg_lang.0.lock().map_err(|e| e.to_string())?.clone(),
         "whisper" => whisper_lang.0.lock().map_err(|e| e.to_string())?.clone(),
         "groq" => groq_lang.0.lock().map_err(|e| e.to_string())?.clone(),
@@ -152,10 +247,34 @@ async fn start_recording(
             tell application "Spotify" to if it is running then pause
             tell application "System Events"
                 if (exists process "Google Chrome") then
-                    tell application "Google Chrome" to execute (active tab of window 1) javascript "document.querySelectorAll('video, audio').forEach(m => m.pause())"
+                    try
+                        tell application "Google Chrome" to execute (active tab of window 1) javascript "document.querySelectorAll('video, audio').forEach(m => m.pause())"
+                    end try
                 end if
                 if (exists process "Safari") then
-                    tell application "Safari" to execute (current tab of window 1) javascript "document.querySelectorAll('video, audio').forEach(m => m.pause())"
+                    try
+                        tell application "Safari" to execute (current tab of window 1) javascript "document.querySelectorAll('video, audio').forEach(m => m.pause())"
+                    end try
+                end if
+                if (exists process "Yandex") then
+                    try
+                        tell application "Yandex" to execute (active tab of window 1) javascript "document.querySelectorAll('video, audio').forEach(m => m.pause())"
+                    end try
+                end if
+                if (exists process "Yandex Browser") then
+                    try
+                        tell application "Yandex Browser" to execute (active tab of window 1) javascript "document.querySelectorAll('video, audio').forEach(m => m.pause())"
+                    end try
+                end if
+                if (exists process "Arc") then
+                    try
+                        tell application "Arc" to execute (active tab of window 1) javascript "document.querySelectorAll('video, audio').forEach(m => m.pause())"
+                    end try
+                end if
+                if (exists process "Brave Browser") then
+                    try
+                        tell application "Brave Browser" to execute (active tab of window 1) javascript "document.querySelectorAll('video, audio').forEach(m => m.pause())"
+                    end try
                 end if
             end tell
         "#;
@@ -284,10 +403,34 @@ async fn stop_recording(
             tell application "Spotify" to if it is running then play
             tell application "System Events"
                 if (exists process "Google Chrome") then
-                    tell application "Google Chrome" to execute (active tab of window 1) javascript "document.querySelectorAll('video, audio').forEach(m => m.play())"
+                    try
+                        tell application "Google Chrome" to execute (active tab of window 1) javascript "document.querySelectorAll('video, audio').forEach(m => m.play())"
+                    end try
                 end if
                 if (exists process "Safari") then
-                    tell application "Safari" to execute (current tab of window 1) javascript "document.querySelectorAll('video, audio').forEach(m => m.play())"
+                    try
+                        tell application "Safari" to execute (current tab of window 1) javascript "document.querySelectorAll('video, audio').forEach(m => m.play())"
+                    end try
+                end if
+                if (exists process "Yandex") then
+                    try
+                        tell application "Yandex" to execute (active tab of window 1) javascript "document.querySelectorAll('video, audio').forEach(m => m.play())"
+                    end try
+                end if
+                if (exists process "Yandex Browser") then
+                    try
+                        tell application "Yandex Browser" to execute (active tab of window 1) javascript "document.querySelectorAll('video, audio').forEach(m => m.play())"
+                    end try
+                end if
+                if (exists process "Arc") then
+                    try
+                        tell application "Arc" to execute (active tab of window 1) javascript "document.querySelectorAll('video, audio').forEach(m => m.play())"
+                    end try
+                end if
+                if (exists process "Brave Browser") then
+                    try
+                        tell application "Brave Browser" to execute (active tab of window 1) javascript "document.querySelectorAll('video, audio').forEach(m => m.play())"
+                    end try
                 end if
             end tell
         "#;
@@ -514,6 +657,10 @@ async fn download_whisper_model(app: AppHandle) -> Result<(), String> {
     whisper::download_model(app).await
 }
 
+#[tauri::command]
+async fn delete_whisper_model() -> Result<(), String> {
+    whisper::delete_model()
+}
 
 // ── Open Mac Accessibility Settings ───────────────────────────────────────────
 #[tauri::command]
@@ -556,6 +703,8 @@ pub fn run() {
         .manage(groq_state)
         .manage(recording_flag)
         .manage(processing_flag)
+        .manage(PositionInitialized(AtomicBool::new(false)))
+        .manage(TargetApp(Mutex::new("Unknown".to_string())))
         .manage(enigo_state)
         .manage(SttMode(Mutex::new("deepgram".to_string())))
         .manage(DeepgramLanguage(Mutex::new("auto".to_string())))
@@ -670,9 +819,10 @@ pub fn run() {
             let quit_i = MenuItem::with_id(app, "quit", "Выйти (Quit)", true, None::<&str>)?;
             let show_i = MenuItem::with_id(app, "show", "Показать NYX VOX", true, None::<&str>)?;
             let settings_i = MenuItem::with_id(app, "settings", "Настройки", true, None::<&str>)?;
-            let tray_menu = Menu::with_items(app, &[&show_i, &settings_i, &quit_i])?;
+            let reset_pos_i = MenuItem::with_id(app, "reset_pos", "Сбросить позицию (Reset)", true, None::<&str>)?;
+            let tray_menu = Menu::with_items(app, &[&show_i, &settings_i, &reset_pos_i, &quit_i])?;
 
-            TrayIconBuilder::new()
+            TrayIconBuilder::with_id("main")
                 .icon(tauri::image::Image::from_bytes(include_bytes!("../icons/trayTemplate.png")).unwrap())
                 .icon_as_template(true)
                 .menu(&tray_menu)
@@ -683,6 +833,9 @@ pub fn run() {
                     "settings" => {
                         show_overlay(app_handle);
                         let _ = app_handle.emit("open-settings", ());
+                    }
+                    "reset_pos" => {
+                        reset_window_position(app_handle.clone());
                     }
                     _ => {}
                 })
@@ -715,20 +868,23 @@ pub fn run() {
             delete_groq_api_key,
             set_stt_mode,
             get_stt_mode,
-            get_stt_mode,
             set_deepgram_language,
             get_deepgram_language,
             set_whisper_language,
             get_whisper_language,
             set_groq_language,
             get_groq_language,
+            get_target_app,
+            update_tray_lang,
             set_auto_pause,
             get_auto_pause,
             set_auto_paste,
             get_auto_paste,
             check_model_available,
             download_whisper_model,
+            delete_whisper_model,
             open_mac_settings,
+            reset_window_position,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

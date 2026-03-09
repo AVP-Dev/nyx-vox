@@ -1,11 +1,13 @@
-# NYX-Vox
+# NYX Vox
+
+[![Download](https://img.shields.io/github/v/release/AVP-Dev/nyx-vox?label=Download%20Latest&style=for-the-badge&color=orange)](https://github.com/AVP-Dev/nyx-vox/releases/latest)
 
 [🇷🇺 Russian Version](./README.ru.md) | [⚙️ Technical Specs](./docs/TECHNICAL.md)
 
-Welcome to **NYX-Vox**! This is a test version of a personal project built for daily use. It's our first major implementation using **Rust** and Tauri, so we are actively looking for feedback, code reviews, and architectural recommendations to improve the desktop experience!
+Welcome to **NYX Vox**! This is a test version of a personal project built for daily use. It's our first major implementation using **Rust** and Tauri, so we are actively looking for feedback, code reviews, and architectural recommendations to improve the desktop experience!
 
 ## 🌟 Vision
-NYX-Vox brings fast, offline-capable and cloud-accelerated voice transcription directly to your desktop. Built with modern, high-performance tools, it's designed to be functional, aesthetically pleasing, and remarkably stable. The interface leverages smooth Glassmorphism UI elements to keep things clean and engaging.
+NYX Vox brings fast, offline-capable and cloud-accelerated voice transcription directly to your desktop. Built with modern, high-performance tools, it's designed to be functional, aesthetically pleasing, and remarkably stable. The interface leverages smooth Glassmorphism UI elements to keep things clean and engaging.
 
 ### 🎙 AI Transcription Engines
 1. **CLOUD (Deepgram):** Instant commercial model. Perfect punctuation and ultimate noise filtering.

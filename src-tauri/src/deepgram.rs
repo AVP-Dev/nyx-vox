@@ -45,8 +45,7 @@ pub fn start_deepgram<R: Runtime>(
             // Connect with auth header
             let request = tokio_tungstenite::tungstenite::http::Request::builder()
                 .uri(&ws_url)
-                .header("Authorization", format!("Token {}", api_key))
-                .header("Host", "api.deepgram.com")
+                .header("Authorization", format!("Token {}", api_key.trim()))
                 .header("Connection", "Upgrade")
                 .header("Upgrade", "websocket")
                 .header("Sec-WebSocket-Version", "13")

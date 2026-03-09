@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { useStore } from '@/store/useStore';
-import { Copy, Send, Pencil, Settings2, X, Check, ChevronDown } from 'lucide-react';
+import { Copy, Send, Pencil, Settings2, X, Check, ChevronDown, GripVertical, Power } from 'lucide-react';
 import { WaveformVisualizer } from '@/components/WaveformVisualizer';
 import { SettingsPanel } from '@/components/SettingsPanel';
 import { writeText } from '@tauri-apps/plugin-clipboard-manager';
@@ -21,7 +21,6 @@ type Phase = 'idle' | 'recording' | 'processing' | 'result' | 'editing';
 export default function Home() {
     const { transcriptText, setProcessing, setTranscript } = useStore();
     const [phase, setPhase] = useState<Phase>('idle');
-    const [expanded, setExpanded] = useState(false);
     const [showSettings, setShowSettings] = useState(false);
     const [sttMode, setSttMode] = useState<'deepgram' | 'whisper' | 'groq'>('deepgram');
     const [dgLanguage, setDgLanguage] = useState<'auto' | 'ru' | 'en'>('auto');
@@ -29,51 +28,146 @@ export default function Home() {
     const [groqLanguage, setGroqLanguage] = useState<'auto' | 'ru' | 'en'>('auto');
     const [autoPaste, setAutoPaste] = useState(true);
     const [clearOnPaste, setClearOnPaste] = useState(true);
+    const [targetApp, setTargetApp] = useState<string>('');
     const containerRef = useRef<HTMLDivElement>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
 
 
+    // Track the last known idle position
+    const lastIdlePos = useRef<{ x: number, y: number } | null>(null);
+
     // ── Dynamic Window Resizing ──────────────────────────────────────────────
-    const resizeWindow = useCallback(async (w: number, h: number) => {
+    const resizeWindow = useCallback(async (w: number, h: number, currentPhase: string) => {
         if (typeof window === 'undefined' || !window.__TAURI_INTERNALS__) return;
         try {
-            const { getCurrentWindow, LogicalSize } = await import('@tauri-apps/api/window');
+            const { getCurrentWindow, LogicalSize, PhysicalPosition, primaryMonitor } = await import('@tauri-apps/api/window');
             const win = getCurrentWindow();
 
-            // Add padding for shadows
             const actualW = w + SHADOW_PAD * 2;
             const actualH = h + SHADOW_PAD * 2;
 
+            const oldPos = await win.outerPosition();
+            const oldSize = await win.outerSize();
+
+            const monitor = await primaryMonitor();
+            const scale = monitor ? monitor.scaleFactor : 2;
+            const newPhysicalW = actualW * scale;
+
+            // Track the absolute center of the idle widget.
+            // Since the user can drag it, we update this center whenever we are in the idle phase.
+            if (currentPhase === 'idle' && oldSize.width > 0) {
+                lastIdlePos.current = {
+                    x: oldPos.x + oldSize.width / 2,
+                    y: oldPos.y + oldSize.height / 2
+                };
+            }
+
+            let newX = oldPos.x;
+            let newY = oldPos.y;
+
+            let targetCenter_x = oldPos.x + oldSize.width / 2;
+            let targetCenter_y = oldPos.y + oldSize.height / 2;
+
+            // Anchor logic for all phases (including settings)
+            if (lastIdlePos.current) {
+                targetCenter_x = lastIdlePos.current.x;
+                targetCenter_y = lastIdlePos.current.y;
+            }
+
+            newX = Math.round(targetCenter_x - newPhysicalW / 2);
+
+            if (monitor) {
+                const screenHeight = monitor.size.height;
+                const isBottomHalf = targetCenter_y > screenHeight / 2;
+
+                if (isBottomHalf) {
+                    newY = Math.round(targetCenter_y + (oldSize.height / 2) - (actualH * scale));
+                } else {
+                    newY = Math.round(targetCenter_y - (oldSize.height / 2));
+                }
+            } else {
+                newY = Math.round(targetCenter_y - (24 * scale));
+            }
+
+            if (monitor) {
+                const screenWidth = monitor.size.width;
+                const screenHeight = monitor.size.height;
+                const pad = 10 * scale;
+                if (newX < pad) newX = Math.max(pad, newX);
+                if (newX + newPhysicalW > screenWidth - pad) newX = screenWidth - newPhysicalW - pad;
+
+                // Vertical bounds check
+                if (newY < pad) newY = Math.max(pad, newY);
+                const physicalH = actualH * scale;
+                if (newY + physicalH > screenHeight - pad) newY = screenHeight - physicalH - pad;
+            }
+
             await win.setSize(new LogicalSize(actualW, actualH));
 
-            // Recenter horizontally to prevent "crawling" to the left after resize
-            if (h < 500) { // Only recenter for the main overlays, not settings
-                const { primaryMonitor } = await import('@tauri-apps/api/window');
-                const monitor = await primaryMonitor();
-                if (monitor) {
-                    const scale = monitor.scaleFactor;
-                    const screenW = monitor.size.width / scale;
-                    const x = (screenW - actualW) / 2;
-                    const { PhysicalPosition } = await import('@tauri-apps/api/window');
-                    await win.setPosition(new PhysicalPosition(x * scale, 28 * scale));
-                }
+            if (oldSize.width > 0) {
+                await win.setPosition(new PhysicalPosition(newX, newY));
             }
         } catch (err) { console.error('Resize error:', err); }
     }, []);
 
+    // ── Window Move Listener ────────────────────────────────────────────────
+    // This is the most robust way to track where the user drags the window.
     useEffect(() => {
-        let w = 64, h = 64;
+        const setup = async () => {
+            if (typeof window === 'undefined' || !window.__TAURI_INTERNALS__) return;
+            const { getCurrentWindow } = await import('@tauri-apps/api/window');
+            const win = getCurrentWindow();
+
+            const unlistenMove = await win.onMoved(async ({ payload: pos }) => {
+                // If we aren't currently resizing or in settings, this is a clean user drag
+                const size = await win.outerSize();
+                // Check if it's the idle pill size (or close to it)
+                if (size.width > 0) {
+                    lastIdlePos.current = {
+                        x: pos.x + size.width / 2,
+                        y: pos.y + size.height / 2
+                    };
+                }
+            });
+
+            // Listen for position reset from Tray
+            const unlistenReset = await listen('reset-position', () => {
+                lastIdlePos.current = null;
+                // Force a resize calculation
+                setPhase(p => p);
+            });
+
+            return { unlistenMove, unlistenReset };
+        };
+        const cleanupPromise = setup();
+        return () => {
+            cleanupPromise.then(res => {
+                if (res) {
+                    if (res.unlistenMove) res.unlistenMove();
+                    if (res.unlistenReset) res.unlistenReset();
+                }
+            });
+        };
+    }, []);
+
+    useEffect(() => {
+        let w = 48, h = 48;
         if (showSettings) {
             w = 440; h = 540;
         } else if (phase === 'recording' || phase === 'processing') {
-            w = 440; h = 64;
+            w = 260; h = 48;
         } else if (phase === 'result') {
-            w = 440; h = expanded ? 240 : 112;
+            const textLen = transcriptText?.length || 0;
+            const rows = Math.max(1, Math.ceil(textLen / 38));
+            const calcH = 120 + (rows * 20);
+            w = 380; h = Math.min(400, Math.max(120, calcH));
         } else if (phase === 'editing') {
             w = 440; h = 320;
+        } else if (phase === 'idle') {
+            w = 140; h = 48;
         }
-        resizeWindow(w, h);
-    }, [phase, expanded, showSettings, resizeWindow]);
+        resizeWindow(w, h, showSettings ? 'settings' : phase);
+    }, [phase, showSettings, transcriptText, resizeWindow]);
 
     // ── Auto-scroll partial transcript ───────────────────────────────────────
     useEffect(() => {
@@ -105,6 +199,25 @@ export default function Home() {
         load();
     }, [showSettings]); // Reload when settings close to sync changes
 
+    // ── Context Awareness: Target App detection ─────────────────────────────
+    useEffect(() => {
+        if (phase === 'result' || phase === 'editing') {
+            invoke<string>('get_target_app').then(name => {
+                if (name && name !== 'Unknown') setTargetApp(name);
+                else setTargetApp('');
+            }).catch(console.error);
+        } else if (phase === 'idle') {
+            setTargetApp('');
+        }
+    }, [phase]);
+
+    // ── Tray Localization sync ──────────────────────────────────────────────
+    useEffect(() => {
+        const lang = sttMode === 'deepgram' ? dgLanguage : (sttMode === 'whisper' ? whisperLanguage : groqLanguage);
+        const trayLang = lang === 'auto' ? (navigator.language.startsWith('ru') ? 'ru' : 'en') : lang;
+        invoke('update_tray_lang', { lang: trayLang }).catch(console.error);
+    }, [sttMode, dgLanguage, whisperLanguage, groqLanguage]);
+
     const toggleQuickLang = useCallback(async () => {
         const sequence: ('auto' | 'ru' | 'en')[] = ['auto', 'ru', 'en'];
         const currentLang = sttMode === 'deepgram' ? dgLanguage : (sttMode === 'whisper' ? whisperLanguage : groqLanguage);
@@ -127,11 +240,10 @@ export default function Home() {
 
     const triggerStart = useCallback(() => {
         setTranscript('');
-        setExpanded(false);
+        setShowSettings(false); // Auto-close settings when recording starts
         invoke('start_recording').catch(err => {
             setTranscript(`Ошибка: ${String(err)}`);
             setPhase('result');
-            setExpanded(true);
         });
     }, [setTranscript]);
 
@@ -144,7 +256,6 @@ export default function Home() {
         } catch (err) {
             setTranscript(`Ошибка: ${String(err)}`);
             setPhase('result');
-            setExpanded(true);
         } finally {
             setProcessing(false);
         }
@@ -155,6 +266,7 @@ export default function Home() {
         const unlistenShortcut = listen('shortcut-trigger', () => {
             setPhase(p => {
                 if (p === 'idle' || p === 'result') {
+                    setShowSettings(false); // Ensure settings close on shortcut too
                     setTimeout(() => triggerStart(), 0);
                     return 'recording';
                 }
@@ -242,14 +354,14 @@ export default function Home() {
 
     // ── Animation Variants ──────────────────────────────────────────────────
     const containerVariants = {
-        idle: { width: 64, height: 64, borderRadius: 32 },
-        recording: { width: 440, height: 64, borderRadius: 32 },
-        result: { width: 440, height: expanded ? 240 : 112, borderRadius: 28 },
-        editing: { width: 440, height: 320, borderRadius: 28 }
+        idle: { width: 140, height: 48, borderRadius: 24 },
+        recording: { width: 260, height: 48, borderRadius: 24 },
+        result: { width: 380, height: 'auto', borderRadius: 16 },
+        editing: { width: 440, height: 320, borderRadius: 20 }
     };
 
     return (
-        <main className="fixed inset-0 flex flex-col items-center bg-transparent select-none font-sans antialiased overflow-hidden">
+        <main className="fixed inset-0 flex flex-col items-center justify-center bg-transparent select-none font-sans antialiased overflow-hidden">
             <AnimatePresence mode="wait">
                 {!showSettings ? (
                     <motion.div
@@ -264,23 +376,37 @@ export default function Home() {
                         style={{ backdropFilter: 'blur(20px)' }}
                     >
                         {/* ── CONTENT AREA ── */}
-                        <div data-tauri-drag-region className={`flex px-3 shrink-0 relative overflow-hidden ${phase === 'result' && !expanded ? 'items-start pt-3 pb-3' : 'items-center h-[64px]'}`}>
+                        <div
+                            data-tauri-drag-region
+                            className={`flex px-3 shrink-0 relative overflow-hidden transition-all duration-300 ${phase === 'idle'
+                                ? 'items-center justify-center h-[48px] w-[140px] px-2 gap-2'
+                                : 'items-center h-[48px]'
+                                }`}
+                        >
+                            {/* LEFT: Mic Icon / IDLE Logo / Grip */}
+                            <motion.div layout className={`z-10 flex items-center ${phase === 'idle' ? 'justify-center' : ''}`}>
+                                {isIdle && (
+                                    <div data-tauri-drag-region className="w-8 h-8 flex items-center justify-center cursor-grab active:cursor-grabbing hover:bg-white/10 rounded-full transition-colors mr-1">
+                                        <GripVertical className="w-4 h-4 text-white/40 pointer-events-none" />
+                                    </div>
+                                )}
 
-                            {/* LEFT: Mic Icon / IDLE Logo */}
-                            <motion.div layout className="z-10 flex items-center">
                                 <button
                                     onClick={() => {
                                         if (isIdle) { setPhase('recording'); triggerStart(); }
                                         else if (isRec) { setPhase('processing'); triggerStop(); }
                                         else if (phase === 'result') { setPhase('recording'); triggerStart(); }
                                     }}
-                                    className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 ${isRec ? 'bg-red-500 shadow-[0_0_15px_rgba(239,68,68,0.5)] scale-110' : 'bg-white/5 hover:bg-white/10'
+                                    className={`rounded-full flex items-center justify-center transition-all duration-300 ${isIdle ? 'w-8 h-8' : 'w-[36px] h-[36px]'
+                                        } ${isRec ? 'bg-red-500 shadow-[0_0_15px_rgba(239,68,68,0.5)]' : 'bg-white/5 hover:bg-white/10'
                                         }`}
                                 >
                                     {isIdle ? (
-                                        <span className="text-white/60 font-bold text-lg select-none">N</span>
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="w-[18px] h-[18px] text-white/50" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M4 10v4M8 7v10M12 4v16M16 7v10M20 10v4" />
+                                        </svg>
                                     ) : isRec ? (
-                                        <div className="w-3.5 h-3.5 bg-white rounded-sm" />
+                                        <div className="w-[12px] h-[12px] bg-white rounded-[3px]" />
                                     ) : isProc ? (
                                         <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
                                     ) : (
@@ -290,71 +416,93 @@ export default function Home() {
                                     )}
                                 </button>
 
-                                {/* Quick Language Toggle */}
-                                <button
-                                    onClick={toggleQuickLang}
-                                    className="ml-2 px-1.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 transition-colors flex flex-col items-center justify-center min-w-[28px]"
-                                >
-                                    <span className="text-[9px] font-bold text-white/40 leading-tight uppercase">
-                                        {(() => {
-                                            const l = sttMode === 'deepgram' ? dgLanguage : (sttMode === 'whisper' ? whisperLanguage : groqLanguage);
-                                            return l === 'auto' ? 'Auto' : (l === 'ru' ? 'RU' : 'EN');
-                                        })()}
-                                    </span>
-                                </button>
+                                {isIdle && (
+                                    <>
+                                        <button onClick={() => setShowSettings(true)} className="w-8 h-8 ml-1 flex items-center justify-center hover:bg-white/10 rounded-full transition-colors">
+                                            <Settings2 className="w-4 h-4 text-white/50" />
+                                        </button>
+                                        <button onClick={() => invoke('plugin:process|exit', { code: 0 }).catch(() => window.close())} className="w-8 h-8 flex items-center justify-center hover:bg-red-500/20 rounded-full transition-colors group">
+                                            <Power className="w-4 h-4 text-white/50 group-hover:text-red-400 transition-colors" />
+                                        </button>
+                                    </>
+                                )}
 
-                                {/* Quick STT Mode Toggle */}
-                                <button
-                                    onClick={async () => {
-                                        const nextMode =
-                                            sttMode === 'deepgram' ? 'whisper' :
-                                                sttMode === 'whisper' ? 'groq' : 'deepgram';
-                                        setSttMode(nextMode);
-                                        try {
-                                            await invoke('set_stt_mode', { mode: nextMode });
-                                        } catch (err) { console.error('Failed to set mode:', err); }
-                                    }}
-                                    className="ml-1 px-1.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 transition-colors flex flex-col items-center justify-center min-w-[32px]"
-                                >
-                                    <span className="text-[9px] font-bold text-white/40 leading-tight uppercase">
-                                        {sttMode === 'deepgram' ? 'CLOUD' : sttMode === 'whisper' ? 'OFFLINE' : 'GROQ'}
-                                    </span>
-                                </button>
+                                {/* Quick Language Toggle (hidden when idle) */}
+                                {!isIdle && (
+                                    <>
+                                        <button
+                                            onClick={toggleQuickLang}
+                                            className="ml-2 px-1.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 transition-colors flex flex-col items-center justify-center min-w-[28px]"
+                                        >
+                                            <span className="text-[9px] font-bold text-white/40 leading-tight uppercase">
+                                                {(() => {
+                                                    const l = sttMode === 'deepgram' ? dgLanguage : (sttMode === 'whisper' ? whisperLanguage : groqLanguage);
+                                                    return l === 'auto' ? 'Auto' : (l === 'ru' ? 'RU' : 'EN');
+                                                })()}
+                                            </span>
+                                        </button>
+
+                                        {/* Quick STT Mode Toggle */}
+                                        <button
+                                            onClick={async () => {
+                                                const nextMode =
+                                                    sttMode === 'deepgram' ? 'whisper' :
+                                                        sttMode === 'whisper' ? 'groq' : 'deepgram';
+                                                setSttMode(nextMode);
+                                                try {
+                                                    await invoke('set_stt_mode', { mode: nextMode });
+                                                } catch (err) { console.error('Failed to set mode:', err); }
+                                            }}
+                                            className="ml-1 px-1.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 transition-colors flex flex-col items-center justify-center min-w-[32px]"
+                                        >
+                                            <span className="text-[9px] font-bold text-white/40 leading-tight uppercase">
+                                                {sttMode === 'deepgram' ? 'CLOUD' : sttMode === 'whisper' ? 'OFFLINE' : 'GROQ'}
+                                            </span>
+                                        </button>
+                                    </>
+                                )}
                             </motion.div>
 
                             {/* CENTER: Text / Running Line */}
-                            <motion.div layout data-tauri-drag-region className="flex-1 px-3 overflow-hidden relative cursor-default">
-                                <AnimatePresence mode="wait">
-                                    {isRec ? (
-                                        <motion.div
-                                            key="rec-line"
-                                            initial={{ opacity: 0, x: 20 }}
-                                            animate={{ opacity: 1, x: 0 }}
-                                            exit={{ opacity: 0, x: -20 }}
-                                            className="flex flex-col gap-1"
-                                        >
-                                            <div ref={scrollRef} className="whitespace-nowrap overflow-hidden text-[13px] text-white/80 font-medium tracking-tight">
-                                                {transcriptText || "Слушаю..."}
+                            {!isIdle && (
+                                <motion.div layout data-tauri-drag-region className="flex-1 px-3 overflow-hidden relative cursor-default">
+                                    <AnimatePresence mode="wait">
+                                        {isRec ? (
+                                            <motion.div
+                                                key="rec-line"
+                                                initial={{ opacity: 0, x: 20 }}
+                                                animate={{ opacity: 1, x: 0 }}
+                                                exit={{ opacity: 0, x: -20 }}
+                                                className={`flex flex-col ${transcriptText ? 'gap-1' : 'justify-center h-full'}`}
+                                            >
+                                                {transcriptText && (
+                                                    <div ref={scrollRef} className="whitespace-nowrap overflow-hidden text-[13px] text-white/80 font-medium tracking-tight">
+                                                        {transcriptText}
+                                                    </div>
+                                                )}
+                                                <WaveformVisualizer isActive />
+                                            </motion.div>
+                                        ) : isProc ? (
+                                            <div className="flex-1 px-4">
+                                                <div className="relative h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                                                    <motion.div
+                                                        animate={{
+                                                            x: ['-100%', '100%'],
+                                                            opacity: [0.3, 0.7, 0.3]
+                                                        }}
+                                                        transition={{
+                                                            duration: 1.5,
+                                                            repeat: Infinity,
+                                                            ease: "easeInOut"
+                                                        }}
+                                                        className="absolute inset-0 w-1/2 bg-gradient-to-r from-transparent via-blue-400/50 to-transparent"
+                                                    />
+                                                </div>
                                             </div>
-                                            <WaveformVisualizer isActive />
-                                        </motion.div>
-                                    ) : phase === 'result' ? (
-                                        <motion.div
-                                            key="res-line"
-                                            initial={{ opacity: 0 }}
-                                            animate={{ opacity: 1 }}
-                                            className={`text-[13px] text-white/90 font-medium leading-[1.5] pr-1 custom-scrollbar overflow-y-auto ${expanded ? 'hidden' : 'max-h-[88px]'}`}
-                                            onClick={() => setExpanded(!expanded)}
-                                        >
-                                            {transcriptText || <span className="text-white/20 italic">Текст не распознан</span>}
-                                        </motion.div>
-                                    ) : isProc ? (
-                                        <div className="flex items-center gap-2 text-[13px] text-white/40 font-medium ml-1 animate-pulse">
-                                            Обработка...
-                                        </div>
-                                    ) : null}
-                                </AnimatePresence>
-                            </motion.div>
+                                        ) : null}
+                                    </AnimatePresence>
+                                </motion.div>
+                            )}
 
                             {/* RIGHT: Actions / Settings */}
                             {!isIdle && (
@@ -363,13 +511,7 @@ export default function Home() {
                                     animate={{ opacity: 1, x: 0 }}
                                     className="flex items-center gap-1"
                                 >
-                                    {phase === 'result' && !expanded ? (
-                                        <>
-                                            <ActionBtn onClick={handleCopy} icon={<Copy className="w-3.5 h-3.5" />} />
-                                            <ActionBtn onClick={handlePaste} icon={<Send className="w-3.5 h-3.5 text-blue-400" />} />
-                                            <ActionBtn onClick={() => setExpanded(true)} icon={<ChevronDown className="w-4 h-4" />} />
-                                        </>
-                                    ) : (phase === 'recording' || isProc) && (
+                                    {(phase === 'recording' || phase === 'result' || isProc) && (
                                         <ActionBtn onClick={() => setShowSettings(true)} icon={<Settings2 className="w-4 h-4" />} />
                                     )}
                                 </motion.div>
@@ -377,33 +519,71 @@ export default function Home() {
                         </div>
 
                         {/* ── ADAPTIVE EXPANSION AREA ── */}
-                        {(expanded || phase === 'editing') && (
+                        {(phase === 'result' || phase === 'editing') && (
                             <motion.div
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                className="flex-1 flex flex-col min-h-0 p-4 pt-1 bg-white/[0.03] border-t border-white/5"
+                                initial={{ opacity: 0, y: 5 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className="flex-1 flex flex-col min-h-0 px-3 pb-3 gap-2"
                             >
-                                {phase === 'editing' ? (
-                                    <textarea
-                                        autoFocus
-                                        value={transcriptText}
-                                        onChange={e => setTranscript(e.target.value)}
-                                        className="flex-1 bg-transparent text-[15px] text-white/90 leading-relaxed resize-none focus:outline-none custom-scrollbar pr-2"
-                                        spellCheck={false}
-                                    />
-                                ) : (
-                                    <div className="flex-1 min-h-0 text-[15px] text-white/90 leading-relaxed overflow-y-auto custom-scrollbar pr-2 select-text">
-                                        {transcriptText}
-                                    </div>
-                                )}
+                                <div className={`flex-1 min-h-0 rounded-xl border border-white/5 p-3 overflow-y-auto custom-scrollbar select-text ${phase === 'editing' ? 'bg-white/5' : ''}`}>
+                                    {phase === 'editing' ? (
+                                        <textarea
+                                            autoFocus
+                                            value={transcriptText}
+                                            onChange={e => setTranscript(e.target.value)}
+                                            className="w-full h-full bg-transparent text-[14px] text-white/95 leading-relaxed resize-none focus:outline-none custom-scrollbar"
+                                            spellCheck={false}
+                                        />
+                                    ) : (
+                                        <div className="text-[13px] text-white/80 leading-relaxed font-medium">
+                                            {transcriptText || <span className="text-white/20 italic">Текст не распознан</span>}
+                                        </div>
+                                    )}
+                                </div>
 
-                                <div className="mt-3 flex items-center justify-between border-t border-white/5 pt-3">
-                                    <div className="flex gap-1">
-                                        <ActionBtn onClick={() => setPhase(p => p === 'editing' ? 'result' : 'editing')} icon={phase === 'editing' ? <Check className="w-4 h-4 text-emerald-400" /> : <Pencil className="w-3.5 h-3.5" />} label={phase === 'editing' ? "Готово" : "Ред."} />
-                                        <ActionBtn onClick={handleCopy} icon={<Copy className="w-3.5 h-3.5" />} label="Копировать" />
-                                        <ActionBtn onClick={() => { setTranscript(''); setPhase('idle'); }} icon={<X className="w-4 h-4 text-red-400" />} label="Очистить" />
+                                <div className="flex items-center justify-between gap-2 h-8 px-1">
+                                    <div className="flex items-center gap-0.5">
+                                        <button
+                                            onClick={() => setPhase(p => p === 'editing' ? 'result' : 'editing')}
+                                            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 text-white/30 hover:text-white transition-all"
+                                            title={phase === 'editing' ? "Готово" : "Редактировать"}
+                                        >
+                                            {phase === 'editing' ? <Check size={14} className="text-emerald-400" /> : <Pencil size={14} />}
+                                        </button>
+                                        <button
+                                            onClick={handleCopy}
+                                            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 text-white/30 hover:text-white transition-all"
+                                            title="Копировать"
+                                        >
+                                            <Copy size={14} />
+                                        </button>
+                                        <button
+                                            onClick={() => { setTranscript(''); setPhase('idle'); }}
+                                            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-red-500/10 text-white/30 hover:text-red-400 transition-all"
+                                            title="Очистить"
+                                        >
+                                            <X size={15} />
+                                        </button>
                                     </div>
-                                    <ActionBtn onClick={handlePaste} icon={<Send className="w-4 h-4 text-blue-400" />} label="Вставить и закрыть" />
+
+                                    <button
+                                        onClick={handlePaste}
+                                        disabled={!transcriptText}
+                                        className={`h-8 px-4 flex items-center gap-1.5 rounded-lg font-semibold text-[12px] transition-all ${transcriptText
+                                            ? 'bg-blue-600 hover:bg-blue-500 text-white active:scale-95'
+                                            : 'bg-white/5 text-white/10 cursor-not-allowed opacity-50'
+                                            }`}
+                                    >
+                                        <Send size={13} />
+                                        <span>
+                                            {(() => {
+                                                const l = sttMode === 'deepgram' ? dgLanguage : (sttMode === 'whisper' ? whisperLanguage : groqLanguage);
+                                                const isEn = l === 'en';
+                                                if (isEn) return targetApp ? `Paste to ${targetApp}` : 'Paste';
+                                                return targetApp ? `Вставить в ${targetApp}` : 'Вставить';
+                                            })()}
+                                        </span>
+                                    </button>
                                 </div>
                             </motion.div>
                         )}

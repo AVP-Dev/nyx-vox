@@ -68,7 +68,7 @@ pub fn is_model_available() -> bool {
 
 fn get_whisper_context() -> Result<&'static WhisperContext, String> {
     WHISPER_CONTEXT.get_or_init(|| {
-        println!("NYX-VOX: Loading Whisper model...");
+        println!("NYX Vox: Loading Whisper model...");
         let model_path = get_model_path().expect("Model path failed");
         WhisperContext::new_with_params(&model_path, WhisperContextParameters::default())
             .expect("Whisper context creation failed")
@@ -293,5 +293,14 @@ pub async fn download_model(app: AppHandle<impl Runtime>) -> Result<(), String> 
     }
 
     let _ = app.emit("model-download-progress", "Готово!");
+    Ok(())
+}
+
+pub fn delete_model() -> Result<(), String> {
+    let model_dir = get_model_dir();
+    let model_path = model_dir.join("ggml-medium.bin");
+    if model_path.exists() {
+        std::fs::remove_file(model_path).map_err(|e| format!("Delete error: {}", e))?;
+    }
     Ok(())
 }
