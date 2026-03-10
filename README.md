@@ -12,7 +12,7 @@ NYX Vox brings fast, offline-capable and cloud-accelerated voice transcription d
 ### 🎙 AI Transcription Engines
 1. **CLOUD (Deepgram):** Instant commercial model. Perfect punctuation and ultimate noise filtering.
 2. **CLOUD (Groq):** Runs Whisper Large-v3-Turbo on blazing-fast servers. Free, ultra-fast API.
-3. **OFFLINE (whisper-rs):** Runs locally on your Mac without internet for ultimate privacy using `ggml-medium.bin`.
+3. **OFFLINE (whisper-rs):** Runs locally on your Mac without internet for ultimate privacy using `ggml-small.bin`.
 
 ## 🚀 Architectural Roadmap
 Currently, we are in the MVP stage focusing on usability and bug minimization. The long-term architectural vision includes:
