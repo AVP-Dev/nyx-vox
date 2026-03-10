@@ -14,6 +14,21 @@ NYX Vox brings fast, offline-capable and cloud-accelerated voice transcription d
 2. **CLOUD (Groq):** Runs Whisper Large-v3-Turbo on blazing-fast servers. Free, ultra-fast API.
 3. **OFFLINE (whisper-rs):** Runs locally on your Mac without internet for ultimate privacy using `ggml-small.bin`.
 
+## 📦 Installation & Setup
+
+1. **Download**: Get the latest `.dmg` file from the [Releases](https://github.com/AVP-Dev/nyx-vox/releases) page.
+2. **Install**: Open the `.dmg` and drag **NYX Vox** to your `Applications` folder.
+3. **Launch**: Open the app from your Applications folder.
+
+### 🛠 Troubleshooting: "App is damaged" error
+If you see a message saying the app is damaged or cannot be opened, it’s because it lacks an Apple Developer signature. Follow these steps:
+1. Open **Terminal**.
+2. Run the following command:
+   ```bash
+   xattr -cr /Applications/NYX\ Vox.app
+   ```
+3. Open the app again.
+
 ## 🚀 Architectural Roadmap
 Currently, we are in the MVP stage focusing on usability and bug minimization. The long-term architectural vision includes:
 - [x] Basic Voice Transcription Pipeline (Whisper)
