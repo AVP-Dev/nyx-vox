@@ -1,6 +1,6 @@
 [package]
 name = "app"
-version = "0.1.0"
+version = "0.1.1-beta"
 description = "A Tauri App"
 authors = ["you"]
 license = ""
@@ -38,9 +38,11 @@ tokio-tungstenite = { version = "0.24", features = ["native-tls"] }
 url = "2"
 reqwest = { version = "0.12", features = ["stream", "multipart", "json"] }
 futures-util = "0.3"
-enigo = "0.2"
+enigo = "0.2.1"
 dirs-next = "2.0"
 tauri-plugin-window-state = "2.0.0-rc"
+core-graphics = "0.23.2"
+objc2-app-kit = { version = "0.3.2", features = ["NSWorkspace", "NSRunningApplication"] }
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-global-shortcut = "2"

@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { useStore } from '@/store/useStore';
-import { Copy, Send, Pencil, Settings2, X, Check, ChevronDown, GripVertical, Power } from 'lucide-react';
+import { Copy, Send, Pencil, Settings2, X, Check, ChevronDown, GripVertical } from 'lucide-react';
 import { WaveformVisualizer } from '@/components/WaveformVisualizer';
 import { SettingsPanel } from '@/components/SettingsPanel';
 import { writeText } from '@tauri-apps/plugin-clipboard-manager';
@@ -21,13 +21,45 @@ type Phase = 'idle' | 'recording' | 'processing' | 'result' | 'editing';
 export default function Home() {
     const { transcriptText, setProcessing, setTranscript } = useStore();
     const [phase, setPhase] = useState<Phase>('idle');
+
+    // ── Hallucination Filter ──────────────────────────────────────────────────
+    const cleanHallucinations = useCallback((t: string | undefined | null): string => {
+        if (!t) return '';
+        const text = t.trim();
+        const lower = text.toLowerCase();
+
+        // Common Whisper hallucinations on empty/white noise audio
+        const badPhrases = [
+            'продолжение следует',
+            'спасибо за просмотр',
+            'подписывайтесь на канал',
+            'subtitles by',
+            'amara.org',
+            'субтитры',
+            'диктор',
+            'с вами был',
+            'а. кулаков',
+            '[music]',
+            '[silence]'
+        ];
+
+        // Only filter out if the entire transcribed string is suspiciously short 
+        // and contains the hallucinated phrase
+        if (text.length < 50) {
+            for (const p of badPhrases) {
+                if (lower.includes(p)) return '';
+            }
+        }
+        return text;
+    }, []);
+
     const [showSettings, setShowSettings] = useState(false);
     const [sttMode, setSttMode] = useState<'deepgram' | 'whisper' | 'groq'>('deepgram');
     const [dgLanguage, setDgLanguage] = useState<'auto' | 'ru' | 'en'>('auto');
     const [whisperLanguage, setWhisperLanguage] = useState<'auto' | 'ru' | 'en'>('ru');
     const [groqLanguage, setGroqLanguage] = useState<'auto' | 'ru' | 'en'>('auto');
     const [autoPaste, setAutoPaste] = useState(true);
-    const [clearOnPaste, setClearOnPaste] = useState(true);
+    const [clearOnPaste, setClearOnPaste] = useState(false);
     const [targetApp, setTargetApp] = useState<string>('');
     const containerRef = useRef<HTMLDivElement>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
@@ -137,7 +169,22 @@ export default function Home() {
                 setPhase(p => p);
             });
 
-            return { unlistenMove, unlistenReset };
+            // Listen for background paste errors (macOS permissions)
+            const unlistenPasteErr = await listen('paste-error-ui', (event) => {
+                const payload = event.payload as string;
+                if (payload === 'ERR_ACCESSIBILITY') {
+                    // We detect lang here or just show both
+                    setTranscript((prev) =>
+                        `⚠️ [macOS Permission Error]\n\n` +
+                        `1. Зайдите в Настройки -> Универсальный доступ.\n` +
+                        `2. Выключите и СНОВА ВКЛЮЧИТЕ NYX Vox.\n` +
+                        `3. ОБЯЗАТЕЛЬНО перезапустите приложение NYX Vox.\n\n` +
+                        `---\n\n${prev}`
+                    );
+                }
+            });
+
+            return { unlistenMove, unlistenReset, unlistenPasteErr };
         };
         const cleanupPromise = setup();
         return () => {
@@ -145,6 +192,7 @@ export default function Home() {
                 if (res) {
                     if (res.unlistenMove) res.unlistenMove();
                     if (res.unlistenReset) res.unlistenReset();
+                    if (res.unlistenPasteErr) res.unlistenPasteErr();
                 }
             });
         };
@@ -250,8 +298,9 @@ export default function Home() {
     const triggerStop = useCallback(async () => {
         setProcessing(true);
         try {
-            const text = await invoke<string>('stop_recording');
-            if (text?.trim()) setTranscript(text.trim());
+            const rawText = await invoke<string>('stop_recording');
+            const filtered = cleanHallucinations(rawText);
+            setTranscript(filtered);
             setPhase('result');
         } catch (err) {
             setTranscript(`Ошибка: ${String(err)}`);
@@ -282,18 +331,16 @@ export default function Home() {
 
 
         const unlistenPartial = listen<string>('transcript-partial', (e) => {
-            const text = e.payload?.trim();
+            const text = cleanHallucinations(e.payload);
             if (text) setTranscript(text);
         });
 
         // Deepgram final result (comes after stop)
         const unlistenDgFinal = listen<string>('deepgram-final', (e) => {
-            const text = e.payload?.trim();
-            if (text) {
-                setTranscript(text);
-                setPhase('result');
-                setProcessing(false);
-            }
+            const text = cleanHallucinations(e.payload);
+            setTranscript(text);
+            setPhase('result');
+            setProcessing(false);
         });
 
         // Deepgram error
@@ -339,12 +386,22 @@ export default function Home() {
 
     const handlePaste = async () => {
         if (!transcriptText) return;
+
         try {
             setProcessing(true);
             await invoke('paste_text', { text: transcriptText });
             if (clearOnPaste) setTranscript('');
             setPhase('idle');
-        } catch (err) { console.error(err); }
+        } catch (err) {
+            console.error(err);
+            const errStr = String(err);
+            if (errStr.includes('ERR_CLIPBOARD')) {
+                const msg = navigator.language.startsWith('ru') ? 'Ошибка буфера обмена' : 'Clipboard error';
+                setTranscript((prev) => `[${msg}]\n\n${prev}`);
+            } else {
+                setTranscript((prev) => `[Error: ${errStr}]\n\n${prev}`);
+            }
+        }
         finally { setProcessing(false); }
     };
 
@@ -420,9 +477,6 @@ export default function Home() {
                                     <>
                                         <button onClick={() => setShowSettings(true)} className="w-8 h-8 ml-1 flex items-center justify-center hover:bg-white/10 rounded-full transition-colors">
                                             <Settings2 className="w-4 h-4 text-white/50" />
-                                        </button>
-                                        <button onClick={() => invoke('plugin:process|exit', { code: 0 }).catch(() => window.close())} className="w-8 h-8 flex items-center justify-center hover:bg-red-500/20 rounded-full transition-colors group">
-                                            <Power className="w-4 h-4 text-white/50 group-hover:text-red-400 transition-colors" />
                                         </button>
                                     </>
                                 )}

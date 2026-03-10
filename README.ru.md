@@ -29,13 +29,25 @@ NYX Vox — это быстрый, локально-ориентированны
 
 <br />
 <p align="center">
-  <b><a href="https://avpdev.com/en/">Alexios Odos</a></b>
+  <a href="https://avpdev.com/en/"><b>Alexios Odos</b></a>
   &nbsp;|&nbsp;
-  <b><a href="https://avpdev.com/ru/">Aliaksei Patskevich</a></b>
+  <a href="https://avpdev.com/ru/"><b>Aliaksei Patskevich</b></a>
   <br />
   <sub>
-    Senior Full-stack Engineer
+    <b>Software Engineer</b> • Code, Design & AI
     <br />
     <a href="https://github.com/AVP-Dev">GitHub</a> &bull; <a href="https://t.me/AVP_Dev">Telegram</a>
   </sub>
 </p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white" />
+  <img src="https://img.shields.io/badge/Node.js-339933?style=flat-square&logo=nodedotjs&logoColor=white" />
+  <img src="https://img.shields.io/badge/Next.js-000000?style=flat-square&logo=nextdotjs&logoColor=white" />
+  <img src="https://img.shields.io/badge/Python-3776AB?style=flat-square&logo=python&logoColor=white" />
+  <br />
+  <img src="https://img.shields.io/badge/Figma-F24E1E?style=flat-square&logo=figma&logoColor=white" />
+  <img src="https://img.shields.io/badge/Autodesk_Fusion_360-0696D7?style=flat-square&logo=autodesk&logoColor=white" />
+  <img src="https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=flat-square&logo=tailwindcss&logoColor=white" />
+</p>
+

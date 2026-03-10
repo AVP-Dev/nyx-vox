@@ -6,6 +6,8 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc, Mutex,
 };
+use std::thread;
+use std::time::Duration;
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{TrayIconBuilder, TrayIconEvent},
@@ -32,8 +34,8 @@ struct AutoPause(Mutex<bool>);
 // Auto-Paste flag
 struct AutoPaste(Mutex<bool>);
 
-// Target application name (tracked on show)
-struct TargetApp(Mutex<String>);
+// Target application info (Name, Bundle ID)
+struct TargetApp(Mutex<(String, String)>);
 
 // Position initialized flag (to only center once on launch)
 struct PositionInitialized(AtomicBool);
@@ -45,7 +47,7 @@ struct DgApiKey(Mutex<Option<String>>);
 struct GroqApiKey(Mutex<Option<String>>);
 
 // Enigo instance (cached to avoid IOHID initialization delay on every call)
-struct EnigoWrapper(enigo::Enigo);
+struct EnigoWrapper(pub enigo::Enigo);
 unsafe impl Send for EnigoWrapper {}
 unsafe impl Sync for EnigoWrapper {}
 
@@ -68,29 +70,52 @@ pub fn resample_to_16k(samples: &[f32], src_rate: u32, dst_rate: u32) -> Vec<f32
 }
 
 // ── Helper to detect frontmost app ───────────────────────────────────────────
-fn get_frontmost_app_name() -> String {
+fn get_frontmost_app_info() -> (String, String) {
     #[cfg(target_os = "macos")]
     {
-        let script = "tell application \"System Events\" to get name of first process whose frontmost is true";
+        // Get name and bundle identifier safely concatenated
+        let script = "tell application \"System Events\" to tell (first process whose frontmost is true) to return name & \", \" & bundle identifier";
         let output = std::process::Command::new("osascript").arg("-e").arg(script).output();
         if let Ok(o) = output {
-            let name = String::from_utf8_lossy(&o.stdout).trim().to_string();
-            // Don't report ourselves or empty strings
-            if !name.is_empty() && name != "NYX Vox" && name != "nyx-vox" {
-                return name;
+            let out = String::from_utf8_lossy(&o.stdout).trim().to_string();
+            let parts: Vec<&str> = out.split(", ").collect();
+            if parts.len() >= 2 {
+                let name = parts[0].to_string();
+                let bundle_id = parts[1].to_string();
+                
+                // Don't report ourselves. We check both name and bundle ID.
+                // Our bundle ID is com.nyx.vox2
+                if !name.is_empty() && 
+                   name != "NYX Vox" && 
+                   name != "nyx-vox" && 
+                   bundle_id != "com.nyx.vox2" &&
+                   bundle_id != "com.tauri.dev" {
+                    return (name, bundle_id);
+                }
             }
         }
     }
-    "Unknown".to_string()
+    ("Unknown".to_string(), "Unknown".to_string())
+}
+
+fn activate_app_by_id(bundle_id: &str) -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        if bundle_id != "Unknown" && !bundle_id.is_empty() {
+            let script = format!("tell application id \"{}\" to activate", bundle_id);
+            return std::process::Command::new("osascript").arg("-e").arg(script).status().map(|s| s.success()).unwrap_or(false);
+        }
+    }
+    false
 }
 
 // ── Position overlay at top-center ────────────────────────────────────────────
 fn show_overlay<R: Runtime>(app: &AppHandle<R>) {
     // 1. Capture target app BEFORE we show our window and take focus
-    let target_name = get_frontmost_app_name();
-    if target_name != "Unknown" {
+    let info = get_frontmost_app_info();
+    if info.0 != "Unknown" {
         if let Ok(mut lock) = app.state::<TargetApp>().0.lock() {
-            *lock = target_name;
+            *lock = info;
         }
     }
 
@@ -152,33 +177,76 @@ fn paste_text(app: AppHandle, text: String) -> Result<(), String> {
     use tauri_plugin_clipboard_manager::ClipboardExt;
     app.clipboard()
         .write_text(text)
-        .map_err(|e| format!("Clipboard error: {}", e))?;
+        .map_err(|e| format!("ERR_CLIPBOARD: {}", e))?;
 
-    // 2. Hide window IMMEDIATELY to trigger OS focus restoration to previous app
+    // 3. Resolve target app
+    let (_target_name, target_id) = if let Ok(lock) = app.state::<TargetApp>().0.lock() {
+        lock.clone()
+    } else {
+        ("Unknown".to_string(), "Unknown".to_string())
+    };
+
+    // 4. Hide window and restore focus
     #[cfg(target_os = "macos")]
-    let _ = app.hide();
+    {
+        let _ = app.hide(); 
+        if target_id != "Unknown" {
+            activate_app_by_id(&target_id);
+        }
+    }
     
-    let enigo_arc = app.state::<EnigoState>().0.clone();
+    let enigo_arc_outer = app.state::<EnigoState>().0.clone();
+    let app_handle = app.clone();
 
-    // 3. Spawn async task with enough delay for focus to land
+    // 5. Spawn async task with enough delay for focus to land
     tauri::async_runtime::spawn(async move {
-        // 300ms is usually plenty for focus to bounce back to the previous app
-        tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+        // macOS Tahoe needs a bit more time for the window server to complete hide() transition
+        tokio::time::sleep(std::time::Duration::from_millis(600)).await;
         
-        let _ = app.run_on_main_thread(move || {
-            // Native Enigo simulation (faster and more reliable than osascript)
-            if let Ok(mut enigo) = enigo_arc.lock() {
-                use enigo::{Keyboard, Key, Direction};
-                #[cfg(target_os = "macos")]
-                {
-                    // Command + V
-                    let _ = enigo.0.key(Key::Meta, Direction::Press);
-                    let _ = enigo.0.key(Key::Unicode('v'), Direction::Click);
-                    let _ = enigo.0.key(Key::Meta, Direction::Release);
+        let _app_emit = app_handle.clone();
+        let _enigo_arc = enigo_arc_outer.clone();
+
+        // High-level native simulation (works with Accessibility)
+        let _ = app_handle.run_on_main_thread(move || {
+            #[cfg(target_os = "macos")]
+            {
+                use core_graphics::event::{CGEvent, CGEventTapLocation, CGEventFlags, CGKeyCode};
+                use core_graphics::event_source::{CGEventSource, CGEventSourceStateID};
+
+                if let Ok(source) = CGEventSource::new(CGEventSourceStateID::HIDSystemState) {
+                    // Physical Constants
+                    let k_cmd: CGKeyCode = 55;
+                    let k_v: CGKeyCode = 9;
+
+                    if let (Ok(c_dn), Ok(c_up), Ok(v_dn), Ok(v_up)) = (
+                        CGEvent::new_keyboard_event(source.clone(), k_cmd, true),
+                        CGEvent::new_keyboard_event(source.clone(), k_cmd, false),
+                        CGEvent::new_keyboard_event(source.clone(), k_v, true),
+                        CGEvent::new_keyboard_event(source.clone(), k_v, false),
+                    ) {
+                        // Crucial: Set flags on the V events so key-repeat/combinations register correctly
+                        v_dn.set_flags(CGEventFlags::CGEventFlagCommand);
+                        v_up.set_flags(CGEventFlags::CGEventFlagCommand);
+
+                        // FULL SEQUENCE: Cmd Down -> (wait) -> V Down -> (wait) -> V Up -> (wait) -> Cmd Up
+                        c_dn.post(CGEventTapLocation::HID);
+                        std::thread::sleep(std::time::Duration::from_millis(30));
+                        v_dn.post(CGEventTapLocation::HID);
+                        std::thread::sleep(std::time::Duration::from_millis(50));
+                        v_up.post(CGEventTapLocation::HID);
+                        std::thread::sleep(std::time::Duration::from_millis(30));
+                        c_up.post(CGEventTapLocation::HID);
+                        
+                        println!("NYX Vox: Native Paste sequence posted to HID");
+                    }
+                } else {
+                    let _ = _app_emit.emit("paste-error-ui", "ERR_ACCESSIBILITY");
                 }
-                #[cfg(target_os = "windows")]
-                {
-                    // Control + V
+            }
+            #[cfg(target_os = "windows")]
+            {
+                if let Ok(mut enigo) = _enigo_arc.lock() {
+                    use enigo::{Keyboard, Key, Direction};
                     let _ = enigo.0.key(Key::Control, Direction::Press);
                     let _ = enigo.0.key(Key::Unicode('v'), Direction::Click);
                     let _ = enigo.0.key(Key::Control, Direction::Release);
@@ -192,7 +260,7 @@ fn paste_text(app: AppHandle, text: String) -> Result<(), String> {
 
 #[tauri::command]
 fn get_target_app(state: State<'_, TargetApp>) -> String {
-    state.0.lock().unwrap().clone()
+    state.0.lock().unwrap().0.clone()
 }
 
 #[tauri::command]
@@ -704,7 +772,7 @@ pub fn run() {
         .manage(recording_flag)
         .manage(processing_flag)
         .manage(PositionInitialized(AtomicBool::new(false)))
-        .manage(TargetApp(Mutex::new("Unknown".to_string())))
+        .manage(TargetApp(Mutex::new(("Unknown".to_string(), "Unknown".to_string()))))
         .manage(enigo_state)
         .manage(SttMode(Mutex::new("deepgram".to_string())))
         .manage(DeepgramLanguage(Mutex::new("auto".to_string())))

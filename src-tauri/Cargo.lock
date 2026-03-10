@@ -119,12 +119,14 @@ checksum = "7f202df86484c868dbad7eaa557ef785d5c66295e41b460ef922eca0723b842c"
 name = "app"
 version = "0.1.0"
 dependencies = [
+ "core-graphics 0.23.2",
  "cpal",
  "dirs-next",
  "enigo",
  "futures-util",
  "hound",
  "log",
+ "objc2-app-kit",
  "reqwest 0.12.28",
  "serde",
  "serde_json",

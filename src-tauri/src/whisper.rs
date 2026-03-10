@@ -48,14 +48,14 @@ pub fn get_model_dir() -> std::path::PathBuf {
 
 pub fn get_model_path() -> Result<String, String> {
     // First try Application Support
-    let app_support = get_model_dir().join("ggml-medium.bin");
+    let app_support = get_model_dir().join("ggml-small.bin");
     if app_support.exists() {
         return Ok(app_support.to_string_lossy().to_string());
     }
     // Fallback: check src-tauri/models/ (dev mode)
     let dev_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("models")
-        .join("ggml-medium.bin");
+        .join("ggml-small.bin");
     if dev_path.exists() {
         return Ok(dev_path.to_string_lossy().to_string());
     }
@@ -260,13 +260,13 @@ fn is_hallucination(text: &str) -> bool {
 pub async fn download_model(app: AppHandle<impl Runtime>) -> Result<(), String> {
     let model_dir = get_model_dir();
     std::fs::create_dir_all(&model_dir).map_err(|e| format!("Create dir: {}", e))?;
-    let model_path = model_dir.join("ggml-medium.bin");
+    let model_path = model_dir.join("ggml-small.bin");
 
     if model_path.exists() {
         return Ok(());
     }
 
-    let url = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.bin";
+    let url = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin";
 
     let _ = app.emit("model-download-progress", "Начинаю загрузку модели...");
 
@@ -298,7 +298,7 @@ pub async fn download_model(app: AppHandle<impl Runtime>) -> Result<(), String> 
 
 pub fn delete_model() -> Result<(), String> {
     let model_dir = get_model_dir();
-    let model_path = model_dir.join("ggml-medium.bin");
+    let model_path = model_dir.join("ggml-small.bin");
     if model_path.exists() {
         std::fs::remove_file(model_path).map_err(|e| format!("Delete error: {}", e))?;
     }

@@ -111,7 +111,7 @@ const CONTENT = {
             modelNotFound: 'Модель не найдена',
             modelDownload: 'Скачать',
             modelDownloading: 'Загрузка...',
-            modelSize: '~1.5 GB',
+            modelSize: '~500 MB',
             groqLabel: 'Groq',
             groqDesc: 'Облачный Whisper · бесплатно · сверхбыстро',
             groqApiKeyLabel: 'API ключ Groq',
@@ -210,7 +210,7 @@ const CONTENT = {
             modelNotFound: 'Model not found',
             modelDownload: 'Download',
             modelDownloading: 'Downloading...',
-            modelSize: '~1.5 GB',
+            modelSize: '~500 MB',
             groqLabel: 'Groq',
             groqDesc: 'Cloud Whisper · free · ultra-fast',
             groqApiKeyLabel: 'Groq API Key',
@@ -763,7 +763,7 @@ export function SettingsPanel({ onClose, autoPaste, clearOnPaste, onToggleAutoPa
                                 <div className="text-[11px] font-bold text-white/30 uppercase tracking-widest">{c.about.author}</div>
                                 <div>
                                     <div className="text-[15px] font-bold text-white">Aliaksei Patskevich</div>
-                                    <div className="text-[11px] text-white/40 font-mono">Software Engineer</div>
+                                    <div className="text-[11px] text-white/40 font-mono">Software Engineer • Code, Design & AI</div>
                                     <div className="text-[12px] text-white/50 mt-1 leading-relaxed">
                                         {lang === 'ru'
                                             ? 'Проектирую и разрабатываю современные IT-решения на стыке интерфейсов и ИИ.'

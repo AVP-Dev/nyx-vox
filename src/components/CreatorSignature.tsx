@@ -13,7 +13,7 @@ export const CreatorSignature = () => {
                 </b>
                 <br />
                 <sub className="block mt-1 opacity-50 tracking-wide text-[11px]">
-                    Senior Full-stack Engineer
+                    Software Engineer • Code, Design & AI
                     <span className="mx-1 opacity-30">–</span>
                     <a href="https://github.com/AVP-Dev" className="hover:underline decoration-current hover:opacity-100 transition-all">GitHub</a>
                     <span className="mx-1 opacity-30">–</span>
