@@ -3,9 +3,9 @@
 [![Скачать](https://img.shields.io/github/v/release/AVP-Dev/nyx-vox?label=%D0%A1%D0%BA%D0%B0%D1%87%D0%B0%D1%82%D1%8C&style=for-the-badge&color=orange)](https://github.com/AVP-Dev/nyx-vox/releases/latest)
 
 <p align="center">
-  <a href="https://avp-dev.github.io/nyx-vox/" target="_blank">🌐 Лендинг</a> &nbsp;|&nbsp; 
+  <a href="https://avp-dev.github.io/nyx-vox/" target="_blank" rel="noopener noreferrer">🌐 Лендинг</a> &nbsp;|&nbsp; 
   <a href="./README.md">🇺🇸 English Version</a> &nbsp;|&nbsp; 
-  <a href="./docs/TECHNICAL.ru.md" target="_blank">⚙️ Техническая часть</a>
+  <a href="./docs/TECHNICAL.ru.md" target="_blank" rel="noopener noreferrer">⚙️ Техническая часть</a>
 </p>
 
 Добро пожаловать в **NYX Vox**! Это тестовая версия приложения для голосового ввода, созданная для личного использования (себя и своих нужд). Это первый проект такого масштаба, написанный на **Rust**, поэтому мы очень ждем фидбэк, код-ревью и рекомендации по улучшению кодовой базы и архитектуры!

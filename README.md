@@ -3,9 +3,9 @@
 [![Download](https://img.shields.io/github/v/release/AVP-Dev/nyx-vox?label=Download%20Latest&style=for-the-badge&color=orange)](https://github.com/AVP-Dev/nyx-vox/releases/latest)
 
 <p align="center">
-  <a href="https://avp-dev.github.io/nyx-vox/" target="_blank">🌐 Landing Page</a> &nbsp;|&nbsp; 
+  <a href="https://avp-dev.github.io/nyx-vox/" target="_blank" rel="noopener noreferrer">🌐 Landing Page</a> &nbsp;|&nbsp; 
   <a href="./README.ru.md">🇷🇺 Russian Version</a> &nbsp;|&nbsp; 
-  <a href="./docs/TECHNICAL.md" target="_blank">⚙️ Technical Specs</a>
+  <a href="./docs/TECHNICAL.md" target="_blank" rel="noopener noreferrer">⚙️ Technical Specs</a>
 </p>
 
 Welcome to **NYX Vox**! This is a test version of a personal project built for daily use. It's our first major implementation using **Rust** and Tauri, so we are actively looking for feedback, code reviews, and architectural recommendations to improve the desktop experience!
