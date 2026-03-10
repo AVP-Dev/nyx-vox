@@ -1,4 +1,5 @@
 <div align="center">
+  <img src="./branding/app-icon-source.png" width="96" height="96" alt="NYX Vox Logo" />
   <h1>NYX Vox</h1>
 
   [![Скачать](https://img.shields.io/github/v/release/AVP-Dev/nyx-vox?label=%D0%A1%D0%BA%D0%B0%D1%87%D0%B0%D1%82%D1%8C&style=for-the-badge&color=orange)](https://github.com/AVP-Dev/nyx-vox/releases/latest)
