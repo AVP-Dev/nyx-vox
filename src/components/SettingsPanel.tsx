@@ -67,7 +67,7 @@ const CONTENT = {
         about: {
             title: 'О приложении',
             app: 'NYX VOX',
-            version: 'v0.1.0-beta',
+            version: 'v0.1.1-beta',
             desc: 'Профессиональный инструмент диктовки для macOS, стирающий границы между мыслью и текстом. Преобразуйте голос в текст мгновенно с помощью AI-движков Deepgram, Groq или локального Whisper.',
             author: 'Разработчик',
             mission: 'Миссия',
@@ -166,7 +166,7 @@ const CONTENT = {
         about: {
             title: 'About',
             app: 'NYX VOX',
-            version: 'v0.1.0-beta',
+            version: 'v0.1.1-beta',
             desc: 'A premium macOS dictation tool bridging the gap between thought and text. Convert voice to text instantly using Deepgram, Groq, or offline Whisper AI engines.',
             author: 'Developer',
             mission: 'Mission',
