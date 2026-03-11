@@ -199,9 +199,10 @@ export default function Home() {
         else if (phase === 'editing') h = 320;
         else if (phase === 'result') {
             const textLen = transcriptText?.length || 0;
-            const rows = Math.max(1, Math.ceil(textLen / 38));
-            const calcH = 120 + (rows * 20);
-            h = Math.min(400, Math.max(140, calcH));
+            const rows = Math.max(1, Math.ceil(textLen / 36));
+            // Result view is now very compact (max 220px)
+            const calcH = 145 + (rows * 16); 
+            h = Math.min(220, Math.max(150, calcH));
         }
 
         resizeWindow(w, h);
@@ -445,9 +446,9 @@ export default function Home() {
     const containerVariants: Variants = {
         idle: { width: 140, height: 48, borderRadius: 24 },
         recording: { width: 260, height: 48, borderRadius: 24 },
-        result: { width: 380, height: 'auto', borderRadius: 16 },
-        editing: { width: 440, height: 320, borderRadius: 20 },
-        overlay: { width: 440, height: 540, borderRadius: 28 }
+        result: { width: 380, height: 'auto', borderRadius: 20 },
+        editing: { width: 440, height: 340, borderRadius: 20 },
+        overlay: { width: 440, height: 540, borderRadius: 24 }
     };
 
     return (
@@ -596,35 +597,35 @@ export default function Home() {
                                         
                                         {(phase === 'result' || phase === 'editing') && (
                                             <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} className="flex-1 flex flex-col min-h-0 px-3 pb-3 gap-2">
-                                                <div className={`flex-1 min-h-[60px] rounded-xl border border-white/5 p-3 overflow-y-auto custom-scrollbar select-text ${phase === 'editing' ? 'bg-white/5' : ''}`}>
+                                                <div className={`flex-1 ${phase === 'editing' ? 'min-h-[120px]' : 'max-h-[80px]'} rounded-[12px] border border-white/5 p-3 overflow-y-auto custom-scrollbar select-text ${phase === 'editing' ? 'bg-white/5' : 'bg-white/[0.02]'}`}>
                                                     {phase === 'editing' ? (
                                                         <textarea 
                                                             autoFocus 
                                                             value={transcriptText} 
                                                             onChange={e => setTranscript(e.target.value)} 
-                                                            className="w-full h-full bg-transparent text-[14px] text-white/95 leading-relaxed resize-none focus:outline-none custom-scrollbar" 
+                                                            className="w-full h-full bg-transparent text-[13px] text-white/95 leading-relaxed resize-none focus:outline-none custom-scrollbar" 
                                                             spellCheck={false} 
                                                         />
                                                     ) : (
-                                                        <div className="text-[13px] text-white/80 leading-relaxed font-medium">
+                                                        <div className="text-[13px] text-white/80 leading-relaxed font-normal">
                                                             {transcriptText || <span className="text-white/20 italic">{lang === 'ru' ? 'Текст не распознан' : 'No text detected'}</span>}
                                                         </div>
                                                     )}
                                                 </div>
                                                 
-                                                <div className="flex items-center justify-between gap-2 h-8 px-1">
+                                                <div className="flex items-center justify-between gap-2 h-9 mt-1">
                                                     <div className="flex items-center gap-0.5 relative group/target">
                                                         <button 
                                                             onClick={() => setPhase(p => p === 'editing' ? 'result' : 'editing')} 
-                                                            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 text-white/30 hover:text-white transition-all"
+                                                            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 text-white/30 hover:text-white transition-all transition-colors"
                                                         >
-                                                            {phase === 'editing' ? <Check size={14} className="text-emerald-400" /> : <Pencil size={14} />}
+                                                            {phase === 'editing' ? <Check size={14} className="text-emerald-400" /> : <Pencil size={15} />}
                                                         </button>
                                                         <button onClick={handleCopy} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 text-white/30 hover:text-white transition-all">
                                                             <Copy size={14} />
                                                         </button>
                                                         <button onClick={() => { setTranscript(''); setPhase('idle'); }} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-red-500/10 text-white/30 hover:text-red-400 transition-all">
-                                                            <X size={15} />
+                                                            <X size={16} />
                                                         </button>
                                                         {targetApp && (
                                                             <div className="flex items-center gap-1.5 ml-2 mr-1 px-2 py-1 rounded bg-white/5 border border-white/5 text-[9px] font-black text-white/30 uppercase tracking-widest whitespace-nowrap overflow-hidden max-w-[120px]">
@@ -637,7 +638,7 @@ export default function Home() {
                                                     <button 
                                                         onClick={handlePaste} 
                                                         disabled={!transcriptText} 
-                                                        className={`h-8 px-4 flex items-center gap-1.5 rounded-lg font-black text-[11px] uppercase tracking-widest transition-all ${transcriptText ? 'bg-[#F97316] hover:bg-orange-500 text-white active:scale-95 shadow-[0_4px_12px_rgba(249,115,22,0.3)]' : 'bg-white/5 text-white/10 opacity-50'}`}
+                                                        className={`h-9 px-5 flex items-center gap-2 rounded-lg font-black text-[11px] uppercase tracking-widest transition-all ${transcriptText ? 'bg-[#F97316] hover:bg-orange-500 text-white active:scale-95 shadow-[0_4px_12px_rgba(249,115,22,0.3)]' : 'bg-white/5 text-white/10 opacity-50'}`}
                                                     >
                                                         <Send size={12} strokeWidth={3} />
                                                         <span>{lang === 'en' ? 'Paste' : 'Вставить'}</span>

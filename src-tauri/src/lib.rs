@@ -16,20 +16,17 @@ use tauri::{
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 use tauri_plugin_store::StoreExt;
 
-// ── Native Media Pause (MediaRemote Private API) ─────────────────────────────
 #[cfg(target_os = "macos")]
 fn system_media_control(cmd: i32) {
     use libc::{c_void, c_int};
     use std::ptr;
 
     unsafe {
-        // Load MediaRemote framework at runtime
         let handle = libc::dlopen(
             "/System/Library/PrivateFrameworks/MediaRemote.framework/MediaRemote\0".as_ptr() as *const i8,
             libc::RTLD_NOW
         );
         if !handle.is_null() {
-            // Command 0 = kMRPlay, Command 1 = kMRPause
             let func: Option<unsafe extern "C" fn(c_int, *const c_void) -> bool> = 
                 std::mem::transmute(libc::dlsym(handle, "MRMediaRemoteSendCommand\0".as_ptr() as *const i8));
             if let Some(f) = func {
@@ -39,10 +36,37 @@ fn system_media_control(cmd: i32) {
         }
     }
 }
+
+// Helper to check if any media is currently playing on macOS
+#[cfg(target_os = "macos")]
+fn is_media_playing() -> bool {
+    // Systemic check for active media playback using macOS power management assertions
+    // This is how the system knows if music/video is actively preventing sleep.
+    let output = std::process::Command::new("pmset")
+        .arg("-g")
+        .arg("assertions")
+        .output()
+        .ok();
+    
+    if let Some(out) = output {
+        let s = String::from_utf8_lossy(&out.stdout);
+        // 'InternalPreventDisplaySleep' is the primary systemic indicator for playing video
+        // 'PreventUserIdleSystemSleep' combined with 'coreaudiod' means active audio
+        s.contains("InternalPreventDisplaySleep") || 
+        (s.contains("PreventUserIdleSystemSleep") && s.contains("coreaudiod"))
+    } else {
+        false
+    }
+}
+
 #[cfg(not(target_os = "macos"))]
 fn system_media_control(_cmd: i32) {}
+#[cfg(not(target_os = "macos"))]
+fn is_media_playing() -> bool { false }
 
 // ── Shared state types ────────────────────────────────────────────────────────
+#[derive(Default)]
+struct DidPauseMedia(AtomicBool);
 #[derive(Default)]
 struct ProcessingFlag(Arc<AtomicBool>);
 
@@ -448,6 +472,7 @@ async fn start_recording(
     processing_flag: State<'_, ProcessingFlag>,
     stt_mode: State<'_, SttMode>,
     auto_pause: State<'_, AutoPause>,
+    did_pause_media: State<'_, DidPauseMedia>,
     dg_key: State<'_, DgApiKey>,
     groq_state: State<'_, groq::SharedGroqState>,
     groq_key: State<'_, GroqApiKey>,
@@ -467,7 +492,12 @@ async fn start_recording(
     let ap = *auto_pause.0.lock().map_err(|e| e.to_string())?;
 
     if ap {
-        system_media_control(1); // 1 = Pause
+        if is_media_playing() {
+            system_media_control(1); // 1 = Pause
+            did_pause_media.0.store(true, Ordering::SeqCst);
+        } else {
+            did_pause_media.0.store(false, Ordering::SeqCst);
+        }
     }
 
     let mut final_mode = mode;
@@ -571,6 +601,7 @@ async fn stop_recording(
     recording_flag: State<'_, Arc<AtomicBool>>,
     stt_mode: State<'_, SttMode>,
     auto_pause: State<'_, AutoPause>,
+    did_pause_media: State<'_, DidPauseMedia>,
     groq_key: State<'_, GroqApiKey>,
     _enigo_state: State<'_, EnigoState>,
     dg_lang: State<'_, DeepgramLanguage>,
@@ -578,6 +609,7 @@ async fn stop_recording(
     groq_lang: State<'_, GroqLanguage>,
 ) -> Result<String, String> {
     let mode = stt_mode.0.lock().map_err(|e| e.to_string())?.clone();
+    let ap = *auto_pause.0.lock().map_err(|e| e.to_string())?;
 
     let lang = match mode.as_str() {
         "deepgram" => dg_lang.0.lock().map_err(|e| e.to_string())?.clone(),
@@ -585,9 +617,10 @@ async fn stop_recording(
         "groq" => groq_lang.0.lock().map_err(|e| e.to_string())?.clone(),
         _ => "auto".to_string(),
     };
-    let ap = *auto_pause.0.lock().map_err(|e| e.to_string())?;
-    if ap {
+
+    if ap && did_pause_media.0.load(Ordering::SeqCst) {
         system_media_control(0); // 0 = Play
+        did_pause_media.0.store(false, Ordering::SeqCst);
     }
 
     // Stop the recording flag (works for both modes)
@@ -1001,6 +1034,7 @@ pub fn run() {
         .manage(WhisperLanguage(Mutex::new("ru".to_string())))
         .manage(GroqLanguage(Mutex::new("auto".to_string())))
         .manage(AutoPause(Mutex::new(true)))
+        .manage(DidPauseMedia::default())
         .manage(AutoPaste(Mutex::new(true)))
         .manage(AlwaysOnTop(Mutex::new(true)))
         .manage(DgApiKey(Mutex::new(None)))
