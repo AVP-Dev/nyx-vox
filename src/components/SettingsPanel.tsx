@@ -99,6 +99,8 @@ export const CONTENT = {
             autoPauseBrowserChrome: 'Chrome → View → Developer → Allow JavaScript from Apple Events',
             autoPauseBrowserSafari: 'Safari → Develop → Allow JavaScript from Apple Events',
             autoPauseBrowserNote: 'Music и Spotify работают без дополнительных настроек.',
+            autoPauseBrowserFixBtn: 'Разрешить автоматически (Beta)',
+            autoPauseBrowserFixSuccess: 'Готово! Перезапустите браузеры.',
             accessibility: 'macOS: Универсальный доступ',
             accessibilityDesc: 'Для автовставки необходимо разрешение «Универсальный доступ» для NYX Vox.',
             accessibilityBtn: 'Открыть настройки',
@@ -245,6 +247,8 @@ export const CONTENT = {
             autoPauseBrowserChrome: 'Chrome → View → Developer → Allow JavaScript from Apple Events',
             autoPauseBrowserSafari: 'Safari → Develop → Allow JavaScript from Apple Events',
             autoPauseBrowserNote: 'Music and Spotify work without extra setup.',
+            autoPauseBrowserFixBtn: 'Allow Automatically (Beta)',
+            autoPauseBrowserFixSuccess: 'Done! Restart your browsers.',
             accessibility: 'macOS: Accessibility',
             accessibilityDesc: 'Auto-paste requires Accessibility permission for NYX Vox in System Settings.',
             accessibilityBtn: 'Open Settings',
@@ -337,6 +341,7 @@ export function SettingsPanel({ onClose, autoPaste, clearOnPaste, onToggleAutoPa
     const [tab, setTab] = useState<Tab>('guide');
     const [lang, setLang] = useState<Lang>('ru');
     const [showFeedback, setShowFeedback] = useState(false);
+    const [browserFixed, setBrowserFixed] = useState(false);
     const [sttMode, setSttMode] = useState<'deepgram' | 'whisper' | 'groq'>('deepgram');
     const [dgLanguage, setDgLanguage] = useState<'auto' | 'ru' | 'en'>('auto');
     const [whisperLanguage, setWhisperLanguage] = useState<'auto' | 'ru' | 'en'>('ru');
@@ -640,6 +645,24 @@ export function SettingsPanel({ onClose, autoPaste, clearOnPaste, onToggleAutoPa
                                                     <span className="text-[10px] text-sky-400/60 mt-0.5">●</span>
                                                     <code className="text-[10px] text-white/50 font-mono leading-relaxed">{c.settings.autoPauseBrowserSafari}</code>
                                                 </div>
+                                            </div>
+                                            <div className="pt-1">
+                                                <button
+                                                    onClick={async () => {
+                                                        if (window.__TAURI_INTERNALS__) {
+                                                            await invoke('fix_browser_permissions');
+                                                            setBrowserFixed(true);
+                                                            setTimeout(() => setBrowserFixed(false), 5000);
+                                                        }
+                                                    }}
+                                                    className={`w-full py-2 px-3 rounded-lg text-[10px] font-bold transition-all border ${
+                                                        browserFixed 
+                                                            ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-400' 
+                                                            : 'bg-sky-500/10 border-sky-500/20 text-sky-300 hover:bg-sky-500/20'
+                                                    }`}
+                                                >
+                                                    {browserFixed ? c.settings.autoPauseBrowserFixSuccess : c.settings.autoPauseBrowserFixBtn}
+                                                </button>
                                             </div>
                                             <p className="text-[10px] text-white/25 italic">{c.settings.autoPauseBrowserNote}</p>
                                         </div>

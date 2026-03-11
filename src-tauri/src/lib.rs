@@ -1007,6 +1007,40 @@ async fn open_mac_settings() -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+async fn fix_browser_permissions() -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        let bundles = vec![
+            "com.google.Chrome",
+            "com.google.Chrome.canary",
+            "company.thebrowser.Browser", // Arc
+            "com.apple.Safari",
+            "ru.yandex.desktop.yandex-browser",
+            "com.brave.Browser",
+            "com.microsoft.edgemac",
+            "com.vivaldi.Vivaldi"
+        ];
+        
+        for bundle in bundles {
+            let _ = std::process::Command::new("defaults")
+                .args(["write", bundle, "AllowJavaScriptFromAppleEvents", "-bool", "true"])
+                .status();
+        }
+        
+        // Specially for Safari: also enable Develop menu so the user sees the result
+        let _ = std::process::Command::new("defaults")
+            .args(["write", "com.apple.Safari", "IncludeDevelopMenu", "-bool", "true"])
+            .status();
+            
+        Ok(())
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        Ok(())
+    }
+}
+
 // ── Toggle window ─────────────────────────────────────────────────────────────
 fn toggle_window<R: Runtime>(app: &AppHandle<R>) {
     if let Some(w) = app.get_webview_window("main") {
@@ -1283,6 +1317,7 @@ pub fn run() {
             download_whisper_model,
             delete_whisper_model,
             open_mac_settings,
+            fix_browser_permissions,
             reset_window_position,
             get_start_minimized,
             set_start_minimized,
