@@ -292,12 +292,19 @@ fn update_tray_lang(app: AppHandle, lang: String) {
 async fn check_microphone_permission() -> Result<i32, String> {
     #[cfg(target_os = "macos")]
     {
-        use objc2_av_foundation::{AVCaptureDevice, AVMediaTypeAudio};
+        use objc2_av_foundation::{AVCaptureDevice, AVMediaTypeAudio, AVAuthorizationStatus};
         unsafe {
             if let Some(media_type) = AVMediaTypeAudio {
-                // 0: NotDetermined, 1: Restricted, 2: Denied, 3: Authorized
                 let status = AVCaptureDevice::authorizationStatusForMediaType(media_type);
-                Ok(status as i32)
+                // Map enum to i32: 0=NotDetermined, 1=Restricted, 2=Denied, 3=Authorized
+                let code = match status {
+                    AVAuthorizationStatus::NotDetermined => 0,
+                    AVAuthorizationStatus::Restricted => 1,
+                    AVAuthorizationStatus::Denied => 2,
+                    AVAuthorizationStatus::Authorized => 3,
+                    _ => -1,
+                };
+                Ok(code)
             } else {
                 Err("Could not get audio media type constant".to_string())
             }
@@ -305,7 +312,7 @@ async fn check_microphone_permission() -> Result<i32, String> {
     }
     #[cfg(not(target_os = "macos"))]
     {
-        Ok(3) // Authorized
+        Ok(3)
     }
 }
 
@@ -313,28 +320,13 @@ async fn check_microphone_permission() -> Result<i32, String> {
 async fn request_microphone_permission() -> Result<bool, String> {
     #[cfg(target_os = "macos")]
     {
-        use objc2_av_foundation::{AVCaptureDevice, AVMediaTypeAudio};
-        use objc2::rc::Retained;
-        use objc2::block::StackBlock;
-
-        unsafe {
-            if let Some(media_type) = AVMediaTypeAudio {
-                let (tx, rx) = std::sync::mpsc::channel();
-                let handler = StackBlock::new(move |granted: bool| {
-                    let _ = tx.send(granted);
-                });
-                
-                AVCaptureDevice::requestAccessForMediaType_completionHandler(media_type, &handler);
-                
-                // Wait for the block to execute (it usually shows a dialog)
-                match rx.recv_timeout(std::time::Duration::from_secs(300)) {
-                    Ok(granted) => Ok(granted),
-                    Err(_) => Err("Permission request timed out".to_string()),
-                }
-            } else {
-                Err("Could not get audio media type constant".to_string())
-            }
-        }
+        // Opens the Microphone privacy pane so the user can grant access.
+        // macOS requires a completion-handler block for requestAccessForMediaType,
+        // which needs block2 crate. Instead, we open System Settings directly.
+        let _ = std::process::Command::new("open")
+            .arg("x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone")
+            .spawn();
+        Ok(false)
     }
     #[cfg(not(target_os = "macos"))]
     {
@@ -1255,6 +1247,7 @@ pub fn run() {
             get_clear_on_paste,
             set_clear_on_paste,
             check_microphone_permission,
+            request_microphone_permission,
             set_app_language,
             get_app_language,
             get_update_dismissed_at,
