@@ -94,6 +94,11 @@ export const CONTENT = {
             alwaysOnTopDesc: 'Окно всегда будет видно поверх остальных',
             autoPause: 'Авто-пауза медиа',
             autoPauseDesc: 'Ставить медиа на паузу во время диктовки',
+            autoPauseBrowserTitle: 'Для браузеров',
+            autoPauseBrowserDesc: 'Чтобы пауза работала в Chrome и Safari, нужно разрешить JS из Apple Events:',
+            autoPauseBrowserChrome: 'Chrome → View → Developer → Allow JavaScript from Apple Events',
+            autoPauseBrowserSafari: 'Safari → Develop → Allow JavaScript from Apple Events',
+            autoPauseBrowserNote: 'Music и Spotify работают без дополнительных настроек.',
             accessibility: 'macOS: Универсальный доступ',
             accessibilityDesc: 'Для автовставки необходимо разрешение «Универсальный доступ» для NYX Vox.',
             accessibilityBtn: 'Открыть настройки',
@@ -235,6 +240,11 @@ export const CONTENT = {
             alwaysOnTopDesc: 'Keep the window above all other windows',
             autoPause: 'Auto-Pause Media',
             autoPauseDesc: 'Pause media playback while dictating',
+            autoPauseBrowserTitle: 'For Browsers',
+            autoPauseBrowserDesc: 'To pause media in Chrome and Safari, enable JS from Apple Events:',
+            autoPauseBrowserChrome: 'Chrome → View → Developer → Allow JavaScript from Apple Events',
+            autoPauseBrowserSafari: 'Safari → Develop → Allow JavaScript from Apple Events',
+            autoPauseBrowserNote: 'Music and Spotify work without extra setup.',
             accessibility: 'macOS: Accessibility',
             accessibilityDesc: 'Auto-paste requires Accessibility permission for NYX Vox in System Settings.',
             accessibilityBtn: 'Open Settings',
@@ -617,6 +627,23 @@ export function SettingsPanel({ onClose, autoPaste, clearOnPaste, onToggleAutoPa
                                         </div>
                                         <Toggle checked={autoPauseMedia} onChange={handleToggleAutoPauseMedia} />
                                     </div>
+                                    {autoPauseMedia && (
+                                        <div className="p-3.5 rounded-xl bg-sky-500/5 border border-sky-500/15 space-y-2.5 ml-1">
+                                            <div className="text-[11px] font-bold text-sky-300/70 uppercase tracking-widest">{c.settings.autoPauseBrowserTitle}</div>
+                                            <p className="text-[11px] text-white/40 leading-relaxed">{c.settings.autoPauseBrowserDesc}</p>
+                                            <div className="space-y-1.5">
+                                                <div className="flex items-start gap-2">
+                                                    <span className="text-[10px] text-sky-400/60 mt-0.5">●</span>
+                                                    <code className="text-[10px] text-white/50 font-mono leading-relaxed">{c.settings.autoPauseBrowserChrome}</code>
+                                                </div>
+                                                <div className="flex items-start gap-2">
+                                                    <span className="text-[10px] text-sky-400/60 mt-0.5">●</span>
+                                                    <code className="text-[10px] text-white/50 font-mono leading-relaxed">{c.settings.autoPauseBrowserSafari}</code>
+                                                </div>
+                                            </div>
+                                            <p className="text-[10px] text-white/25 italic">{c.settings.autoPauseBrowserNote}</p>
+                                        </div>
+                                    )}
                                     <div className="flex items-center justify-between p-3.5 rounded-xl bg-white/4 border border-white/8">
                                         <div>
                                             <div className="text-[13px] font-semibold text-white/90">{c.settings.alwaysOnTop}</div>
