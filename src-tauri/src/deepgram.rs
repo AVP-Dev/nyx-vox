@@ -3,194 +3,190 @@ use std::sync::{
     Arc, Mutex,
 };
 use tauri::{AppHandle, Emitter, Runtime};
-use futures_util::{SinkExt, StreamExt};
-use tokio_tungstenite::{connect_async, tungstenite::Message};
+use std::io::Cursor;
 
+// ── Shared recording state (Same structure as Groq for batch processing) ──────
+pub struct DeepgramState {
+    pub samples: Vec<f32>,
+    pub sample_rate: u32,
+}
 
-// ── Start Deepgram streaming ──────────────────────────────────────────────────
-pub fn start_deepgram<R: Runtime>(
+impl Default for DeepgramState {
+    fn default() -> Self {
+        Self { samples: Vec::new(), sample_rate: 0 }
+    }
+}
+
+pub type SharedDeepgramState = Arc<Mutex<DeepgramState>>;
+
+// ── Start capturing (Batch mode) ──────────────────────────────────────────────
+pub fn start_recording<R: Runtime>(
     app: AppHandle<R>,
-    api_key: String,
+    state: SharedDeepgramState,
     recording_flag: Arc<AtomicBool>,
-    language: &str,
 ) -> Result<(), String> {
+    use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 
+    // Reset buffer
+    {
+        let mut lock = state.lock().map_err(|e| e.to_string())?;
+        lock.samples.clear();
+        lock.sample_rate = 0;
+    }
     recording_flag.store(true, Ordering::SeqCst);
 
-    let flag_ws = Arc::clone(&recording_flag);
-    let app_ws = app.clone();
-    let lang_str = language.to_string();
+    let sample_store = Arc::clone(&state);
+    let flag_cpal = Arc::clone(&recording_flag);
+    let app_stream = app.clone();
 
-    // ── cpal mic capture → send to Deepgram via WebSocket ─────────────────
     std::thread::spawn(move || {
-        let rt = tokio::runtime::Runtime::new().expect("tokio runtime");
-        rt.block_on(async move {
-            let dg_lang = if lang_str == "auto" { "multi" } else { &lang_str };
+        let host = cpal::default_host();
+        let device = match host.default_input_device() {
+            Some(d) => d,
+            None => { let _ = app_stream.emit("recording-error", "Микрофон не найден"); return; }
+        };
+        let config = match device.default_input_config() {
+            Ok(c) => c,
+            Err(e) => { let _ = app_stream.emit("recording-error", e.to_string()); return; }
+        };
 
-            // Build WebSocket URL with all needed params
-            let ws_url = format!(
-                "wss://api.deepgram.com/v1/listen?\
-                 model=nova-2&\
-                 language={}&\
-                 punctuate=true&\
-                 smart_format=true&\
-                 interim_results=true&\
-                 endpointing=300&\
-                 encoding=linear16&\
-                 sample_rate=16000&\
-                 channels=1",
-                 dg_lang
-            );
+        let channels = config.channels() as usize;
+        let actual_sample_rate = config.sample_rate().0;
 
-            // Connection to Deepgram. 
-            // Using into_client_request() ensures all standard WS headers (Key, Version, Host, etc.)
-            // are correctly pre-filled by the library, avoiding duplicates or omissions.
-            use tokio_tungstenite::tungstenite::client::IntoClientRequest;
-            let mut request = ws_url.into_client_request().map_err(|e| format!("URL error: {}", e)).unwrap();
-            request.headers_mut().insert("Authorization", format!("Token {}", api_key.trim()).parse().unwrap());
+        if let Ok(mut lock) = sample_store.lock() {
+            lock.sample_rate = actual_sample_rate;
+        }
 
-            let (ws_stream, _) = match connect_async(request).await {
-                Ok(conn) => conn,
-                Err(e) => {
-                    let _ = app_ws.emit("deepgram-error", format!("Connection failed: {}", e));
-                    return;
+        let samples_ref = Arc::clone(&sample_store);
+        let flag_inner = Arc::clone(&flag_cpal);
+
+        let stream = device.build_input_stream(
+            &config.into(),
+            move |data: &[f32], _: &cpal::InputCallbackInfo| {
+                if !flag_inner.load(Ordering::SeqCst) { return; }
+
+                // Mono conversion
+                let mono: Vec<f32> = data
+                    .chunks(channels)
+                    .map(|f| f.iter().sum::<f32>() / channels as f32)
+                    .collect();
+
+                // Visual feedback (audio levels)
+                let rms = (mono.iter().map(|s| s * s).sum::<f32>() / mono.len() as f32).sqrt();
+                let level = (rms * 10.0).min(1.0_f32);
+                let _ = app_stream.emit("audio-level", level);
+
+                if let Ok(mut lock) = samples_ref.lock() {
+                    lock.samples.extend_from_slice(&mono);
                 }
-            };
+            },
+            |err| eprintln!("cpal error: {}", err),
+            None,
+        );
 
-            let (mut ws_sink, mut ws_reader) = ws_stream.split();
-
-            // Accumulated final transcript
-            let final_text = Arc::new(Mutex::new(String::new()));
-            let final_text_reader = Arc::clone(&final_text);
-            let app_reader = app_ws.clone();
-            let flag_reader = Arc::clone(&flag_ws);
-
-            // ── Task 1: Read WebSocket responses ──────────────────────────
-            let reader_task = tokio::spawn(async move {
-                while let Some(msg) = ws_reader.next().await {
-                    if !flag_reader.load(Ordering::SeqCst) { break; }
-
-                    let Ok(msg) = msg else { continue };
-                    let Message::Text(text) = msg else { continue };
-
-                    // Parse Deepgram JSON response
-                    if let Ok(resp) = serde_json::from_str::<serde_json::Value>(&text) {
-                        if resp.get("type").and_then(|t| t.as_str()) == Some("Results") {
-                            let channel = &resp["channel"]["alternatives"][0];
-                            let transcript = channel["transcript"].as_str().unwrap_or("");
-
-                            if transcript.is_empty() { continue; }
-
-                            let is_final = resp["is_final"].as_bool().unwrap_or(false);
-
-                            if is_final {
-                                // Accumulate final segments
-                                if let Ok(mut ft) = final_text_reader.lock() {
-                                    if !ft.is_empty() { ft.push(' '); }
-                                    ft.push_str(transcript);
-                                    let _ = app_reader.emit("transcript-partial", ft.clone());
-                                }
-                            } else {
-                                // Interim: show accumulated + current interim
-                                let prefix = final_text_reader.lock()
-                                    .map(|ft| ft.clone())
-                                    .unwrap_or_default();
-                                let display = if prefix.is_empty() {
-                                    transcript.to_string()
-                                } else {
-                                    format!("{} {}", prefix, transcript)
-                                };
-                                let _ = app_reader.emit("transcript-partial", display);
-                            }
-                        }
-                    }
-                }
-            });
-
-            // ── Task 2: Capture mic → send PCM to WebSocket ──────────────
-            let flag_mic = Arc::clone(&flag_ws);
-            let (tx, mut rx) = tokio::sync::mpsc::channel::<Vec<u8>>(64);
-
-            // cpal thread
-            let flag_cpal = Arc::clone(&flag_ws);
-            let flag_cpal_loop = Arc::clone(&flag_cpal);
-            std::thread::spawn(move || {
-                let host = cpal::default_host();
-                let device = match cpal::traits::HostTrait::default_input_device(&host) {
-                    Some(d) => d,
-                    None => return,
-                };
-                let config = match cpal::traits::DeviceTrait::default_input_config(&device) {
-                    Ok(c) => c,
-                    Err(_) => return,
-                };
-
-                let channels = config.channels() as usize;
-                let src_rate = config.sample_rate().0;
-                let tx = tx;
-
-                let stream = cpal::traits::DeviceTrait::build_input_stream(
-                    &device,
-                    &config.into(),
-                    move |data: &[f32], _: &cpal::InputCallbackInfo| {
-                        if !flag_cpal.load(Ordering::SeqCst) { return; }
-
-                        // Mono conversion
-                        let mono: Vec<f32> = data
-                            .chunks(channels)
-                            .map(|f| f.iter().sum::<f32>() / channels as f32)
-                            .collect();
-
-                        // Resample to 16kHz
-                        let resampled = super::resample_to_16k(&mono, src_rate, 16000);
-
-                        // Convert f32 → i16 PCM bytes (little-endian)
-                        let pcm_bytes: Vec<u8> = resampled.iter()
-                            .flat_map(|&s| {
-                                let sample = (s * 32767.0).clamp(-32768.0, 32767.0) as i16;
-                                sample.to_le_bytes()
-                            })
-                            .collect();
-
-                        let _ = tx.try_send(pcm_bytes);
-                    },
-                    |err| eprintln!("cpal error: {}", err),
-                    None,
-                );
-
-                if let Ok(s) = stream {
-                    cpal::traits::StreamTrait::play(&s).ok();
-                    while flag_cpal_loop.load(Ordering::SeqCst) {
-                        std::thread::sleep(std::time::Duration::from_millis(50));
-                    }
-                }
-            });
-
-            // Forward mic data to WebSocket
-            let sender_task = tokio::spawn(async move {
-                while let Some(pcm) = rx.recv().await {
-                    if !flag_mic.load(Ordering::SeqCst) { break; }
-                    if ws_sink.send(Message::Binary(pcm.into())).await.is_err() {
-                        break;
-                    }
-                }
-                // Send close message
-                let close_msg = serde_json::json!({"type": "CloseStream"}).to_string();
-                let _ = ws_sink.send(Message::Text(close_msg.into())).await;
-            });
-
-            // Wait for both tasks
-            let _ = tokio::join!(reader_task, sender_task);
-
-            // Emit final text
-            {
-                let ft = final_text.lock().unwrap_or_else(|e| e.into_inner());
-                if !ft.is_empty() {
-                    let _ = app_ws.emit("deepgram-final", ft.clone());
-                }
+        if let Ok(s) = stream {
+            s.play().ok();
+            while flag_cpal.load(Ordering::SeqCst) {
+                std::thread::sleep(std::time::Duration::from_millis(50));
             }
-        });
+        }
     });
 
     Ok(())
+}
+
+// ── Stop recording & send to Deepgram REST API ────────────────────────────────
+pub async fn stop_recording(
+    state: SharedDeepgramState,
+    recording_flag: Arc<AtomicBool>,
+    api_key: String,
+    language: &str,
+) -> Result<String, String> {
+    // Small sleep to catch the last buffer segments
+    tokio::time::sleep(std::time::Duration::from_millis(400)).await;
+    recording_flag.store(false, Ordering::SeqCst);
+
+    let (samples, src_rate) = {
+        let mut lock = state.lock().map_err(|e| e.to_string())?;
+        let data = lock.samples.clone();
+        let rate = lock.sample_rate;
+        lock.samples.clear();
+        (data, rate)
+    };
+
+    if samples.is_empty() { return Ok(String::new()); }
+
+    // Noise gate check
+    let rms = (samples.iter().map(|s| s * s).sum::<f32>() / samples.len() as f32).sqrt();
+    if rms < 0.00005 { return Ok(String::new()); }
+
+    // Resample to 16k (Deepgram standard)
+    let processed_samples = super::resample_to_16k(&samples, src_rate, 16000);
+
+    // Convert to WAV in memory
+    let mut wav_cursor = Cursor::new(Vec::new());
+    {
+        let spec = hound::WavSpec {
+            channels: 1,
+            sample_rate: 16000,
+            bits_per_sample: 16,
+            sample_format: hound::SampleFormat::Int,
+        };
+        let mut writer = hound::WavWriter::new(&mut wav_cursor, spec)
+            .map_err(|e| format!("WavWriter error: {}", e))?;
+
+        for &sample in &processed_samples {
+            let amplitude = (sample * 32767.0).clamp(-32768.0, 32767.0) as i16;
+            writer.write_sample(amplitude).map_err(|e| format!("Write sample error: {}", e))?;
+        }
+        writer.finalize().map_err(|e| format!("Wav finalize error: {}", e))?;
+    }
+
+    let wav_data = wav_cursor.into_inner();
+    
+    // REST API Request
+    let client = reqwest::Client::new();
+    
+    // Build query params
+    let mut query_params = vec![
+        ("model", "nova-2"),
+        ("smart_format", "true"),
+        ("punctuate", "true"),
+    ];
+    
+    if language == "auto" {
+        query_params.push(("detect_language", "true"));
+        // Deepgram sometimes struggles with short segments; a Russian-heavy prompt helps guide detection.
+        query_params.push(("prompt", "Привет, это русский язык. Пожалуйста, распознай и расставь знаки препинания."));
+    } else {
+        query_params.push(("language", language));
+        if language == "ru" {
+            query_params.push(("prompt", "Привет, это русский текст. Я диктую важное сообщение. Пожалуйста, расставляй запятые."));
+        }
+    }
+
+    let res = client
+        .post("https://api.deepgram.com/v1/listen")
+        .header("Authorization", format!("Token {}", api_key.trim()))
+        .header("Content-Type", "audio/wav")
+        .query(&query_params)
+        .body(wav_data)
+        .send()
+        .await
+        .map_err(|e| format!("Deepgram request failed: {}", e))?;
+
+    if !res.status().is_success() {
+        let err_text = res.text().await.unwrap_or_default();
+        return Err(format!("Deepgram API Error: {}", err_text));
+    }
+
+    // Parse JSON: results.channels[0].alternatives[0].transcript
+    let json: serde_json::Value = res.json().await.map_err(|e| format!("Parse json failed: {}", e))?;
+    let text = json["results"]["channels"][0]["alternatives"][0]["transcript"]
+        .as_str()
+        .unwrap_or("")
+        .trim()
+        .to_string();
+
+    Ok(text)
 }

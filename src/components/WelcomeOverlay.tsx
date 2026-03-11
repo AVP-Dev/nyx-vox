@@ -5,6 +5,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { ShieldCheck, Zap, Mic2, Accessibility, BookOpen, ExternalLink, AlertTriangle, ShieldAlert, Check, X, Info, Keyboard, UserCircle, Globe, Github, MessageCircle, Send, Instagram, Linkedin, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CONTENT } from './SettingsPanel';
+import { APP_VERSION } from '@/constants/version';
 
 type Tab = 'welcome' | 'perms' | 'help' | 'quarantine' | 'about';
 
@@ -41,7 +42,7 @@ export function WelcomeOverlay({ onClose, appLanguage, onLanguageToggle }: Welco
 
     const handleExit = async () => {
         try {
-            await invoke('set_welcome_seen', { version: '0.1.2-beta', seen: welcomeDoNotShowAgain });
+            await invoke('set_welcome_seen', { version: APP_VERSION, seen: welcomeDoNotShowAgain });
             onClose();
         } catch (e) {
             console.error('Failed to mark welcome as seen:', e);
@@ -98,31 +99,31 @@ export function WelcomeOverlay({ onClose, appLanguage, onLanguageToggle }: Welco
                             exit={{ opacity: 0, scale: 0.98 }}
                             className="flex flex-col items-center justify-center min-h-full pb-6 text-center"
                         >
-                            <div className="w-16 h-16 rounded-[22px] bg-white/5 border border-white/10 flex items-center justify-center mb-6 relative">
-                                <img src="/logo.png" alt="Logo" className="w-10 h-10 object-contain" />
-                                <div className="absolute -bottom-1 -right-1 bg-orange-600 w-4 h-4 rounded-full flex items-center justify-center border-2 border-black/50">
-                                    <Zap size={8} className="text-white" fill="white" />
+                            <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mb-4 relative">
+                                <img src="/logo.png" alt="Logo" className="w-9 h-9 object-contain" />
+                                <div className="absolute -bottom-1 -right-1 bg-orange-600 w-3.5 h-3.5 rounded-full flex items-center justify-center border-2 border-black/50">
+                                    <Zap size={7} className="text-white" fill="white" />
                                 </div>
                             </div>
 
-                            <h1 className="text-[20px] font-black text-white uppercase italic tracking-[0.1em] leading-tight">
+                            <h1 className="text-[18px] font-black text-white uppercase italic tracking-[0.1em] leading-tight">
                                 {C.welcome.title}
                             </h1>
-                            <div className="w-16 h-1.5 bg-orange-600/60 rounded-full mt-4 mb-6" />
+                            <div className="w-12 h-1 bg-orange-600/60 rounded-full mt-3 mb-4" />
 
-                            <p className="text-[13px] text-white/50 leading-relaxed max-w-[280px] font-bold italic">
+                            <p className="text-[12px] text-white/50 leading-relaxed max-w-[280px] font-bold italic">
                                 {C.welcome.subtitle}
                             </p>
 
-                            <div className="mt-8 w-full max-w-[340px] p-5 rounded-2xl bg-white/3 border border-white/10 space-y-4">
-                                <div className="text-[9px] font-black text-white/20 uppercase tracking-[0.4em] text-center mb-1">Production Release v0.1.2-beta</div>
-                                <div className="flex flex-col gap-4 mx-auto w-fit">
+                            <div className="mt-6 w-full max-w-[340px] p-4 rounded-xl bg-white/3 border border-white/10 space-y-3">
+                                <div className="text-[8px] font-black text-white/20 uppercase tracking-[0.4em] text-center mb-0.5">Production Release v{APP_VERSION}</div>
+                                <div className="flex flex-col gap-3 mx-auto w-fit">
                                     {[
-                                        { icon: <Keyboard size={13} />, label: appLanguage === 'ru' ? '⌥ + Space (Запись / Вставка)' : '⌥ + Space (Record / Paste)', color: 'text-orange-500' },
-                                        { icon: <Zap size={13} />, label: appLanguage === 'ru' ? 'Нейросетевая обработка голоса' : 'Neural Audio Engine', color: 'text-amber-500' },
-                                        { icon: <ShieldCheck size={13} />, label: appLanguage === 'ru' ? 'Приватная безопасная архитектура' : 'Encrypted Privacy Protocol', color: 'text-blue-500' }
+                                        { icon: <Keyboard size={12} />, label: appLanguage === 'ru' ? '⌥ + Space (Запись / Вставка)' : '⌥ + Space (Record / Paste)', color: 'text-orange-500' },
+                                        { icon: <Zap size={12} />, label: appLanguage === 'ru' ? 'Нейросетевая обработка голоса' : 'Neural Audio Engine', color: 'text-amber-500' },
+                                        { icon: <ShieldCheck size={12} />, label: appLanguage === 'ru' ? 'Приватная безопасная архитектура' : 'Encrypted Privacy Protocol', color: 'text-blue-500' }
                                     ].map((item, idx) => (
-                                        <div key={idx} className="flex items-center gap-4 text-[13px] font-bold text-white/70">
+                                        <div key={idx} className="flex items-center gap-3 text-[12px] font-bold text-white/70">
                                             <div className={`${item.color} opacity-90 drop-shadow-md`}>{item.icon}</div>
                                             <span className="tracking-tight">{item.label}</span>
                                         </div>
@@ -160,16 +161,30 @@ export function WelcomeOverlay({ onClose, appLanguage, onLanguageToggle }: Welco
                                     <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center shrink-0 border border-white/10 group-hover:border-white/20">
                                         {p.granted ? <Check className="text-green-500" size={17} strokeWidth={3} /> : p.icon}
                                     </div>
-                                    <div className="flex-1 min-w-0">
-                                        <div className="text-[13px] font-black text-white/90">{p.title}</div>
-                                        <div className="text-[11px] text-white/30 leading-snug mt-1 font-bold">{p.desc}</div>
+                                    <div className="flex-1 min-w-0 py-0.5">
+                                        <div className="text-[13px] font-black text-white/90 leading-tight">{p.title}</div>
+                                        <div className="text-[11px] text-white/30 leading-snug mt-1 font-bold italic line-clamp-2">{p.desc}</div>
                                     </div>
-                                    <button
-                                        onClick={() => invoke(p.cmd)}
-                                        className={`h-8 px-3 rounded-lg text-[10px] font-black transition-all border uppercase tracking-widest ${p.granted ? 'bg-green-500/10 text-green-500 border-green-500/30' : 'bg-white/5 hover:bg-orange-600 active:scale-95 text-white/70 hover:text-white border-white/10'}`}
-                                    >
-                                        {p.granted ? (appLanguage === 'ru' ? 'ВЫДАНО' : 'GRANTED') : (appLanguage === 'ru' ? 'ВЫДАТЬ' : 'SET')}
-                                    </button>
+                                    <div className="flex flex-col items-center gap-2 shrink-0 min-w-[70px]">
+                                        <button
+                                            onClick={() => invoke(p.cmd)}
+                                            className={`h-7 px-4 rounded-lg text-[9px] font-black transition-all border uppercase tracking-[0.1em] ${p.granted ? 'bg-green-500/10 text-green-500 border-green-500/20' : 'bg-orange-600 text-white border-orange-500 shadow-[0_2px_8px_rgba(234,88,12,0.3)] active:scale-95'}`}
+                                        >
+                                            {p.granted ? (appLanguage === 'ru' ? 'OK' : 'OK') : (appLanguage === 'ru' ? 'ВКЛ' : 'ON')}
+                                        </button>
+                                        
+                                        {p.cmd === 'open_accessibility_settings' && (
+                                            <button
+                                                onClick={async () => {
+                                                    await invoke('reset_accessibility_permissions');
+                                                    alert(appLanguage === 'ru' ? 'Сброшено! Теперь нажмите "+" в настройках или перезапустите запись.' : 'Reset! Now click "+" in settings or restart recording.');
+                                                }}
+                                                className="text-[8px] font-black text-red-500/60 hover:text-red-500 transition-colors uppercase tracking-[0.15em] border-b border-red-500/20 hover:border-red-500/50 pb-0.5"
+                                            >
+                                                {appLanguage === 'ru' ? 'СБРОСИТЬ' : 'RESET'}
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
                             ))}
                         </motion.div>

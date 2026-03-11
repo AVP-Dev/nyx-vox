@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Download, X, Clock, Zap } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { invoke } from '@tauri-apps/api/core';
+import { APP_VERSION } from '@/constants/version';
 
 interface UpdatePopupProps {
     language: 'ru' | 'en';
@@ -26,7 +27,7 @@ export function UpdatePopup({ language }: UpdatePopupProps) {
                 const response = await fetch('https://api.github.com/repos/AVP-Dev/nyx-vox/releases/latest');
                 const data = await response.json();
                 const latest = data.tag_name;
-                const currentVersion = 'v0.1.2-beta';
+                const currentVersion = `v${APP_VERSION}`;
                 
                 if (latest && latest !== currentVersion) {
                     // Open separate window via backend

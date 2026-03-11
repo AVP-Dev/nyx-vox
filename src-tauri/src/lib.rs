@@ -6,15 +6,16 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc, Mutex,
 };
-// use std::thread;
-// use std::time::Duration;
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{TrayIconBuilder, TrayIconEvent},
-    AppHandle, Emitter, Manager, Runtime, State,
+    AppHandle, Emitter, Manager, Runtime, State
 };
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 use tauri_plugin_store::StoreExt;
+
+#[cfg(target_os = "macos")]
+use macos_accessibility_client::accessibility::{application_is_trusted, application_is_trusted_with_prompt};
 
 #[cfg(target_os = "macos")]
 fn system_media_control(cmd: i32) {
@@ -477,6 +478,7 @@ async fn start_recording(
     groq_state: State<'_, groq::SharedGroqState>,
     groq_key: State<'_, GroqApiKey>,
     _enigo_state: State<'_, EnigoState>,
+    dg_state: State<'_, deepgram::SharedDeepgramState>,
     dg_lang: State<'_, DeepgramLanguage>,
     whisper_lang: State<'_, WhisperLanguage>,
     groq_lang: State<'_, GroqLanguage>,
@@ -546,7 +548,7 @@ async fn start_recording(
         match key {
             Some(k) if !k.is_empty() => {
                 let flag = Arc::clone(&recording_flag);
-                deepgram::start_deepgram(app, k, flag, &lang)?;
+                deepgram::start_recording(app, Arc::clone(&dg_state), flag)?;
             }
             _ => {
                 // Fallback to Whisper if model available
@@ -598,10 +600,12 @@ async fn start_recording(
 async fn stop_recording(
     state: State<'_, whisper::SharedState>,
     groq_state: State<'_, groq::SharedGroqState>,
+    dg_state: State<'_, deepgram::SharedDeepgramState>,
     recording_flag: State<'_, Arc<AtomicBool>>,
     stt_mode: State<'_, SttMode>,
     auto_pause: State<'_, AutoPause>,
     did_pause_media: State<'_, DidPauseMedia>,
+    dg_key: State<'_, DgApiKey>,
     groq_key: State<'_, GroqApiKey>,
     _enigo_state: State<'_, EnigoState>,
     dg_lang: State<'_, DeepgramLanguage>,
@@ -627,10 +631,14 @@ async fn stop_recording(
     recording_flag.store(false, Ordering::SeqCst);
 
     if mode == "deepgram" {
-        // Deepgram: text is already accumulated via events, return empty
-        // The frontend gets text via transcript-partial + deepgram-final events
-        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
-        Ok(String::new())
+        // Deepgram (REST API mode): process samples like Groq
+        let api_key = dg_key.0.lock().map_err(|e| e.to_string())?.clone().unwrap_or_default();
+        deepgram::stop_recording(
+            Arc::clone(&dg_state),
+            Arc::clone(&recording_flag),
+            api_key,
+            &lang,
+        ).await
     } else if mode == "whisper" {
         // Whisper: process full buffer for final result
         whisper::stop_recording(
@@ -803,28 +811,6 @@ async fn set_welcome_seen(app: AppHandle, version: String, seen: bool) -> Result
     store.save().map_err(|e| e.to_string())?;
     Ok(())
 }
-#[tauri::command]
-async fn check_accessibility() -> Result<bool, String> {
-    #[cfg(target_os = "macos")]
-    {
-        extern "C" {
-            pub fn AXIsProcessTrusted() -> bool;
-        }
-        let trusted = unsafe { AXIsProcessTrusted() };
-        Ok(trusted)
-    }
-    #[cfg(not(target_os = "macos"))]
-    {
-        Ok(true)
-    }
-}
-
-#[tauri::command]
-async fn open_accessibility_settings() -> Result<(), String> {
-    let script = "tell application \"System Events\" to open location \"x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility\"";
-    let _ = std::process::Command::new("osascript").arg("-e").arg(script).spawn();
-    Ok(())
-}
 
 #[tauri::command]
 async fn open_microphone_settings() -> Result<(), String> {
@@ -983,15 +969,51 @@ async fn delete_whisper_model() -> Result<(), String> {
 
 // ── Open Mac Accessibility Settings ───────────────────────────────────────────
 #[tauri::command]
-async fn open_mac_settings() -> Result<(), String> {
+async fn open_accessibility_settings(_app: AppHandle) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     {
-        std::process::Command::new("open")
+        // 1. Try to trigger the system-native prompt
+        let _ = application_is_trusted_with_prompt();
+        
+        // 2. Open the settings page reliably
+        let _ = std::process::Command::new("open")
             .arg("x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
-            .spawn()
-            .map_err(|e| e.to_string())?;
+            .spawn();
     }
     Ok(())
+}
+
+
+
+#[tauri::command]
+async fn reset_accessibility_permissions(app: AppHandle) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        let identifier = app.config().identifier.clone();
+        // tccutil reset Accessibility <bundle_id>
+        // This clears the app entry from the settings list, allowing a fresh start
+        let _ = std::process::Command::new("tccutil")
+            .arg("reset")
+            .arg("Accessibility")
+            .arg(&identifier)
+            .status();
+        
+        // After reset, calling this will trigger the system-native prompt "Freshly"
+        let _ = application_is_trusted_with_prompt();
+    }
+    Ok(())
+}
+
+#[tauri::command]
+async fn check_accessibility() -> Result<bool, String> {
+    #[cfg(target_os = "macos")]
+    {
+        Ok(application_is_trusted())
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        Ok(true)
+    }
 }
 
 // ── Toggle window ─────────────────────────────────────────────────────────────
@@ -1010,6 +1032,7 @@ pub fn run() {
 
     let recording_state: whisper::SharedState = Arc::new(Mutex::new(whisper::RecordingState::default()));
     let groq_state: groq::SharedGroqState = Arc::new(Mutex::new(groq::RecordingState::default()));
+    let deepgram_state: deepgram::SharedDeepgramState = Arc::new(Mutex::new(deepgram::DeepgramState::default()));
     let recording_flag: Arc<AtomicBool> = Arc::new(AtomicBool::new(false));
     let processing_flag = ProcessingFlag::default();
     
@@ -1023,6 +1046,7 @@ pub fn run() {
     tauri::Builder::default()
         .manage(recording_state)
         .manage(groq_state)
+        .manage(deepgram_state)
         .manage(recording_flag)
         .manage(processing_flag)
         .manage(PositionInitialized(AtomicBool::new(false)))
@@ -1246,15 +1270,16 @@ pub fn run() {
             get_groq_api_key,
             delete_groq_api_key,
             set_stt_mode,
-                get_welcome_seen,
-                set_welcome_seen,
-                check_accessibility,
-                open_accessibility_settings,
-                open_microphone_settings,
-                show_welcome_window,
-                hide_welcome_window,
-                fix_quarantine,
-                get_stt_mode,
+            get_stt_mode,
+            get_welcome_seen,
+            set_welcome_seen,
+            check_accessibility,
+            open_accessibility_settings,
+            reset_accessibility_permissions,
+            open_microphone_settings,
+            show_welcome_window,
+            hide_welcome_window,
+            fix_quarantine,
             set_deepgram_language,
             get_deepgram_language,
             set_whisper_language,
@@ -1270,7 +1295,6 @@ pub fn run() {
             check_model_available,
             download_whisper_model,
             delete_whisper_model,
-            open_mac_settings,
             reset_window_position,
             get_start_minimized,
             set_start_minimized,

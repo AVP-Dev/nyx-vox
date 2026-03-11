@@ -11,6 +11,7 @@ import {
     CloudDownload, AlertTriangle, ShieldAlert
 } from 'lucide-react';
 import { FeedbackModal } from '@/components/FeedbackModal';
+import { APP_VERSION } from '@/constants/version';
 
 type Tab = 'guide' | 'settings' | 'about';
 type Lang = 'ru' | 'en';
@@ -72,7 +73,7 @@ export const CONTENT = {
         about: {
             title: 'О приложении',
             app: 'NYX VOX',
-            version: 'v0.1.2-beta',
+            version: `v${APP_VERSION}`,
             desc: 'Профессиональный инструмент диктовки для macOS, стирающий границы между мыслью и текстом. Преобразуйте голос в текст мгновенно с помощью AI-движков Deepgram, Groq или локального Whisper.',
             author: 'Разработчик',
             mission: 'Миссия',
@@ -97,6 +98,7 @@ export const CONTENT = {
             accessibility: 'macOS: Универсальный доступ',
             accessibilityDesc: 'Для автовставки необходимо разрешение «Универсальный доступ» для NYX Vox.',
             accessibilityBtn: 'Открыть настройки',
+            accessibilityReset: 'Сбросить права (исправление бага)',
             sttMode: 'Движок распознавания',
             sttLanguage: 'Язык распознавания',
             langAuto: 'Авто',
@@ -156,7 +158,7 @@ export const CONTENT = {
             updateWarning: 'macOS сбросит ваши права "Универсального доступа". Зайдите в системные настройки, удалите NYX Vox кнопкой минус (-) и добавьте его заново.',
             troubleshootTitle: 'Техническая помощь',
             fixQuarantine: 'Ошибка: "Файл поврежден"',
-            fixQuarantineDesc: 'macOS защищает тебя от стороннего софта. Твой билд v0.1.2-beta проверен — просто убери флаг блокировки кнопкой ниже.',
+            fixQuarantineDesc: `macOS защищает тебя от стороннего софта. Твой билд v${APP_VERSION} проверен — просто убери флаг блокировки кнопкой ниже.`,
             fixBtn: 'СНЯТЬ БЛОКИРОВКУ',
             dontShow: 'Больше не показывать',
             startBtn: 'ПОЕХАЛИ!',
@@ -213,7 +215,7 @@ export const CONTENT = {
         about: {
             title: 'About',
             app: 'NYX VOX',
-            version: 'v0.1.2-beta',
+            version: `v${APP_VERSION}`,
             desc: 'A premium macOS dictation tool bridging the gap between thought and text. Convert voice to text instantly using Deepgram, Groq, or offline Whisper AI engines.',
             author: 'Developer',
             mission: 'Mission',
@@ -238,6 +240,7 @@ export const CONTENT = {
             accessibility: 'macOS: Accessibility',
             accessibilityDesc: 'Auto-paste requires Accessibility permission for NYX Vox in System Settings.',
             accessibilityBtn: 'Open Settings',
+            accessibilityReset: 'Reset Permissions (fix bug)',
             sttMode: 'Recognition Engine',
             sttLanguage: 'Recognition Language',
             langAuto: 'Auto',
@@ -297,7 +300,7 @@ export const CONTENT = {
             updateWarning: 'macOS will reset your Accessibility permissions. Go to System Settings, remove NYX Vox with the minus (-) button, and add it back.',
             troubleshootTitle: 'Troubleshooting',
             fixQuarantine: 'Error: "File Damaged"',
-            fixQuarantineDesc: 'macOS protects you from non-App Store apps. Your v0.1.2-beta build is safe — reset the quarantine lock below.',
+            fixQuarantineDesc: `macOS protects you from non-App Store apps. Your v${APP_VERSION} build is safe — reset the quarantine lock below.`,
             fixBtn: 'RESET THE LOCK / FIX',
             dontShow: 'Don\'t show again',
             startBtn: 'GET STARTED!',
@@ -358,7 +361,7 @@ export function SettingsPanel({ onClose, autoPaste, clearOnPaste, onToggleAutoPa
             const latest = data.tag_name; // e.g., "v0.1.2-beta"
             setLatestVersion(latest);
 
-            const current = 'v0.1.2-beta';
+            const current = `v${APP_VERSION}`;
             if (latest !== current) {
                 setUpdateStatus('available');
             } else {
@@ -633,17 +636,31 @@ export function SettingsPanel({ onClose, autoPaste, clearOnPaste, onToggleAutoPa
                                 <div className="text-[11px] font-bold text-white/30 uppercase tracking-widest mb-3">{c.settings.accessibility}</div>
                                 <div className="p-3.5 rounded-xl bg-amber-500/8 border border-amber-500/20 space-y-3">
                                     <p className="text-[12px] text-amber-200/70 leading-relaxed">{c.settings.accessibilityDesc}</p>
-                                    <button
-                                        onClick={() => {
-                                            if (window.__TAURI_INTERNALS__) {
-                                                invoke('open_mac_settings');
-                                            }
-                                        }}
-                                        className="flex items-center gap-1.5 text-[12px] font-semibold text-amber-300 hover:text-amber-100 transition-colors"
-                                    >
-                                        <ExternalLink className="w-3 h-3" />
-                                        {c.settings.accessibilityBtn}
-                                    </button>
+                                    <div className="flex flex-col gap-2">
+                                        <button
+                                            onClick={() => {
+                                                if (window.__TAURI_INTERNALS__) {
+                                                    invoke('open_accessibility_settings');
+                                                }
+                                            }}
+                                            className="flex items-center gap-1.5 text-[12px] font-semibold text-amber-300 hover:text-amber-100 transition-colors"
+                                        >
+                                            <ExternalLink className="w-3 h-3" />
+                                            {c.settings.accessibilityBtn}
+                                        </button>
+                                        <button
+                                            onClick={async () => {
+                                                if (window.__TAURI_INTERNALS__) {
+                                                    await invoke('reset_accessibility_permissions');
+                                                    alert(lang === 'ru' ? 'Сброшено! Теперь нажмите "+" в настройках или перезапустите запись.' : 'Reset! Now click "+" in settings or restart recording.');
+                                                }
+                                            }}
+                                            className="flex items-center gap-1.5 text-[11px] font-medium text-amber-100/40 hover:text-amber-100/80 transition-colors"
+                                        >
+                                            <ShieldAlert className="w-3 h-3" />
+                                            {c.settings.accessibilityReset}
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
 

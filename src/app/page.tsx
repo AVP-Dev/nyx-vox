@@ -10,6 +10,8 @@ import { WelcomeOverlay } from '@/components/WelcomeOverlay';
 import { writeText } from '@tauri-apps/plugin-clipboard-manager';
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import { Settings2, Mic, Check, Copy, Send, Pencil, X } from 'lucide-react';
+import { APP_VERSION } from '@/constants/version';
+import { UpdatePopup } from '@/components/UpdatePopup';
 
 type Phase = 'idle' | 'recording' | 'processing' | 'result' | 'editing';
 
@@ -61,7 +63,7 @@ export default function Home() {
     const checkUpdates = useCallback(async (appLang: string) => {
         if (typeof window === 'undefined' || !window.__TAURI_INTERNALS__) return;
         try {
-            const current = 'v0.1.2-beta';
+            const current = `v${APP_VERSION}`;
             const ignored = await invoke<string>('get_ignored_update').catch(() => '');
             const dismissedAt = await invoke<number>('get_update_dismissed_at').catch(() => 0);
             
@@ -120,31 +122,19 @@ export default function Home() {
                 targetTop_y = lastPos.current.y;
             }
 
+            // DRIFT PROTECTION: Always use current Y or last known valid Y
+            // Do not recalculate top_y from oldPos during rapid resizes if possible
             let newX = Math.round(targetCenter_x - newPhysicalW / 2);
             let newY = targetTop_y;
 
             // Clinging to top menu bar by default if y is near 0 or not set
-            if (!lastPos.current || newY < 5) {
+            if (!lastPos.current || newY < 10) {
                 newY = 0;
-            }
-
-            // Safety clamping to screen
-            if (monitor) {
-                const screenW = monitor.size.width;
-                const screenH = monitor.size.height;
-                const minX = 0;
-                const maxX = screenW - newPhysicalW;
-                
-                if (newX < minX) newX = minX;
-                if (newX > maxX) newX = maxX;
-                
-                // Keep it on screen vertically but prioritize top cling
-                const maxY = screenH - (h * scale);
-                if (newY > maxY) newY = maxY;
             }
 
             // Apply size first, then position
             await win.setSize(new LogicalSize(w, h));
+            // Force Y to stay exactly where it is to prevent 'dropping'
             await win.setPosition(new PhysicalPosition(newX, newY));
             
         } catch (err) {
@@ -191,7 +181,7 @@ export default function Home() {
 
     useEffect(() => {
         if (!isVisible) return;
-        const w = (showSettings || showWelcome) ? 440 : (phase === 'editing' ? 440 : (phase === 'result' ? 380 : (isIdle ? 140 : 260)));
+        const w = (showSettings || showWelcome) ? 440 : (phase === 'editing' ? 440 : (phase === 'result' ? 400 : (isIdle ? 140 : 260)));
         
         // Dynamic height for result phase
         let h = 48;
@@ -236,7 +226,7 @@ export default function Home() {
                 setAppLanguageState(savedAppLang || 'ru');
                 setTimeout(() => checkUpdates(savedAppLang || 'ru'), 5000);
 
-                const seen = await invoke<boolean>('get_welcome_seen', { version: '0.1.2-beta' }).catch(() => true);
+                const seen = await invoke<boolean>('get_welcome_seen', { version: APP_VERSION }).catch(() => true);
                 if (!seen) setShowWelcome(true);
 
                 setIsVisible(true);
@@ -438,21 +428,21 @@ export default function Home() {
     const lang = appLanguage || 'ru';
 
     const windowEntrance: Variants = {
-        hidden: { opacity: 0, scale: 0.8, y: 100 },
-        show: { opacity: 1, scale: 1, y: 0, transition: { type: "spring", stiffness: 400, damping: 25, mass: 1 } },
-        exit: { opacity: 0, scale: 0.9, y: 40, transition: { duration: 0.2, ease: "easeIn" } }
+        hidden: { opacity: 0, scale: 0.95 },
+        show: { opacity: 1, scale: 1, transition: { type: "spring", stiffness: 400, damping: 25, mass: 1 } },
+        exit: { opacity: 0, scale: 0.95, transition: { duration: 0.2, ease: "easeIn" } }
     };
 
     const containerVariants: Variants = {
         idle: { width: 140, height: 48, borderRadius: 24 },
         recording: { width: 260, height: 48, borderRadius: 24 },
-        result: { width: 380, height: 'auto', borderRadius: 24 },
+        result: { width: 400, height: 'auto', borderRadius: 24 },
         editing: { width: 440, height: 360, borderRadius: 24 },
         overlay: { width: 440, height: 540, borderRadius: 24 }
     };
 
     return (
-        <main className="w-screen h-screen flex flex-col items-center justify-center bg-transparent select-none font-sans antialiased overflow-hidden pointer-events-none z-[9999]">
+        <main className="w-screen h-screen flex flex-col items-center justify-start bg-transparent select-none font-sans antialiased overflow-hidden pointer-events-none z-[9999]">
             <AnimatePresence>
                 {isVisible && (
                     <motion.div 
@@ -470,7 +460,7 @@ export default function Home() {
                             animate={showSettings || showWelcome ? 'overlay' : (phase === 'editing' ? 'editing' : (phase === 'result' ? 'result' : (isIdle ? 'idle' : 'recording')))}
                             variants={containerVariants}
                             transition={{ layout: { type: "spring", stiffness: 350, damping: 32 }, opacity: { duration: 0.15 } }}
-                            className="bg-[#1C1C1E] border border-white/10 overflow-hidden flex flex-col relative shadow-2xl"
+                            className="bg-[#1C1C1E] border border-white/10 overflow-hidden flex flex-col relative"
                             style={{ backdropFilter: 'blur(40px) saturate(200%)' }}
                         >
                             <AnimatePresence mode="wait">
@@ -497,14 +487,14 @@ export default function Home() {
                                         />
                                     </motion.div>
                                 ) : (
-                                    <motion.div key="main-pill" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="w-full h-full flex flex-col">
-                                        <div data-tauri-drag-region className="flex items-center h-12 px-2 shrink-0">
+                                    <motion.div key="main-pill" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="w-full h-full flex flex-col justify-center">
+                                        <div data-tauri-drag-region className="flex items-center h-full px-2 shrink-0">
                                             <motion.div layout className="flex items-center bg-white/5 rounded-full p-1 border border-white/5">
                                                 <button 
                                                     onClick={isIdle ? triggerStart : triggerStop} 
                                                     className={`rounded-full flex items-center justify-center transition-all duration-300 w-8 h-8 ${isRec ? 'bg-red-500 shadow-none' : 'bg-white/5 hover:bg-white/10'}`}
                                                 >
-                                                    {isIdle ? <Mic size={16} className="text-white/50" /> : isRec ? <div className="w-[10px] h-[10px] bg-white rounded-[2px]" /> : isProc ? <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" /> : <Mic size={16} className="text-white/50" />}
+                                                    {isIdle ? <Mic size={15} className="text-white/50" /> : isRec ? <div className="w-[9px] h-[9px] bg-white rounded-[2px]" /> : isProc ? <div className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" /> : <Mic size={15} className="text-white/50" />}
                                                 </button>
                                                 
                                                 {isIdle && (
@@ -520,9 +510,9 @@ export default function Home() {
                                                     <>
                                                         <button 
                                                             onClick={toggleQuickLang} 
-                                                            className="ml-2 px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 transition-colors flex items-center justify-center min-w-[32px]"
+                                                            className="ml-1.5 px-1.5 py-0.5 rounded-md bg-white/5 hover:bg-white/10 border border-white/5 transition-colors flex items-center justify-center min-w-[28px]"
                                                         >
-                                                            <span className="text-[10px] font-bold text-white/40 uppercase tracking-tight">
+                                                            <span className="text-[9px] font-bold text-white/40 uppercase tracking-tight">
                                                                 {(() => { 
                                                                     const cur = sttMode === 'deepgram' ? dgLanguage : (sttMode === 'whisper' ? whisperLanguage : groqLanguage); 
                                                                     return cur === 'auto' ? 'Auto' : (cur === 'ru' ? 'RU' : 'EN'); 
@@ -536,9 +526,9 @@ export default function Home() {
                                                                 setSttMode(next); 
                                                                 invoke('set_stt_mode', { mode: next }).catch(console.error); 
                                                             }} 
-                                                            className="ml-1 px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 transition-colors flex items-center justify-center min-w-[40px]"
+                                                            className="ml-1 px-1.5 py-0.5 rounded-md bg-white/5 hover:bg-white/10 border border-white/5 transition-colors flex items-center justify-center min-w-[36px]"
                                                         >
-                                                            <span className="text-[10px] font-bold text-white/40 uppercase tracking-tight">
+                                                            <span className="text-[9px] font-bold text-white/40 uppercase tracking-tight">
                                                                 {sttMode === 'deepgram' ? (lang === 'ru' ? 'ОБЛАКО' : 'CLOUD') : sttMode === 'whisper' ? (lang === 'ru' ? 'ОФФЛАЙН' : 'OFFLINE') : 'GROQ'}
                                                             </span>
                                                         </button>
@@ -547,10 +537,10 @@ export default function Home() {
                                             </motion.div>
                                             
                                             {isIdle && (
-                                                <div data-tauri-drag-region className="flex-1 h-full flex items-center justify-end pr-1 opacity-40 hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing">
-                                                    <div data-tauri-drag-region className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center relative pointer-events-none">
-                                                        <span className="text-[12px] font-black text-white/40 tracking-tighter">NV</span>
-                                                        <div className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-orange-600/60 blur-[1px]" />
+                                                <div data-tauri-drag-region className="flex-1 h-full flex items-center justify-end pr-2 opacity-60 hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing">
+                                                    <div data-tauri-drag-region className="w-7 h-7 rounded-full bg-white/5 border border-white/10 flex items-center justify-center relative pointer-events-none">
+                                                        <span className="text-[11px] font-black text-white/50 tracking-tighter">NV</span>
+                                                        <div className="absolute top-0 right-0 w-1.5 h-1.5 rounded-full bg-orange-500/80 blur-[0.5px]" />
                                                     </div>
                                                 </div>
                                             )}
@@ -597,7 +587,7 @@ export default function Home() {
                                         
                                         {(phase === 'result' || phase === 'editing') && (
                                             <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} className="flex-1 flex flex-col min-h-0 px-3 pb-3 gap-2">
-                                                <div className={`flex-1 rounded-[12px] border border-white/5 p-4 overflow-y-auto custom-scrollbar select-text ${phase === 'editing' ? 'bg-white/5' : 'bg-white/[0.03]'}`}>
+                                                <div className={`flex-1 rounded-[12px] border border-white/5 overflow-y-auto custom-scrollbar select-text ${phase === 'editing' ? 'bg-white/5 p-4' : 'bg-white/[0.03] p-3'}`}>
                                                     {phase === 'editing' ? (
                                                         <textarea 
                                                             autoFocus 
@@ -607,40 +597,41 @@ export default function Home() {
                                                             spellCheck={false} 
                                                         />
                                                     ) : (
-                                                        <div className="text-[13px] text-white/80 leading-relaxed font-normal">
+                                                        <div className="text-[12.5px] text-white/80 leading-relaxed font-normal">
                                                             {transcriptText || <span className="text-white/20 italic">{lang === 'ru' ? 'Текст не распознан' : 'No text detected'}</span>}
                                                         </div>
                                                     )}
                                                 </div>
                                                 
-                                                <div className="flex items-center justify-between gap-2 h-10 mt-1 pb-2">
-                                                    <div className="flex items-center gap-1.5 relative group/target">
+                                                <div className="flex items-center justify-between gap-2 h-8 mt-0.5 pb-1">
+                                                    <div className="flex items-center gap-0.5 relative group/target">
                                                         <button 
                                                             onClick={() => setPhase(p => p === 'editing' ? 'result' : 'editing')} 
-                                                            className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all ${phase === 'editing' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/10' : 'hover:bg-white/10 text-white/40 hover:text-white'}`}
+                                                            className={`w-7.5 h-7.5 flex items-center justify-center rounded-lg transition-all ${phase === 'editing' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/10' : 'hover:bg-white/10 text-white/40 hover:text-white'}`}
                                                         >
-                                                            {phase === 'editing' ? <Check size={16} /> : <Pencil size={15} />}
+                                                            {phase === 'editing' ? <Check size={13} /> : <Pencil size={13.5} />}
                                                         </button>
-                                                        <button onClick={handleCopy} className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-white/10 text-white/40 hover:text-white transition-all">
-                                                            <Copy size={16} />
+                                                        <button onClick={handleCopy} className="w-7.5 h-7.5 flex items-center justify-center rounded-lg hover:bg-white/10 text-white/40 hover:text-white transition-all">
+                                                            <Copy size={13.5} />
                                                         </button>
-                                                        <button onClick={() => { setTranscript(''); setPhase('idle'); }} className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-red-500/10 text-white/40 hover:text-red-400 transition-all">
-                                                            <X size={18} />
+                                                        <button onClick={() => { setTranscript(''); setPhase('idle'); }} className="w-7.5 h-7.5 flex items-center justify-center rounded-lg hover:bg-red-500/10 text-white/40 hover:text-red-400 transition-all">
+                                                            <X size={14.5} />
                                                         </button>
                                                         {targetApp && (
-                                                            <div className="flex items-center gap-2 ml-2 mr-1 px-3 py-1.5 rounded-lg bg-orange-500/5 border border-orange-500/10 text-[9px] font-bold text-orange-500/60 uppercase tracking-widest whitespace-nowrap overflow-hidden max-w-[140px]">
-                                                                <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
+                                                            <div className="flex items-center gap-1 ml-1 mr-0.5 px-1.5 py-0.5 rounded bg-white/5 border border-white/5 text-[8px] font-bold text-white/30 uppercase tracking-widest whitespace-nowrap overflow-hidden max-w-[100px]">
+                                                                <div className="w-1 h-1 rounded-full bg-orange-500/60 animate-pulse" />
                                                                 <span className="truncate">{targetApp}</span>
                                                             </div>
                                                         )}
                                                     </div>
                                                     
+                                                    <UpdatePopup language={appLanguage} />
                                                     <button 
                                                         onClick={handlePaste} 
                                                         disabled={!transcriptText} 
-                                                        className={`h-10 px-6 flex items-center gap-2 rounded-xl font-bold text-[11px] uppercase tracking-widest transition-all ${transcriptText ? 'bg-[#F97316] hover:bg-orange-500 text-white active:scale-95 shadow-[0_4px_15px_rgba(249,115,22,0.4)]' : 'bg-white/5 text-white/10 opacity-50'}`}
+                                                        className={`h-8 px-3.5 flex items-center gap-1.5 rounded-lg font-bold text-[9.5px] uppercase tracking-widest transition-all ${transcriptText ? 'bg-[#F97316] hover:bg-orange-500 text-white active:scale-95 shadow-[0_4px_12px_rgba(249,115,22,0.3)]' : 'bg-white/5 text-white/10 opacity-50'}`}
                                                     >
-                                                        <Send size={14} strokeWidth={2.5} />
+                                                        <Send size={11} strokeWidth={2.5} />
                                                         <span>{lang === 'en' ? 'Paste' : 'Вставить'}</span>
                                                     </button>
                                                 </div>
