@@ -170,10 +170,10 @@
         .hero h1 {
             font-size: clamp(3rem, 10vw, 5.5rem);
             font-weight: 900;
-            line-height: 1.0;
-            letter-spacing: -0.05em;
+            line-height: 1.1; /* Increased for better breathing room */
+            letter-spacing: -0.04em; 
             margin-bottom: 24px;
-            /* Improved contrast gradient */
+            padding: 0 20px; /* Added horizontal padding to prevent clipping */
             background: linear-gradient(to bottom, #ffffff 100%, #ffffff 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
