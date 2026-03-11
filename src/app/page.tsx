@@ -54,35 +54,24 @@ export default function Home() {
     
     const containerRef = useRef<HTMLDivElement>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
-    const lastIdlePos = useRef<{ x: number, y: number } | null>(null);
+    // Track the last known idle position (Top-Center)
+    const lastPos = useRef<{ x: number, y: number } | null>(null);
 
     const checkUpdates = useCallback(async (appLang: string) => {
         if (typeof window === 'undefined' || !window.__TAURI_INTERNALS__) return;
-        console.log('[UpdateCheck] Starting check...');
         try {
             const current = 'v0.1.2-beta';
             const ignored = await invoke<string>('get_ignored_update').catch(() => '');
             const dismissedAt = await invoke<number>('get_update_dismissed_at').catch(() => 0);
             
-            console.log('[UpdateCheck] current:', current, 'ignored:', ignored, 'dismissedAt:', dismissedAt);
-
-            // Re-check every 2 hours if not explicitly ignored
-            if (dismissedAt && Date.now() - dismissedAt < 2 * 60 * 60 * 1000) {
-                console.log('[UpdateCheck] Recently dismissed, skipping.');
-                return;
-            }
+            if (dismissedAt && Date.now() - dismissedAt < 2 * 60 * 60 * 1000) return;
 
             const response = await fetch('https://api.github.com/repos/AVP-Dev/nyx-vox/releases/latest');
-            if (!response.ok) {
-                console.error('[UpdateCheck] GitHub API failed:', response.status);
-                return;
-            }
+            if (!response.ok) return;
             const data = await response.json();
             const latest = data.tag_name;
-            console.log('[UpdateCheck] Latest from GitHub:', latest);
             
             if (latest && latest !== current && latest !== ignored) {
-                console.log('[UpdateCheck] New version found! Opening window...');
                 const { WebviewWindow } = await import('@tauri-apps/api/webviewWindow');
                 const label = `update-${latest.replace(/\./g, '-')}`;
                 
@@ -99,8 +88,6 @@ export default function Home() {
                     center: true,
                     skipTaskbar: false,
                 });
-            } else {
-                console.log('[UpdateCheck] No new version or already ignored/latest.');
             }
         } catch (e) {
             console.error('[UpdateCheck] Error:', e);
@@ -110,20 +97,114 @@ export default function Home() {
     const resizeWindow = useCallback(async (w: number, h: number) => {
         if (typeof window === 'undefined' || !window.__TAURI_INTERNALS__) return;
         try {
-            const { getCurrentWindow, LogicalSize } = await import('@tauri-apps/api/window');
+            const { getCurrentWindow, LogicalSize, PhysicalPosition, primaryMonitor } = await import('@tauri-apps/api/window');
             const win = getCurrentWindow();
+            
+            const oldPos = await win.outerPosition();
+            const oldSize = await win.outerSize();
+            const monitor = await primaryMonitor();
+            const scale = monitor ? monitor.scaleFactor : 2;
+
+            // Target dimensions in physical pixels
+            const newPhysicalW = w * scale;
+
+            // Anchor logic: TOP-CENTER
+            // We want the horizontal center of the window to remain the same after resize.
+            let targetCenter_x = oldPos.x + oldSize.width / 2;
+            let targetTop_y = oldPos.y;
+
+            // If we have a saved position (from dragging), use it.
+            if (lastPos.current) {
+                targetCenter_x = lastPos.current.x;
+                targetTop_y = lastPos.current.y;
+            }
+
+            let newX = Math.round(targetCenter_x - newPhysicalW / 2);
+            let newY = targetTop_y;
+
+            // Clinging to top menu bar by default if y is near 0 or not set
+            if (!lastPos.current || newY < 5) {
+                newY = 0;
+            }
+
+            // Safety clamping to screen
+            if (monitor) {
+                const screenW = monitor.size.width;
+                const screenH = monitor.size.height;
+                const minX = 0;
+                const maxX = screenW - newPhysicalW;
+                
+                if (newX < minX) newX = minX;
+                if (newX > maxX) newX = maxX;
+                
+                // Keep it on screen vertically but prioritize top cling
+                const maxY = screenH - (h * scale);
+                if (newY > maxY) newY = maxY;
+            }
+
+            // Apply size first, then position
             await win.setSize(new LogicalSize(w, h));
+            await win.setPosition(new PhysicalPosition(newX, newY));
+            
         } catch (err) {
-            console.error('Window resize error:', err);
+            console.error('Window management error:', err);
         }
+    }, []);
+
+    // Listen for window movement to update lastPos
+    useEffect(() => {
+        const setupMoveListener = async () => {
+            if (typeof window === 'undefined' || !window.__TAURI_INTERNALS__) return;
+            const { getCurrentWindow } = await import('@tauri-apps/api/window');
+            const win = getCurrentWindow();
+
+            const unlistenMove = await listen('tauri://move', async () => {
+                const pos = await win.outerPosition();
+                const size = await win.outerSize();
+                if (size.width > 0) {
+                    lastPos.current = {
+                        x: pos.x + size.width / 2,
+                        y: pos.y
+                    };
+                }
+            });
+
+            const unlistenReset = await listen('reset-position', () => {
+                lastPos.current = null;
+                setPhase(p => p); // Trigger re-render to apply default position
+            });
+
+            return { unlistenMove, unlistenReset };
+        };
+
+        const cleanupPromise = setupMoveListener();
+        return () => {
+            cleanupPromise.then(res => {
+                if (res) {
+                    res.unlistenMove();
+                    res.unlistenReset();
+                }
+            });
+        };
     }, []);
 
     useEffect(() => {
         if (!isVisible) return;
         const w = (showSettings || showWelcome) ? 440 : (phase === 'editing' ? 440 : (phase === 'result' ? 380 : (isIdle ? 140 : 260)));
-        const h = (showSettings || showWelcome) ? 540 : (phase === 'editing' ? 320 : (phase === 'result' ? 200 : 48));
+        
+        // Dynamic height for result phase
+        let h = 48;
+        if (showSettings || showWelcome) h = 540;
+        else if (phase === 'editing') h = 320;
+        else if (phase === 'result') {
+            const textLen = transcriptText?.length || 0;
+            const rows = Math.max(1, Math.ceil(textLen / 38));
+            const calcH = 120 + (rows * 20);
+            h = Math.min(400, Math.max(140, calcH));
+        }
+
         resizeWindow(w, h);
-    }, [phase, isIdle, showSettings, showWelcome, isVisible, resizeWindow]);
+    }, [phase, isIdle, showSettings, showWelcome, isVisible, transcriptText, resizeWindow]);
 
     useEffect(() => {
         const load = async () => {
