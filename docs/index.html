@@ -290,6 +290,90 @@
             margin-bottom: 8px;
         }
 
+        /* --- Troubleshooting & Magic Fix --- */
+        .troubleshooting {
+            max-width: 800px;
+            margin: -40px auto 100px;
+            padding: 32px;
+            background: rgba(220, 38, 38, 0.05);
+            border: 1px solid rgba(220, 38, 38, 0.2);
+            border-radius: 24px;
+            backdrop-filter: blur(20px);
+            text-align: left;
+        }
+
+        .troubleshooting-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .troubleshooting-header svg {
+            color: #ef4444;
+        }
+
+        .troubleshooting h3 {
+            font-size: 1.1rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #ef4444;
+        }
+
+        .troubleshooting p {
+            font-size: 0.95rem;
+            color: var(--text-dim);
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+
+        .code-box {
+            background: rgba(0,0,0,0.4);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 16px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            font-family: monospace;
+            font-size: 0.85rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .code-content {
+            flex: 1;
+            white-space: nowrap;
+            overflow-x: auto;
+            color: rgba(255,255,255,0.8);
+            scrollbar-width: none;
+        }
+
+        .code-content::-webkit-scrollbar { display: none; }
+
+        .copy-btn {
+            background: var(--accent);
+            border: none;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-weight: 700;
+            cursor: pointer;
+            font-size: 0.75rem;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+
+        .copy-btn:hover {
+            transform: scale(1.05);
+            filter: brightness(1.1);
+        }
+
+        .copy-btn.success {
+            background: #10b981;
+        }
+
         /* --- Footer --- */
         footer {
             padding: 60px 5%;
@@ -445,6 +529,24 @@
                 setLang(nav.startsWith('ru') ? 'ru' : 'en');
             }
             fetchVersion();
+        }
+
+        function copyCommand(btn) {
+            const cmd = document.getElementById('magic-command').innerText;
+            navigator.clipboard.writeText(cmd).then(() => {
+                const oldTextEn = btn.querySelector('[data-en]').innerText;
+                const oldTextRu = btn.querySelector('[data-ru]').innerText;
+                
+                btn.classList.add('success');
+                btn.querySelector('[data-en]').innerText = 'Copied!';
+                btn.querySelector('[data-ru]').innerText = 'Скопировано!';
+                
+                setTimeout(() => {
+                    btn.classList.remove('success');
+                    btn.querySelector('[data-en]').innerText = oldTextEn;
+                    btn.querySelector('[data-ru]').innerText = oldTextRu;
+                }, 2000);
+            });
         }
     </script>
 </body>

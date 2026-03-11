@@ -16,6 +16,32 @@ use tauri::{
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 use tauri_plugin_store::StoreExt;
 
+// ── Native Media Pause (MediaRemote Private API) ─────────────────────────────
+#[cfg(target_os = "macos")]
+fn system_media_control(cmd: i32) {
+    use libc::{c_void, c_int};
+    use std::ptr;
+
+    unsafe {
+        // Load MediaRemote framework at runtime
+        let handle = libc::dlopen(
+            "/System/Library/PrivateFrameworks/MediaRemote.framework/MediaRemote\0".as_ptr() as *const i8,
+            libc::RTLD_NOW
+        );
+        if !handle.is_null() {
+            // Command 0 = kMRPlay, Command 1 = kMRPause
+            let func: Option<unsafe extern "C" fn(c_int, *const c_void) -> bool> = 
+                std::mem::transmute(libc::dlsym(handle, "MRMediaRemoteSendCommand\0".as_ptr() as *const i8));
+            if let Some(f) = func {
+                f(cmd, ptr::null());
+            }
+            libc::dlclose(handle);
+        }
+    }
+}
+#[cfg(not(target_os = "macos"))]
+fn system_media_control(_cmd: i32) {}
+
 // ── Shared state types ────────────────────────────────────────────────────────
 #[derive(Default)]
 struct ProcessingFlag(Arc<AtomicBool>);
@@ -441,43 +467,7 @@ async fn start_recording(
     let ap = *auto_pause.0.lock().map_err(|e| e.to_string())?;
 
     if ap {
-        let script = r#"
-            tell application "Music" to if it is running then pause
-            tell application "Spotify" to if it is running then pause
-            tell application "System Events"
-                if (exists process "Google Chrome") then
-                    try
-                        tell application "Google Chrome" to execute (active tab of window 1) javascript "document.querySelectorAll('video, audio').forEach(m => m.pause())"
-                    end try
-                end if
-                if (exists process "Safari") then
-                    try
-                        tell application "Safari" to do JavaScript "document.querySelectorAll('video, audio').forEach(m => m.pause())" in current tab of window 1
-                    end try
-                end if
-                if (exists process "Yandex") then
-                    try
-                        tell application "Yandex" to execute (active tab of window 1) javascript "document.querySelectorAll('video, audio').forEach(m => m.pause())"
-                    end try
-                end if
-                if (exists process "Yandex Browser") then
-                    try
-                        tell application "Yandex Browser" to execute (active tab of window 1) javascript "document.querySelectorAll('video, audio').forEach(m => m.pause())"
-                    end try
-                end if
-                if (exists process "Arc") then
-                    try
-                        tell application "Arc" to execute (active tab of window 1) javascript "document.querySelectorAll('video, audio').forEach(m => m.pause())"
-                    end try
-                end if
-                if (exists process "Brave Browser") then
-                    try
-                        tell application "Brave Browser" to execute (active tab of window 1) javascript "document.querySelectorAll('video, audio').forEach(m => m.pause())"
-                    end try
-                end if
-            end tell
-        "#;
-        let _ = std::process::Command::new("osascript").arg("-e").arg(script).spawn();
+        system_media_control(1); // 1 = Pause
     }
 
     let mut final_mode = mode;
@@ -597,43 +587,7 @@ async fn stop_recording(
     };
     let ap = *auto_pause.0.lock().map_err(|e| e.to_string())?;
     if ap {
-        let script = r#"
-            tell application "Music" to if it is running then play
-            tell application "Spotify" to if it is running then play
-            tell application "System Events"
-                if (exists process "Google Chrome") then
-                    try
-                        tell application "Google Chrome" to execute (active tab of window 1) javascript "document.querySelectorAll('video, audio').forEach(m => m.play())"
-                    end try
-                end if
-                if (exists process "Safari") then
-                    try
-                        tell application "Safari" to execute (current tab of window 1) javascript "document.querySelectorAll('video, audio').forEach(m => m.play())"
-                    end try
-                end if
-                if (exists process "Yandex") then
-                    try
-                        tell application "Yandex" to execute (active tab of window 1) javascript "document.querySelectorAll('video, audio').forEach(m => m.play())"
-                    end try
-                end if
-                if (exists process "Yandex Browser") then
-                    try
-                        tell application "Yandex Browser" to execute (active tab of window 1) javascript "document.querySelectorAll('video, audio').forEach(m => m.play())"
-                    end try
-                end if
-                if (exists process "Arc") then
-                    try
-                        tell application "Arc" to execute (active tab of window 1) javascript "document.querySelectorAll('video, audio').forEach(m => m.play())"
-                    end try
-                end if
-                if (exists process "Brave Browser") then
-                    try
-                        tell application "Brave Browser" to execute (active tab of window 1) javascript "document.querySelectorAll('video, audio').forEach(m => m.play())"
-                    end try
-                end if
-            end tell
-        "#;
-        let _ = std::process::Command::new("osascript").arg("-e").arg(script).spawn();
+        system_media_control(0); // 0 = Play
     }
 
     // Stop the recording flag (works for both modes)
@@ -1007,42 +961,6 @@ async fn open_mac_settings() -> Result<(), String> {
     Ok(())
 }
 
-#[tauri::command]
-async fn fix_browser_permissions() -> Result<(), String> {
-    #[cfg(target_os = "macos")]
-    {
-        let bundles = vec![
-            "com.google.Chrome",
-            "com.google.Chrome.canary",
-            "company.thebrowser.Browser", // Arc
-            "com.apple.Safari",
-            "com.apple.Safari.SandboxBroker", // New Safari Sandbox
-            "ru.yandex.desktop.yandex-browser",
-            "com.brave.Browser",
-            "com.microsoft.edgemac",
-            "com.vivaldi.Vivaldi",
-            "org.chromium.Chromium"
-        ];
-        
-        for bundle in bundles {
-            let _ = std::process::Command::new("defaults")
-                .args(["write", bundle, "AllowJavaScriptFromAppleEvents", "-bool", "true"])
-                .status();
-        }
-        
-        // Specially for Safari: also enable Develop menu so the user sees the result
-        let _ = std::process::Command::new("defaults")
-            .args(["write", "com.apple.Safari", "IncludeDevelopMenu", "-bool", "true"])
-            .status();
-            
-        Ok(())
-    }
-    #[cfg(not(target_os = "macos"))]
-    {
-        Ok(())
-    }
-}
-
 // ── Toggle window ─────────────────────────────────────────────────────────────
 fn toggle_window<R: Runtime>(app: &AppHandle<R>) {
     if let Some(w) = app.get_webview_window("main") {
@@ -1319,7 +1237,6 @@ pub fn run() {
             download_whisper_model,
             delete_whisper_model,
             open_mac_settings,
-            fix_browser_permissions,
             reset_window_position,
             get_start_minimized,
             set_start_minimized,
