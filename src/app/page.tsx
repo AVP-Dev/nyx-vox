@@ -487,8 +487,8 @@ export default function Home() {
                                         />
                                     </motion.div>
                                 ) : (
-                                    <motion.div key="main-pill" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="w-full h-full flex flex-col justify-center">
-                                        <div data-tauri-drag-region className="flex items-center h-full px-2 shrink-0">
+                                    <motion.div key="main-pill" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="w-full h-full flex flex-col">
+                                        <div data-tauri-drag-region className="flex items-center h-12 px-2 shrink-0">
                                             <motion.div layout className="flex items-center bg-white/5 rounded-full p-1 border border-white/5">
                                                 <button 
                                                     onClick={isIdle ? triggerStart : triggerStop} 

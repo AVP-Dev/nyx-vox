@@ -154,7 +154,7 @@ pub async fn stop_recording(
     let mut form = multipart::Form::new()
         .part("file", part)
         .text("model", "whisper-large-v3-turbo")
-        .text("prompt", "Диктовка. Привет, как дела? Сегодня хорошая погода. Я записываю важный текст. Пунктуация важна. Пожалуйста, расставляй запятые.");
+        .text("prompt", "Transcribe with precision. Use correct punctuation, capitalization, and flow. The audio may contain English and Russian. Привет, это диктовка. Пожалуйста, расставляй знаки препинания, запятые и заглавные буквы. Сохраняй структуру предложений.");
         
     if language != "auto" {
         form = form.text("language", language.to_string());
