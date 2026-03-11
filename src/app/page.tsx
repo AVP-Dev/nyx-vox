@@ -196,13 +196,13 @@ export default function Home() {
         // Dynamic height for result phase
         let h = 48;
         if (showSettings || showWelcome) h = 540;
-        else if (phase === 'editing') h = 320;
+        else if (phase === 'editing') h = 360;
         else if (phase === 'result') {
             const textLen = transcriptText?.length || 0;
             const rows = Math.max(1, Math.ceil(textLen / 36));
-            // Result view is now very compact (max 220px)
-            const calcH = 145 + (rows * 16); 
-            h = Math.min(220, Math.max(150, calcH));
+            // Increased baseline and row height + 20px buffer for bottom rounding
+            const calcH = 180 + (rows * 18); 
+            h = Math.min(460, Math.max(180, calcH));
         }
 
         resizeWindow(w, h);
@@ -446,8 +446,8 @@ export default function Home() {
     const containerVariants: Variants = {
         idle: { width: 140, height: 48, borderRadius: 24 },
         recording: { width: 260, height: 48, borderRadius: 24 },
-        result: { width: 380, height: 'auto', borderRadius: 20 },
-        editing: { width: 440, height: 340, borderRadius: 20 },
+        result: { width: 380, height: 'auto', borderRadius: 24 },
+        editing: { width: 440, height: 360, borderRadius: 24 },
         overlay: { width: 440, height: 540, borderRadius: 24 }
     };
 
@@ -470,8 +470,8 @@ export default function Home() {
                             animate={showSettings || showWelcome ? 'overlay' : (phase === 'editing' ? 'editing' : (phase === 'result' ? 'result' : (isIdle ? 'idle' : 'recording')))}
                             variants={containerVariants}
                             transition={{ layout: { type: "spring", stiffness: 350, damping: 32 }, opacity: { duration: 0.15 } }}
-                            className="bg-[#18181B] border border-white/10 overflow-hidden flex flex-col relative shadow-none"
-                            style={{ backdropFilter: 'blur(32px) saturate(180%)' }}
+                            className="bg-[#1C1C1E] border border-white/10 overflow-hidden flex flex-col relative shadow-2xl"
+                            style={{ backdropFilter: 'blur(40px) saturate(200%)' }}
                         >
                             <AnimatePresence mode="wait">
                                 {showSettings ? (
@@ -497,7 +497,7 @@ export default function Home() {
                                         />
                                     </motion.div>
                                 ) : (
-                                    <motion.div key="main-pill" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="w-full flex flex-col">
+                                    <motion.div key="main-pill" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="w-full h-full flex flex-col">
                                         <div data-tauri-drag-region className="flex items-center h-12 px-2 shrink-0">
                                             <motion.div layout className="flex items-center bg-white/5 rounded-full p-1 border border-white/5">
                                                 <button 
@@ -597,13 +597,13 @@ export default function Home() {
                                         
                                         {(phase === 'result' || phase === 'editing') && (
                                             <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} className="flex-1 flex flex-col min-h-0 px-3 pb-3 gap-2">
-                                                <div className={`flex-1 ${phase === 'editing' ? 'min-h-[120px]' : 'max-h-[80px]'} rounded-[12px] border border-white/5 p-3 overflow-y-auto custom-scrollbar select-text ${phase === 'editing' ? 'bg-white/5' : 'bg-white/[0.02]'}`}>
+                                                <div className={`flex-1 rounded-[12px] border border-white/5 p-4 overflow-y-auto custom-scrollbar select-text ${phase === 'editing' ? 'bg-white/5' : 'bg-white/[0.03]'}`}>
                                                     {phase === 'editing' ? (
                                                         <textarea 
                                                             autoFocus 
                                                             value={transcriptText} 
                                                             onChange={e => setTranscript(e.target.value)} 
-                                                            className="w-full h-full bg-transparent text-[13px] text-white/95 leading-relaxed resize-none focus:outline-none custom-scrollbar" 
+                                                            className="w-full h-full bg-transparent text-[14px] text-white/95 leading-relaxed resize-none focus:outline-none custom-scrollbar" 
                                                             spellCheck={false} 
                                                         />
                                                     ) : (
@@ -613,23 +613,23 @@ export default function Home() {
                                                     )}
                                                 </div>
                                                 
-                                                <div className="flex items-center justify-between gap-2 h-9 mt-1">
-                                                    <div className="flex items-center gap-0.5 relative group/target">
+                                                <div className="flex items-center justify-between gap-2 h-10 mt-1 pb-2">
+                                                    <div className="flex items-center gap-1.5 relative group/target">
                                                         <button 
                                                             onClick={() => setPhase(p => p === 'editing' ? 'result' : 'editing')} 
-                                                            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 text-white/30 hover:text-white transition-all transition-colors"
+                                                            className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all ${phase === 'editing' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/10' : 'hover:bg-white/10 text-white/40 hover:text-white'}`}
                                                         >
-                                                            {phase === 'editing' ? <Check size={14} className="text-emerald-400" /> : <Pencil size={15} />}
+                                                            {phase === 'editing' ? <Check size={16} /> : <Pencil size={15} />}
                                                         </button>
-                                                        <button onClick={handleCopy} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 text-white/30 hover:text-white transition-all">
-                                                            <Copy size={14} />
+                                                        <button onClick={handleCopy} className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-white/10 text-white/40 hover:text-white transition-all">
+                                                            <Copy size={16} />
                                                         </button>
-                                                        <button onClick={() => { setTranscript(''); setPhase('idle'); }} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-red-500/10 text-white/30 hover:text-red-400 transition-all">
-                                                            <X size={16} />
+                                                        <button onClick={() => { setTranscript(''); setPhase('idle'); }} className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-red-500/10 text-white/40 hover:text-red-400 transition-all">
+                                                            <X size={18} />
                                                         </button>
                                                         {targetApp && (
-                                                            <div className="flex items-center gap-1.5 ml-2 mr-1 px-2 py-1 rounded bg-white/5 border border-white/5 text-[9px] font-black text-white/30 uppercase tracking-widest whitespace-nowrap overflow-hidden max-w-[120px]">
-                                                                <div className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" />
+                                                            <div className="flex items-center gap-2 ml-2 mr-1 px-3 py-1.5 rounded-lg bg-orange-500/5 border border-orange-500/10 text-[9px] font-bold text-orange-500/60 uppercase tracking-widest whitespace-nowrap overflow-hidden max-w-[140px]">
+                                                                <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
                                                                 <span className="truncate">{targetApp}</span>
                                                             </div>
                                                         )}
@@ -638,9 +638,9 @@ export default function Home() {
                                                     <button 
                                                         onClick={handlePaste} 
                                                         disabled={!transcriptText} 
-                                                        className={`h-9 px-5 flex items-center gap-2 rounded-lg font-black text-[11px] uppercase tracking-widest transition-all ${transcriptText ? 'bg-[#F97316] hover:bg-orange-500 text-white active:scale-95 shadow-[0_4px_12px_rgba(249,115,22,0.3)]' : 'bg-white/5 text-white/10 opacity-50'}`}
+                                                        className={`h-10 px-6 flex items-center gap-2 rounded-xl font-bold text-[11px] uppercase tracking-widest transition-all ${transcriptText ? 'bg-[#F97316] hover:bg-orange-500 text-white active:scale-95 shadow-[0_4px_15px_rgba(249,115,22,0.4)]' : 'bg-white/5 text-white/10 opacity-50'}`}
                                                     >
-                                                        <Send size={12} strokeWidth={3} />
+                                                        <Send size={14} strokeWidth={2.5} />
                                                         <span>{lang === 'en' ? 'Paste' : 'Вставить'}</span>
                                                     </button>
                                                 </div>
