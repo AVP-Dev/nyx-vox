@@ -7,7 +7,8 @@ import {
     X, Info, BookOpen, Settings2, Mic, Copy, Send,
     Keyboard, Globe, Zap, ChevronRight, ExternalLink,
     Github, MessageCircle, Instagram, Linkedin, Expand,
-    Wifi, HardDrive, Download, Eye, EyeOff, Loader2, Check
+    Wifi, HardDrive, Download, Eye, EyeOff, Loader2, Check,
+    CloudDownload, AlertTriangle, ShieldAlert
 } from 'lucide-react';
 import { FeedbackModal } from '@/components/FeedbackModal';
 
@@ -20,9 +21,11 @@ interface SettingsPanelProps {
     clearOnPaste: boolean;
     onToggleAutoPaste: () => void;
     onToggleClearOnPaste: () => void;
+    startMinimized: boolean;
+    onToggleStartMinimized: () => void;
 }
 
-const CONTENT = {
+export const CONTENT = {
     ru: {
         guide: {
             title: 'Инструкция',
@@ -30,44 +33,44 @@ const CONTENT = {
                 {
                     icon: <Keyboard className="w-4 h-4" />,
                     head: 'Option + Space',
-                    body: 'Глобальный ярлык. Работает поверх всех окон. Быстро вызывает NYX VOX для новой записи.'
+                    body: 'Глобальный хоткей. Суммонит окно из любого места. Повторное нажатие останавливает запись и выдает результат.'
                 },
                 {
                     icon: <Mic className="w-4 h-4" />,
-                    head: 'Кнопка микрофона',
-                    body: 'Нажмите для старта. Компактное окно покажет анимацию вашего голоса в реальном времени.'
+                    head: 'Голосовой ввод',
+                    body: 'Нажмите для старта. Компактный "pill-интерфейс" визуализирует ваш голос и процесс транскрипции в реальном времени.'
                 },
                 {
                     icon: <Send className="w-4 h-4" />,
-                    head: 'Вставить (Самолётик)',
-                    body: 'Окно закроется, а текст автоматически вставится туда, где стоял курсор. Требуется разрешение &quot;Универсальный доступ&quot; в настройках Mac.'
+                    head: 'Вставить в приложение',
+                    body: 'Мгновенно отправляет текст в активное окно. Работает через нативные события HID (требуется Универсальный доступ).'
                 },
                 {
                     icon: <Copy className="w-4 h-4" />,
-                    head: 'Скопировать',
-                    body: 'Просто копирует весь распознанный текст в буфер обмена.'
+                    head: 'Буфер обмена',
+                    body: 'Копирует весь распознанный текст. Позволяет быстро перенести результат в мессенджер или редактор кода.'
                 },
                 {
                     icon: <Expand className="w-4 h-4" />,
-                    head: 'Развернуть текст',
-                    body: 'Кликните по тексту или кнопке со стрелкой вниз, чтобы развернуть всё окно и увидеть полный текст.'
+                    head: 'Расширенный вид',
+                    body: 'Кликните по тексту, чтобы развернуть окно. Здесь можно отредактировать результат перед отправкой.'
                 },
                 {
                     icon: <X className="w-4 h-4" />,
-                    head: 'Умная очистка',
-                    body: 'Текст очищается автоматически при старте новой записи. Также можно сбросить его вручную крестиком.'
+                    head: 'Умный сброс',
+                    body: 'Текст очищается автоматически при каждом новом старте. Либо удалите его вручную через крестик.'
                 },
             ],
             tips: [
-                'Говорите чётко, небольшими предложениями — Whisper лучше понимает контекст для знаков препинания.',
-                'Для работы автовставки в любое приложение нужен доступ в «Универсальный доступ» для NYX Vox.',
-                'В свернутом виде программа выглядит как тонкая статусная строка для экономии места на экране.',
+                'Держите паузы минимальными — современные движки отлично справляются с быстрой речью.',
+                'В режиме "Офлайн" первый запуск может занять пару секунд для инициализации модели.',
+                'Используйте Groq для максимальной скорости или Deepgram для лучшей пунктуации.',
             ]
         },
         about: {
             title: 'О приложении',
             app: 'NYX VOX',
-            version: 'v0.1.1-beta',
+            version: 'v0.1.2-beta',
             desc: 'Профессиональный инструмент диктовки для macOS, стирающий границы между мыслью и текстом. Преобразуйте голос в текст мгновенно с помощью AI-движков Deepgram, Groq или локального Whisper.',
             author: 'Разработчик',
             mission: 'Миссия',
@@ -83,6 +86,8 @@ const CONTENT = {
             autoPasteDesc: 'Вставлять текст автоматически после остановки записи',
             clearOnPaste: 'Очищать после вставки',
             clearOnPasteDesc: 'Удалять текст из поля после успешной вставки',
+            startMinimized: 'Запуск в свернутом виде',
+            startMinimizedDesc: 'При запуске приложение будет только в трее',
             autoPause: 'Авто-пауза медиа',
             autoPauseDesc: 'Ставить медиа на паузу во время диктовки',
             accessibility: 'macOS: Универсальный доступ',
@@ -106,6 +111,10 @@ const CONTENT = {
             apiKeyStep3: 'Нажмите Create a New API Key',
             apiKeyStep4: 'Скопируйте ключ и вставьте выше',
             apiKeyFree: '💡 Бесплатно: $200 кредитов (~200 часов)',
+            checkUpdates: 'Проверить обновления',
+            updateAvailable: 'Доступна новая версия!',
+            noUpdate: 'У вас последняя версия',
+            checking: 'Проверка...',
             modelStatus: 'Офлайн модель',
             modelInstalled: 'Модель установлена',
             modelNotFound: 'Модель не найдена',
@@ -113,13 +122,47 @@ const CONTENT = {
             modelDownloading: 'Загрузка...',
             modelSize: '~500 MB',
             groqLabel: 'Groq',
-            groqDesc: 'Облачный Whisper · бесплатно · сверхбыстро',
+            groqDesc: 'LPU ускорение · Whisper Large v3 · сверхбыстро',
             groqApiKeyLabel: 'API ключ Groq',
             groqHowTo: 'Бесплатный ключ на console.groq.com',
             faqTitle: 'Отличия движков (FAQ)',
             faqDeepgram: 'Deepgram (Рекомендуется) — мгновенная коммерческая модель. Идеально расставляет знаки препинания и отлично фильтрует шум.',
-            faqGroq: 'Groq — запускает нейросеть Whisper Large на своих серверах. Безумная скорость и бесплатность, типичная пунктуация нейросетей.',
-            faqWhisper: 'Офлайн Whisper — выполняется прямо на вашем Mac без интернета. Максимальная приватность, но самая медленная скорость.',
+            faqGroq: 'Groq — использует архитектуру LPU для запуска Whisper-Large-v3-Turbo. Безумная скорость обработки больших блоков текста.',
+            faqWhisper: 'Офлайн Whisper — компактная модель 500MB (small). Работает без интернета, оптимальна для Apple Silicon. В этом режиме не рекомендуется использовать функцию "Авто" (могут быть задержки).',
+        },
+        welcome: {
+            title: 'Добро пожаловать в NYX Vox!',
+            subtitle: 'Голосовое управление будущим уже на твоем Mac.',
+            permTitle: 'Конфиденциальность и права',
+            permAccess: 'Универсальный доступ',
+            permAccessDesc: 'Необходим для имитации нажатия ⌘V и мгновенной вставки текста.',
+            permMic: 'Доступ к микрофону',
+            permMicDesc: 'Разрешение требуется для захвата и нейросетевой обработки речи.',
+            openSettings: 'Настройки',
+            faqTitle: 'Часто задаваемые вопросы',
+            faqQ1: 'Как начать использовать?',
+            faqA1: '⌥ Option + Space — твой главный инструмент. Нажми один раз для старта, и второй раз для завершения и вставки готового текста.',
+            faqQ2: 'Мои данные под защитой?',
+            faqA2: 'Да. В режиме "Офлайн" обработка идет локально. В облачных режимах данные защищены TLS и не используются для обучения нейросетей.',
+            faqQ3: 'Какой режим распознавания выбрать?',
+            faqA3: 'Deepgram — идеален для диалогов и шума. Офлайн Whisper — для полной приватности (установите один язык (RU или EN) во избежание артефактов).',
+            faqQ4: 'Зачем нужны разрешения?',
+            faqA4: 'Без "Доступа" приложение не сможет напечатать текст за тебя, а без "Микрофона" — услышать. При обновлении вручную macOS сбрасывает права — удали (-) и добавь (+) приложение в настройках заново.',
+            updateWarningTitle: 'Обновляетесь с GitHub?',
+            updateWarning: 'macOS сбросит ваши права "Универсального доступа". Зайдите в системные настройки, удалите NYX Vox кнопкой минус (-) и добавьте его заново.',
+            troubleshootTitle: 'Техническая помощь',
+            fixQuarantine: 'Ошибка: "Файл поврежден"',
+            fixQuarantineDesc: 'macOS защищает тебя от стороннего софта. Твой билд v0.1.2-beta проверен — просто убери флаг блокировки кнопкой ниже.',
+            fixBtn: 'СНЯТЬ БЛОКИРОВКУ',
+            dontShow: 'Больше не показывать',
+            startBtn: 'ПОЕХАЛИ!',
+        },
+        update: {
+            title: 'Интересно! Новая версия!',
+            desc: 'Мы нашли обновление для NYX Vox. Рекомендуем скачать её для стабильной работы и новых функций.',
+            notes: 'Что нового:',
+            later: 'Позже',
+            download: 'Скачать сейчас',
         }
     },
     en: {
@@ -166,7 +209,7 @@ const CONTENT = {
         about: {
             title: 'About',
             app: 'NYX VOX',
-            version: 'v0.1.1-beta',
+            version: 'v0.1.2-beta',
             desc: 'A premium macOS dictation tool bridging the gap between thought and text. Convert voice to text instantly using Deepgram, Groq, or offline Whisper AI engines.',
             author: 'Developer',
             mission: 'Mission',
@@ -182,6 +225,8 @@ const CONTENT = {
             autoPasteDesc: 'Automatically paste text when recording stops',
             clearOnPaste: 'Clear After Paste',
             clearOnPasteDesc: 'Clear the text field after a successful paste',
+            startMinimized: 'Start Minimized',
+            startMinimizedDesc: 'App will stay in the tray on launch',
             autoPause: 'Auto-Pause Media',
             autoPauseDesc: 'Pause media playback while dictating',
             accessibility: 'macOS: Accessibility',
@@ -205,6 +250,10 @@ const CONTENT = {
             apiKeyStep3: 'Click Create a New API Key',
             apiKeyStep4: 'Copy the key and paste above',
             apiKeyFree: '💡 Free: $200 credits (~200 hours)',
+            checkUpdates: 'Check for Updates',
+            updateAvailable: 'New version available!',
+            noUpdate: 'You have the latest version',
+            checking: 'Checking...',
             modelStatus: 'Offline Model',
             modelInstalled: 'Model installed',
             modelNotFound: 'Model not found',
@@ -218,7 +267,41 @@ const CONTENT = {
             faqTitle: 'Model Differences (FAQ)',
             faqDeepgram: 'Deepgram (Recommended) — Instant commercial model. Perfect punctuation and ultimate noise filtering.',
             faqGroq: 'Groq — Runs Whisper Large on their blazing fast servers. Free, ultra-fast, with typical AI punctuation.',
-            faqWhisper: 'Offline Whisper — Runs locally on your Mac without internet. Ultimate privacy, but slower than cloud APIs.',
+            faqWhisper: 'Offline Whisper — Compact 500MB model (small). Works locally, optimized for Apple Silicon. Caution: Using "Auto" language mode is not recommended in this engine.',
+        },
+        welcome: {
+            title: 'Welcome to NYX Vox!',
+            subtitle: 'Voice-powered future, now on your Mac.',
+            permTitle: 'Privacy & Security',
+            permAccess: 'Accessibility Access',
+            permAccessDesc: 'Required to simulate ⌘V keystrokes and auto-paste text everywhere.',
+            permMic: 'Microphone Input',
+            permMicDesc: 'Permission to capture your voice for neural AI processing.',
+            openSettings: 'Settings',
+            faqTitle: 'Frequently Asked Questions',
+            faqQ1: 'How do I start using it?',
+            faqA1: '⌥ Option + Space — your main tool. Press once to start, second time to finish and paste the text.',
+            faqQ2: 'Is my data secure?',
+            faqA2: 'Yes. In Offline mode, data stays local. Cloud models are TLS-encrypted and never used for training.',
+            faqQ3: 'Which engine should I pick?',
+            faqA3: 'Deepgram — perfect for dialogues. Offline Whisper — best for privacy; select ONE language (RU/EN) to prevent artifacts.',
+            faqQ4: 'Why the permissions?',
+            faqA4: 'Accessibility allows auto-pasting; Microphone allows listening. When updating manually, macOS resets these—remove (-) and re-add (+) the app in your system settings.',
+            updateWarningTitle: 'Updating manually?',
+            updateWarning: 'macOS will reset your Accessibility permissions. Go to System Settings, remove NYX Vox with the minus (-) button, and add it back.',
+            troubleshootTitle: 'Troubleshooting',
+            fixQuarantine: 'Error: "File Damaged"',
+            fixQuarantineDesc: 'macOS protects you from non-App Store apps. Your v0.1.2-beta build is safe — reset the quarantine lock below.',
+            fixBtn: 'RESET THE LOCK / FIX',
+            dontShow: 'Don\'t show again',
+            startBtn: 'GET STARTED!',
+        },
+        update: {
+            title: 'New Update Available!',
+            desc: 'A newer version of NYX Vox is out! Download it for better performance and new features.',
+            notes: 'Release Notes:',
+            later: 'Maybe later',
+            download: 'Download Now',
         }
     }
 };
@@ -234,7 +317,7 @@ const Toggle = ({ checked, onChange }: { checked: boolean; onChange: () => void 
     </button>
 );
 
-export function SettingsPanel({ onClose, autoPaste, clearOnPaste, onToggleAutoPaste, onToggleClearOnPaste }: SettingsPanelProps) {
+export function SettingsPanel({ onClose, autoPaste, clearOnPaste, onToggleAutoPaste, onToggleClearOnPaste, startMinimized, onToggleStartMinimized }: SettingsPanelProps) {
     const [tab, setTab] = useState<Tab>('guide');
     const [lang, setLang] = useState<Lang>('ru');
     const [showFeedback, setShowFeedback] = useState(false);
@@ -256,12 +339,43 @@ export function SettingsPanel({ onClose, autoPaste, clearOnPaste, onToggleAutoPa
     const [modelAvailable, setModelAvailable] = useState(false);
     const [downloading, setDownloading] = useState(false);
     const [downloadProgress, setDownloadProgress] = useState('');
+    const [updateStatus, setUpdateStatus] = useState<'idle' | 'checking' | 'available' | 'latest' | 'error'>('idle');
+    const [latestVersion, setLatestVersion] = useState('');
     const c = CONTENT[lang];
+
+    const handleCheckUpdates = useCallback(async () => {
+        setUpdateStatus('checking');
+        try {
+            const response = await fetch('https://api.github.com/repos/AVP-Dev/nyx-vox/releases/latest');
+            const data = await response.json();
+            const latest = data.tag_name; // e.g., "v0.1.2-beta"
+            setLatestVersion(latest);
+
+            const current = 'v0.1.2-beta';
+            if (latest !== current) {
+                setUpdateStatus('available');
+            } else {
+                setUpdateStatus('latest');
+            }
+        } catch (err) {
+            console.error('Update check error:', err);
+            setUpdateStatus('error');
+        }
+    }, []);
+
+    const handleDownload = useCallback(async () => {
+        setDownloading(true); setDownloadProgress('...');
+        try { await invoke('download_whisper_model'); }
+        catch (err) { setDownloading(false); setDownloadProgress(`Error: ${err}`); }
+    }, []);
 
     // Load settings on mount
     useEffect(() => {
         const load = async () => {
             try {
+                const savedAppLang = await invoke<'ru' | 'en'>('get_app_language');
+                if (savedAppLang) setLang(savedAppLang);
+
                 const savedMode = await invoke<string>('get_stt_mode');
                 if (savedMode) setSttMode(savedMode as 'deepgram' | 'whisper' | 'groq');
 
@@ -285,18 +399,30 @@ export function SettingsPanel({ onClose, autoPaste, clearOnPaste, onToggleAutoPa
 
                 const available = await invoke<boolean>('check_model_available');
                 setModelAvailable(available);
+
+                // Check for updates automatically
+                handleCheckUpdates();
             } catch (err) { console.error('Settings load error:', err); }
         };
         load();
-    }, []);
+        
+        let unlisten: (() => void) | null = null;
+        listen<string>('language-changed', (event) => {
+            setLang(event.payload as 'ru' | 'en');
+        }).then(u => { unlisten = u; });
+
+        return () => { if (unlisten) unlisten(); };
+    }, [handleCheckUpdates]);
 
     // Download progress listener
     useEffect(() => {
-        const unlisten = listen<string>('model-download-progress', (e) => {
+        let unlisten: (() => void) | null = null;
+        listen<string>('model-download-progress', (e) => {
             setDownloadProgress(e.payload);
             if (e.payload === 'Готово!') { setDownloading(false); setModelAvailable(true); }
-        });
-        return () => { unlisten.then(f => f()); };
+        }).then(u => { unlisten = u; });
+
+        return () => { if (unlisten) unlisten(); };
     }, []);
 
     const handleModeChange = useCallback(async (newMode: 'deepgram' | 'whisper' | 'groq') => {
@@ -347,12 +473,6 @@ export function SettingsPanel({ onClose, autoPaste, clearOnPaste, onToggleAutoPa
         setGroqApiKey(''); setGroqKeySaved(false);
     }, []);
 
-    const handleDownload = useCallback(async () => {
-        setDownloading(true); setDownloadProgress('...');
-        try { await invoke('download_whisper_model'); }
-        catch (err) { setDownloading(false); setDownloadProgress(`Error: ${err}`); }
-    }, []);
-
     const handleDeleteModel = useCallback(async () => {
         try {
             await invoke('delete_whisper_model');
@@ -378,7 +498,7 @@ export function SettingsPanel({ onClose, autoPaste, clearOnPaste, onToggleAutoPa
             {showFeedback && <FeedbackModal onClose={() => setShowFeedback(false)} />}
             <div
                 data-tauri-drag-region
-                className="w-full h-full bg-[#0D0D0D]/95 border border-white/10 rounded-[28px] flex flex-col overflow-hidden relative pointer-events-auto"
+                className="w-full h-full bg-[#18181B] border border-white/10 rounded-[28px] flex flex-col overflow-hidden relative pointer-events-auto"
             >
                 {/* HEADER */}
                 <div data-tauri-drag-region className="flex items-center justify-between px-4 pt-4 pb-2 shrink-0">
@@ -388,7 +508,7 @@ export function SettingsPanel({ onClose, autoPaste, clearOnPaste, onToggleAutoPa
                                 key={t.id}
                                 onClick={() => setTab(t.id)}
                                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12px] font-medium transition-all whitespace-nowrap ${tab === t.id
-                                    ? 'bg-white/10 text-white shadow-[0_2px_8px_rgba(255,255,255,0.05)]'
+                                    ? 'bg-white/10 text-white'
                                     : 'text-white/40 hover:text-white/60 hover:bg-white/5'
                                     }`}
                             >
@@ -401,7 +521,11 @@ export function SettingsPanel({ onClose, autoPaste, clearOnPaste, onToggleAutoPa
                     <div className="flex items-center gap-2">
                         {/* Language Toggle */}
                         <button
-                            onClick={() => setLang(lang === 'ru' ? 'en' : 'ru')}
+                            onClick={() => {
+                                const newLang = lang === 'ru' ? 'en' : 'ru';
+                                setLang(newLang);
+                                invoke('set_app_language', { lang: newLang });
+                            }}
                             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition-all"
                         >
                             <Globe className="w-3 h-3 text-white/50" />
@@ -475,6 +599,13 @@ export function SettingsPanel({ onClose, autoPaste, clearOnPaste, onToggleAutoPa
                                     </div>
                                     <div className="flex items-center justify-between p-3.5 rounded-xl bg-white/4 border border-white/8">
                                         <div>
+                                            <div className="text-[13px] font-semibold text-white/90">{c.settings.startMinimized}</div>
+                                            <div className="text-[11px] text-white/40 mt-0.5">{c.settings.startMinimizedDesc}</div>
+                                        </div>
+                                        <Toggle checked={startMinimized} onChange={onToggleStartMinimized} />
+                                    </div>
+                                    <div className="flex items-center justify-between p-3.5 rounded-xl bg-white/4 border border-white/8">
+                                        <div>
                                             <div className="text-[13px] font-semibold text-white/90">{c.settings.autoPause}</div>
                                             <div className="text-[11px] text-white/40 mt-0.5">{c.settings.autoPauseDesc}</div>
                                         </div>
@@ -509,7 +640,7 @@ export function SettingsPanel({ onClose, autoPaste, clearOnPaste, onToggleAutoPa
                                     <button
                                         onClick={() => handleModeChange('deepgram')}
                                         className={`p-3 rounded-xl border transition-all text-left flex flex-col items-start ${sttMode === 'deepgram'
-                                            ? 'bg-white/8 border-white/20 shadow-[0_0_15px_rgba(255,255,255,0.05)]'
+                                            ? 'bg-white/8 border-white/20'
                                             : 'bg-white/3 border-white/8 hover:border-white/15'
                                             }`}
                                     >
@@ -520,7 +651,7 @@ export function SettingsPanel({ onClose, autoPaste, clearOnPaste, onToggleAutoPa
                                     <button
                                         onClick={() => handleModeChange('groq')}
                                         className={`p-3 rounded-xl border transition-all text-left flex flex-col items-start ${sttMode === 'groq'
-                                            ? 'bg-white/8 border-amber-500/30 shadow-[0_0_15px_rgba(245,158,11,0.1)]'
+                                            ? 'bg-white/8 border-amber-500/30'
                                             : 'bg-white/3 border-white/8 hover:border-white/15'
                                             }`}
                                     >
@@ -531,7 +662,7 @@ export function SettingsPanel({ onClose, autoPaste, clearOnPaste, onToggleAutoPa
                                     <button
                                         onClick={() => handleModeChange('whisper')}
                                         className={`p-3 rounded-xl border transition-all text-left flex flex-col items-start ${sttMode === 'whisper'
-                                            ? 'bg-white/8 border-white/20 shadow-[0_0_15px_rgba(255,255,255,0.05)]'
+                                            ? 'bg-white/8 border-white/20'
                                             : 'bg-white/3 border-white/8 hover:border-white/15'
                                             }`}
                                     >
@@ -557,7 +688,7 @@ export function SettingsPanel({ onClose, autoPaste, clearOnPaste, onToggleAutoPa
                                                     key={l.id}
                                                     onClick={() => handleLanguageChange(l.id as 'auto' | 'ru' | 'en')}
                                                     className={`p-2 rounded-xl border transition-all text-center text-[12px] font-semibold ${isActive
-                                                        ? 'bg-white/8 border-white/20 text-white shadow-[0_0_15px_rgba(255,255,255,0.05)]'
+                                                        ? 'bg-white/8 border-white/20 text-white'
                                                         : 'bg-white/3 border-white/8 text-white/50 hover:border-white/15'
                                                         }`}
                                                 >
@@ -711,6 +842,40 @@ export function SettingsPanel({ onClose, autoPaste, clearOnPaste, onToggleAutoPa
                                             <HardDrive className="w-4 h-4 text-white/40 shrink-0 mt-0.5" />
                                             <p>{c.settings.faqWhisper}</p>
                                         </div>
+                                    </div>
+                                </div>
+
+                                {/* ── UPDATE CHECK ── */}
+                                <div>
+                                    <div className="text-[11px] font-bold text-white/30 uppercase tracking-widest mb-3">{lang === 'ru' ? 'Обновления' : 'Updates'}</div>
+                                    <div className="p-3.5 rounded-xl bg-white/4 border border-white/8 flex items-center justify-between">
+                                        <div className="flex flex-col">
+                                            <div className="text-[13px] font-semibold text-white/90">
+                                                {updateStatus === 'available' ? (lang === 'ru' ? 'Доступна новая версия!' : 'New version available!') : (updateStatus === 'latest' ? (lang === 'ru' ? 'У вас последняя версия' : 'You have the latest version') : (lang === 'ru' ? 'Проверить обновления' : 'Check for Updates'))}
+                                            </div>
+                                            {latestVersion && (
+                                                <div className="text-[11px] text-white/40 mt-0.5">
+                                                    {lang === 'ru' ? `Последняя: ${latestVersion}` : `Latest: ${latestVersion}`}
+                                                </div>
+                                            )}
+                                        </div>
+                                        <button
+                                            onClick={updateStatus === 'available' ? () => {
+                                                if (window.__TAURI_INTERNALS__) {
+                                                    import('@tauri-apps/plugin-shell').then(({ open }) => open('https://github.com/AVP-Dev/nyx-vox/releases/latest'));
+                                                } else {
+                                                    window.open('https://github.com/AVP-Dev/nyx-vox/releases/latest', '_blank');
+                                                }
+                                            } : handleCheckUpdates}
+                                            disabled={updateStatus === 'checking'}
+                                            className={`px-4 py-2 rounded-lg text-[12px] font-bold transition-all flex items-center gap-2 ${updateStatus === 'available'
+                                                ? 'bg-orange-500 hover:bg-orange-600 text-white shadow-[0_0_15px_rgba(249,115,22,0.3)]'
+                                                : 'bg-white/10 hover:bg-white/15 text-white/80'
+                                                }`}
+                                        >
+                                            {updateStatus === 'checking' && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                                            {updateStatus === 'available' ? (lang === 'ru' ? 'СКАЧАТЬ' : 'DOWNLOAD') : (lang === 'ru' ? 'ПРОВЕРИТЬ' : 'CHECK')}
+                                        </button>
                                     </div>
                                 </div>
                             </div>

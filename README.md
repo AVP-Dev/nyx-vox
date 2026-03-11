@@ -2,7 +2,7 @@
   <img src="./branding/app-icon-safe.png" width="96" height="96" alt="NYX Vox Logo" />
   <h1>NYX Vox</h1>
 
-  [![Download](https://img.shields.io/github/v/release/AVP-Dev/nyx-vox?label=Download%20Latest&style=for-the-badge&color=orange)](https://github.com/AVP-Dev/nyx-vox/releases/latest)
+  [![Скачать](https://img.shields.io/github/v/release/AVP-Dev/nyx-vox?label=Download%20Latest&style=for-the-badge&color=orange)](https://github.com/AVP-Dev/nyx-vox/releases/latest)
 
   <p>
     <a href="https://avp-dev.github.io/nyx-vox/" target="_blank" rel="noopener noreferrer">🌐 Landing Page</a> &nbsp;|&nbsp; 
@@ -36,15 +36,23 @@ If you see a message saying the app is damaged or cannot be opened, it’s becau
    ```
 3. Open the app again.
 
-## 🚀 Architectural Roadmap
-Currently, we are in the MVP stage focusing on usability and bug minimization. The long-term architectural vision includes:
-- [x] Basic Voice Transcription Pipeline (Whisper)
-- [x] Clean Glassmorphism Interface
-- [ ] Advanced AI Analytics & Local Summarization
-- [ ] Multi-Modal Input Processing
-- [ ] IoT Integration (Voice Control Extensions)
-- [ ] Seamless Mobile Expansion
-- [ ] Multi-tenancy (Future Cloud Integration)
+> [!WARNING]
+> ### ⚠️ Important: App Updates (Permissions Reset)
+> Because the app is distributed outside of the Mac App Store (without a paid developer signature), macOS treats each manual update as a brand-new program. **When installing a new version, auto-paste will stop working** because macOS will revoke your "Accessibility" permissions.
+> 
+> **How to fix this after every update:**
+> 1. Open **System Settings** -> **Privacy & Security** -> **Accessibility**.
+> 2. Find `NYX Vox` in the list, select it, and click the minus **`-`** button (Remove).
+> 3. Launch the new version of the app to trigger a fresh permission request, or manually add it back using the plus **`+`** button.
+
+## 🚀 Roadmap
+- [x] Basic Speech-to-Text Pipeline (Whisper/Groq/Deepgram)
+- [x] Glassmorphism UI & Dynamic Windows
+- [x] Native HID Auto-Paste (MacOS)
+- [ ] Custom Global Shortcuts
+- [ ] Local Transcription History & Search
+- [ ] Advanced Formatting & Punctuation Cleanup
+- [ ] Multi-Modal AI Processing (Planned)
 
 > [!TIP]
 > This is a passionate first foray into Rust for system-level audio and API integration. Please share any thoughts or constructive feedback on the repository!

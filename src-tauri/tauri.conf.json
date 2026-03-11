@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "NYX Vox",
-  "version": "0.1.1-beta",
+  "version": "0.1.2-beta",
   "identifier": "com.nyx.vox2",
   "build": {
     "frontendDist": "../out",
@@ -15,18 +15,18 @@
       {
         "label": "main",
         "title": "NYX Vox",
-        "width": 124,
-        "height": 124,
+        "width": 140,
+        "height": 48,
         "minWidth": 64,
-        "minHeight": 64,
-        "maxWidth": 500,
+        "minHeight": 48,
+        "maxWidth": 800,
         "resizable": false,
         "fullscreen": false,
         "decorations": false,
         "transparent": true,
         "alwaysOnTop": true,
         "visible": false,
-        "shadow": true,
+        "shadow": false,
         "skipTaskbar": true
       }
     ],
@@ -43,6 +43,9 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "macOS": {
+      "entitlements": "entitlements.mac.plist"
+    }
   }
 }

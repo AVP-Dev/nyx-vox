@@ -6,7 +6,9 @@
     "linux"
   ],
   "windows": [
-    "main"
+    "main",
+    "welcome",
+    "update"
   ],
   "permissions": [
     "global-shortcut:default",
@@ -37,6 +39,7 @@
     },
     "core:window:allow-set-size",
     "core:window:allow-set-position",
-    "core:window:allow-set-always-on-top"
+    "core:window:allow-set-always-on-top",
+    "core:window:allow-close"
   ]
 }

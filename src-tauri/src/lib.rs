@@ -6,8 +6,8 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc, Mutex,
 };
-use std::thread;
-use std::time::Duration;
+// use std::thread;
+// use std::time::Duration;
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{TrayIconBuilder, TrayIconEvent},
@@ -40,6 +40,9 @@ struct TargetApp(Mutex<(String, String)>);
 // Position initialized flag (to only center once on launch)
 struct PositionInitialized(AtomicBool);
 
+// APP Language ("ru" or "en")
+struct AppLanguage(Mutex<String>);
+
 // Deepgram API key (cached from store)
 struct DgApiKey(Mutex<Option<String>>);
 
@@ -47,6 +50,7 @@ struct DgApiKey(Mutex<Option<String>>);
 struct GroqApiKey(Mutex<Option<String>>);
 
 // Enigo instance (cached to avoid IOHID initialization delay on every call)
+#[allow(dead_code)]
 struct EnigoWrapper(pub enigo::Enigo);
 unsafe impl Send for EnigoWrapper {}
 unsafe impl Sync for EnigoWrapper {}
@@ -130,7 +134,7 @@ fn show_overlay<R: Runtime>(app: &AppHandle<R>) {
                 let win_w = window.outer_size().unwrap_or_default().width as f64 / scale;
                 let actual_win_w = if win_w > 0.0 { win_w } else { 140.0 };
                 let x = ((screen_w - actual_win_w) / 2.0 * scale) as i32;
-                let y = (28.0 * scale) as i32;
+                let y = 0; // Cling to the top menu bar
                 let _ = window.set_position(tauri::PhysicalPosition::new(x, y));
                 
                 // Mark as initialized so user positioning is respected from now on
@@ -140,6 +144,7 @@ fn show_overlay<R: Runtime>(app: &AppHandle<R>) {
         
         let _ = window.show();
         let _ = window.set_focus();
+        let _ = app.emit("app-summon", ());
     }
 }
 
@@ -154,8 +159,7 @@ fn reset_window_position(app: AppHandle) {
             // Standard centered size for idle pill
             let win_w = 140.0; 
             let x = ((screen_w - win_w) / 2.0 * scale) as i32;
-            let y = (28.0 * scale) as i32;
-            
+            let y = 0; // Cling to the top menu bar
             let _ = window.set_position(tauri::PhysicalPosition::new(x, y));
             let _ = app.emit("reset-position", ());
         }
@@ -266,19 +270,112 @@ fn get_target_app(state: State<'_, TargetApp>) -> String {
 #[tauri::command]
 fn update_tray_lang(app: AppHandle, lang: String) {
     if let Some(tray) = app.tray_by_id("main") {
-        // In Tauri 2.0, the most reliable way to update the tray menu is to rebuild it
+        let welcome_label = if lang == "ru" { "Инструкция (Welcome/FAQ)" } else { "Welcome / Help" };
         let show_label = if lang == "ru" { "Показать NYX Vox" } else { "Show NYX Vox" };
         let settings_label = if lang == "ru" { "Настройки" } else { "Settings" };
         let reset_label = if lang == "ru" { "Сбросить позицию (Reset)" } else { "Reset Position" };
         let quit_label = if lang == "ru" { "Выйти (Quit)" } else { "Quit" };
 
+        let welcome_i = MenuItem::with_id(&app, "welcome_win", welcome_label, true, None::<&str>).unwrap();
         let show_i = MenuItem::with_id(&app, "show", show_label, true, None::<&str>).unwrap();
         let settings_i = MenuItem::with_id(&app, "settings", settings_label, true, None::<&str>).unwrap();
         let reset_pos_i = MenuItem::with_id(&app, "reset_pos", reset_label, true, None::<&str>).unwrap();
         let quit_i = MenuItem::with_id(&app, "quit", quit_label, true, None::<&str>).unwrap();
         
-        let tray_menu = Menu::with_items(&app, &[&show_i, &settings_i, &reset_pos_i, &quit_i]).unwrap();
+        // Single standardized tray menu
+        let tray_menu = Menu::with_items(&app, &[&welcome_i, &show_i, &settings_i, &reset_pos_i, &quit_i]).unwrap();
         let _ = tray.set_menu(Some(tray_menu));
+    }
+}
+
+#[tauri::command]
+async fn check_microphone_permission() -> Result<bool, String> {
+    #[cfg(target_os = "macos")]
+    {
+        use objc2_av_foundation::{AVCaptureDevice, AVMediaTypeAudio, AVAuthorizationStatus};
+        unsafe {
+            if let Some(media_type) = AVMediaTypeAudio {
+                let status = AVCaptureDevice::authorizationStatusForMediaType(media_type);
+                Ok(status == AVAuthorizationStatus::Authorized)
+            } else {
+                Err("Could not get audio media type constant".to_string())
+            }
+        }
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        Ok(true)
+    }
+}
+
+#[tauri::command]
+async fn set_app_language(app: AppHandle, lang: String, state: State<'_, AppLanguage>) -> Result<(), String> {
+    use tauri_plugin_store::StoreExt;
+    let store = app.store("settings.json").map_err(|e| e.to_string())?;
+    store.set("app_language", serde_json::json!(lang));
+    store.save().map_err(|e| e.to_string())?;
+    *state.0.lock().map_err(|e| e.to_string())? = lang.clone();
+    
+    // Also sync tray immediately
+    update_tray_lang(app.clone(), lang.clone());
+    let _ = app.emit("language-changed", lang);
+    Ok(())
+}
+
+#[tauri::command]
+async fn get_app_language(state: State<'_, AppLanguage>) -> Result<String, String> {
+    Ok(state.0.lock().map_err(|e| e.to_string())?.clone())
+}
+
+#[tauri::command]
+async fn get_update_dismissed_at(app: AppHandle) -> Result<u64, String> {
+    use tauri_plugin_store::StoreExt;
+    let store = app.store("settings.json").map_err(|e| e.to_string())?;
+    let val = store.get("update_dismissed_at").and_then(|v| v.as_u64()).unwrap_or(0);
+    Ok(val)
+}
+
+#[tauri::command]
+async fn set_update_dismissed_at(app: AppHandle, timestamp: u64) -> Result<(), String> {
+    use tauri_plugin_store::StoreExt;
+    let store = app.store("settings.json").map_err(|e| e.to_string())?;
+    store.set("update_dismissed_at", serde_json::json!(timestamp));
+    store.save().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+async fn get_ignored_update(app: AppHandle) -> Result<String, String> {
+    use tauri_plugin_store::StoreExt;
+    let store = app.store("settings.json").map_err(|e| e.to_string())?;
+    let version = store.get("ignored_update_version")
+        .and_then(|v| v.as_str().map(|s| s.to_string()))
+        .unwrap_or_else(|| "".to_string());
+    Ok(version)
+}
+
+#[tauri::command]
+async fn set_ignored_update(app: AppHandle, version: String) -> Result<(), String> {
+    use tauri_plugin_store::StoreExt;
+    let store = app.store("settings.json").map_err(|e| e.to_string())?;
+    store.set("ignored_update_version", serde_json::json!(version));
+    store.save().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+// Window management is now unified in the main pill.
+#[tauri::command]
+async fn show_welcome_window(app: AppHandle) -> Result<(), String> {
+    let _ = app.emit("open-welcome", ());
+    show_overlay(&app);
+    Ok(())
+}
+
+#[tauri::command]
+fn open_url(url: String) {
+    #[cfg(target_os = "macos")]
+    {
+        let _ = std::process::Command::new("open").arg(&url).spawn();
     }
 }
 
@@ -628,6 +725,119 @@ async fn set_stt_mode(
 }
 
 #[tauri::command]
+async fn get_welcome_seen(app: AppHandle, version: String) -> Result<bool, String> {
+    use tauri_plugin_store::StoreExt;
+    let store = app.store("settings.json").map_err(|e| e.to_string())?;
+    let key = format!("welcome_seen_{}", version.replace('.', "_"));
+    match store.get(key) {
+        Some(val) => Ok(val.as_bool().unwrap_or(false)),
+        None => Ok(false),
+    }
+}
+
+#[tauri::command]
+async fn get_start_minimized(app: AppHandle) -> Result<bool, String> {
+    use tauri_plugin_store::StoreExt;
+    let store = app.store("settings.json").map_err(|e| e.to_string())?;
+    match store.get("start_minimized") {
+        Some(val) => Ok(val.as_bool().unwrap_or(false)),
+        None => Ok(false),
+    }
+}
+
+#[tauri::command]
+async fn set_start_minimized(app: AppHandle, minimized: bool) -> Result<(), String> {
+    use tauri_plugin_store::StoreExt;
+    let store = app.store("settings.json").map_err(|e| e.to_string())?;
+    store.set("start_minimized", serde_json::json!(minimized));
+    store.save().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+async fn get_clear_on_paste(app: AppHandle) -> Result<bool, String> {
+    use tauri_plugin_store::StoreExt;
+    let store = app.store("settings.json").map_err(|e| e.to_string())?;
+    match store.get("clear_on_paste") {
+        Some(val) => Ok(val.as_bool().unwrap_or(false)),
+        None => Ok(false),
+    }
+}
+
+#[tauri::command]
+async fn set_clear_on_paste(app: AppHandle, enabled: bool) -> Result<(), String> {
+    use tauri_plugin_store::StoreExt;
+    let store = app.store("settings.json").map_err(|e| e.to_string())?;
+    store.set("clear_on_paste", serde_json::json!(enabled));
+    store.save().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+async fn set_welcome_seen(app: AppHandle, version: String, seen: bool) -> Result<(), String> {
+    use tauri_plugin_store::StoreExt;
+    let store = app.store("settings.json").map_err(|e| e.to_string())?;
+    let key = format!("welcome_seen_{}", version.replace('.', "_"));
+    store.set(key, serde_json::json!(seen));
+    store.save().map_err(|e| e.to_string())?;
+    Ok(())
+}
+#[tauri::command]
+async fn check_accessibility() -> Result<bool, String> {
+    #[cfg(target_os = "macos")]
+    {
+        extern "C" {
+            pub fn AXIsProcessTrusted() -> bool;
+        }
+        let trusted = unsafe { AXIsProcessTrusted() };
+        Ok(trusted)
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        Ok(true)
+    }
+}
+
+#[tauri::command]
+async fn open_accessibility_settings() -> Result<(), String> {
+    let script = "tell application \"System Events\" to open location \"x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility\"";
+    let _ = std::process::Command::new("osascript").arg("-e").arg(script).spawn();
+    Ok(())
+}
+
+#[tauri::command]
+async fn open_microphone_settings() -> Result<(), String> {
+    let script = "tell application \"System Events\" to open location \"x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone\"";
+    let _ = std::process::Command::new("osascript").arg("-e").arg(script).spawn();
+    Ok(())
+}
+
+// Redundant functions removed as logic moved to unified pill overlays
+
+#[tauri::command]
+async fn hide_welcome_window(app: AppHandle) -> Result<(), String> {
+    // Functional replacement: just dismiss the main overlay
+    dismiss_overlay(app);
+    Ok(())
+}
+
+#[tauri::command]
+async fn fix_quarantine(app: AppHandle) -> Result<(), String> {
+    let app_path = app.path().executable_dir().map_err(|e| e.to_string())?
+        .parent().ok_or("Invalid path")?
+        .parent().ok_or("Invalid path")?
+        .parent().ok_or("Invalid path")?.to_string_lossy().to_string();
+    
+    // Command: xattr -d com.apple.quarantine /Applications/NYX-Vox.app
+    let _ = std::process::Command::new("xattr")
+        .arg("-d")
+        .arg("com.apple.quarantine")
+        .arg(&app_path)
+        .spawn();
+    Ok(())
+}
+
+#[tauri::command]
 async fn get_stt_mode(stt_mode: State<'_, SttMode>) -> Result<String, String> {
     Ok(stt_mode.0.lock().map_err(|e| e.to_string())?.clone())
 }
@@ -766,12 +976,16 @@ pub fn run() {
     let enigo_inst = enigo::Enigo::new(&enigo::Settings::default()).expect("Failed to init Enigo");
     let enigo_state = EnigoState(Arc::new(Mutex::new(EnigoWrapper(enigo_inst))));
 
+    // Detect system language as fallback
+    let sys_lang = if std::env::var("LANG").unwrap_or_default().starts_with("ru") { "ru" } else { "en" };
+
     tauri::Builder::default()
         .manage(recording_state)
         .manage(groq_state)
         .manage(recording_flag)
         .manage(processing_flag)
         .manage(PositionInitialized(AtomicBool::new(false)))
+        .manage(AppLanguage(Mutex::new(sys_lang.to_string())))
         .manage(TargetApp(Mutex::new(("Unknown".to_string(), "Unknown".to_string()))))
         .manage(enigo_state)
         .manage(SttMode(Mutex::new("deepgram".to_string())))
@@ -785,7 +999,7 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_store::Builder::default().build())
-        .plugin(tauri_plugin_window_state::Builder::default().build())
+        // .plugin(tauri_plugin_window_state::Builder::default().build())
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
                 .with_handler(move |app, shortcut, event| {
@@ -877,6 +1091,28 @@ pub fn run() {
                             }
                         }
                     }
+                    // Load saved app language
+                    let mut current_lang = sys_lang.to_string();
+                    if let Some(lang_val) = store.get("app_language") {
+                        if let Some(l) = lang_val.as_str() {
+                            current_lang = l.to_string();
+                            if let Some(state) = app.try_state::<AppLanguage>() {
+                                if let Ok(mut lock) = state.0.lock() { *lock = l.to_string(); }
+                            }
+                        }
+                    }
+                    update_tray_lang(app.handle().clone(), current_lang);
+
+                    // Load start_minimized and show window if needed
+                    let minimized = store.get("start_minimized")
+                        .and_then(|v| v.as_bool())
+                        .unwrap_or(false);
+                    
+                    if !minimized {
+                        if let Some(w) = app.get_webview_window("main") {
+                            let _ = w.show();
+                        }
+                    }
                 }
             }
 
@@ -884,32 +1120,42 @@ pub fn run() {
             app.global_shortcut().register(ctrl_space)?;
             app.global_shortcut().register(opt_space)?;
 
-            let quit_i = MenuItem::with_id(app, "quit", "Выйти (Quit)", true, None::<&str>)?;
-            let show_i = MenuItem::with_id(app, "show", "Показать NYX VOX", true, None::<&str>)?;
-            let settings_i = MenuItem::with_id(app, "settings", "Настройки", true, None::<&str>)?;
-            let reset_pos_i = MenuItem::with_id(app, "reset_pos", "Сбросить позицию (Reset)", true, None::<&str>)?;
-            let tray_menu = Menu::with_items(app, &[&show_i, &settings_i, &reset_pos_i, &quit_i])?;
+            let tray_menu = Menu::with_items(app, &[])?;
 
             TrayIconBuilder::with_id("main")
                 .icon(tauri::image::Image::from_bytes(include_bytes!("../icons/trayTemplate.png")).unwrap())
                 .icon_as_template(true)
                 .menu(&tray_menu)
                 .tooltip("NYX Vox — Option+Space")
-                .on_menu_event(|app_handle: &AppHandle, event| match event.id.as_ref() {
-                    "quit" => app_handle.exit(0),
-                    "show" => show_overlay(app_handle),
-                    "settings" => {
-                        show_overlay(app_handle);
-                        let _ = app_handle.emit("open-settings", ());
+                .on_menu_event(|app_handle: &AppHandle, event| {
+                    let handle = app_handle.clone();
+                    match event.id.as_ref() {
+                        "quit" => handle.exit(0),
+                        "show" => show_overlay(&handle),
+                        "welcome_win" => {
+                            show_overlay(&handle);
+                            let _ = handle.emit("open-welcome", ());
+                        }
+                        "settings" => {
+                            show_overlay(&handle);
+                            let _ = handle.emit("open-settings", ());
+                        }
+                        "reset_pos" => {
+                            reset_window_position(handle);
+                        }
+                        _ => {}
                     }
-                    "reset_pos" => {
-                        reset_window_position(app_handle.clone());
-                    }
-                    _ => {}
                 })
                 .on_tray_icon_event(|tray: &tauri::tray::TrayIcon, event| {
-                    if let TrayIconEvent::Click { button: tauri::tray::MouseButton::Left, .. } = event {
-                        toggle_window(tray.app_handle());
+                    match event {
+                        TrayIconEvent::Click { button: tauri::tray::MouseButton::Left, .. } |
+                        TrayIconEvent::DoubleClick { button: tauri::tray::MouseButton::Left, .. } => {
+                            toggle_window(tray.app_handle());
+                        }
+                        TrayIconEvent::Click { button: tauri::tray::MouseButton::Right, .. } => {
+                            // Right click automatically opens the menu if attached via .menu()
+                        }
+                        _ => {}
                     }
                 })
                 .build(app)?;
@@ -921,6 +1167,15 @@ pub fn run() {
                         .build(),
                 )?;
             }
+
+            // Standardized dark appearance
+            #[cfg(target_os = "macos")]
+            {
+                if let Some(w) = app.get_webview_window("main") {
+                    let _ = w.set_title_bar_style(tauri::TitleBarStyle::Transparent);
+                }
+            }
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -935,7 +1190,15 @@ pub fn run() {
             get_groq_api_key,
             delete_groq_api_key,
             set_stt_mode,
-            get_stt_mode,
+                get_welcome_seen,
+                set_welcome_seen,
+                check_accessibility,
+                open_accessibility_settings,
+                open_microphone_settings,
+                show_welcome_window,
+                hide_welcome_window,
+                fix_quarantine,
+                get_stt_mode,
             set_deepgram_language,
             get_deepgram_language,
             set_whisper_language,
@@ -953,7 +1216,28 @@ pub fn run() {
             delete_whisper_model,
             open_mac_settings,
             reset_window_position,
+            get_start_minimized,
+            set_start_minimized,
+            get_clear_on_paste,
+            set_clear_on_paste,
+            check_microphone_permission,
+            set_app_language,
+            get_app_language,
+            get_update_dismissed_at,
+            set_update_dismissed_at,
+            get_ignored_update,
+            set_ignored_update,
+            open_url,
         ])
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                // Intercept 'CloseRequested' for 'main' window to just hide it
+                if window.label() == "main" {
+                    let _ = window.hide();
+                    api.prevent_close();
+                }
+            }
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

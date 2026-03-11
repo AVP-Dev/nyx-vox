@@ -42,17 +42,12 @@ pub fn start_deepgram<R: Runtime>(
                  dg_lang
             );
 
-            // Connect with auth header
-            let request = tokio_tungstenite::tungstenite::http::Request::builder()
-                .uri(&ws_url)
-                .header("Authorization", format!("Token {}", api_key.trim()))
-                .header("Connection", "Upgrade")
-                .header("Upgrade", "websocket")
-                .header("Sec-WebSocket-Version", "13")
-                .header("Sec-WebSocket-Key", tungstenite::handshake::client::generate_key())
-                .body(())
-                .map_err(|e| format!("Request build error: {}", e))
-                .unwrap();
+            // Connection to Deepgram. 
+            // Using into_client_request() ensures all standard WS headers (Key, Version, Host, etc.)
+            // are correctly pre-filled by the library, avoiding duplicates or omissions.
+            use tokio_tungstenite::tungstenite::client::IntoClientRequest;
+            let mut request = ws_url.into_client_request().map_err(|e| format!("URL error: {}", e)).unwrap();
+            request.headers_mut().insert("Authorization", format!("Token {}", api_key.trim()).parse().unwrap());
 
             let (ws_stream, _) = match connect_async(request).await {
                 Ok(conn) => conn,

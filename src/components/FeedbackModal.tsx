@@ -81,7 +81,7 @@ export function FeedbackModal({ onClose }: Props) {
             onClick={onClose}
         >
             <div
-                className="w-[460px] bg-[#0D0D0F] border border-white/10 rounded-[20px] shadow-[0_-8px_60px_rgba(0,0,0,0.9)] overflow-hidden"
+                className="w-[460px] bg-[#18181B] border border-white/10 rounded-[28px] shadow-none overflow-hidden"
                 onClick={e => e.stopPropagation()}
             >
                 {/* Drag handle */}

@@ -15,7 +15,7 @@ This document covers the architectural and technical aspects of NYX-Vox, a fast,
 ![Tauri](https://img.shields.io/badge/Tauri-2.x-yellow.svg)
 
 > [!IMPORTANT]
-> **Architect's Recommendation:** The current MVP operates completely offline, leveraging the local host environment and Tauri configurations for setup. However, should user state need to persist across devices or require multi-user access via a cloud synchronization setup, the infrastructure MUST transition to the **PostgreSQL** database stack, using **Drizzle ORM** for typed migrations, and **Redis** for performant caching. For Identity & Access Management, **Auth.js v5** or **Clerk** is highly recommended to conform to strictly enforced secure cloud persistence.
+> **Core Architecture:** NYX-Vox follows a hybrid approach where high-performance audio processing (cpal) and AI inference (whisper.cpp) are handled by the Rust backend, while the glassmorphism UI is rendered by a decoupled Next.js 16 environment. Communication is strictly typed via Tauri's IPC bridge.
 
 ---
 

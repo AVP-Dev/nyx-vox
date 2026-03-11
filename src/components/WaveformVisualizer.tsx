@@ -48,7 +48,7 @@ export function WaveformVisualizer({ isActive }: WaveformVisualizerProps) {
 
                 el.style.height = `${height * 16}px`;
                 el.style.background = `rgba(255, 255, 255, ${0.3 + height * 0.7})`;
-                el.style.boxShadow = height > 0.6 ? `0 0 ${height * 10}px rgba(255,255,255,0.4)` : 'none';
+                el.style.boxShadow = 'none';
             });
 
             animFrameRef.current = requestAnimationFrame(animate);
