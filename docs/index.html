@@ -1,23 +1,31 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NYX Vox | AI Voice Interface</title>
+    <title>NYX Vox — Premium AI Voice Interface for macOS</title>
+    <meta name="description" content="Fast, private, and stunning AI voice transcription directly to your macOS desktop. Supporting Deepgram, Groq, and offline Whisper.">
+    
+    <!-- Open Graph -->
+    <meta property="og:title" content="NYX Vox — AI Voice Interface">
+    <meta property="og:description" content="Zero latency, maximum elegance. Transcribe voice to text instantly on your Mac.">
+    <meta property="og:image" content="https://avp-dev.github.io/nyx-vox/hero-bg.png">
+    
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="icon" type="image/png" href="favicon.png">
-    <link rel="shortcut icon" type="image/png" href="favicon.png">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/png" href="logo.png">
+
     <style>
         :root {
-            --bg-color: #050505;
-            --glass-bg: rgba(255, 255, 255, 0.03);
-            --glass-border: rgba(255, 255, 255, 0.1);
-            --accent-color: #3b82f6;
-            --text-primary: #ffffff;
-            --text-secondary: rgba(255, 255, 255, 0.6);
+            --bg-deep: #030303;
+            --accent: #ff6b00;
+            --accent-glow: rgba(255, 107, 0, 0.4);
+            --glass: rgba(255, 255, 255, 0.03);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --text-main: #ffffff;
+            --text-dim: rgba(255, 255, 255, 0.6);
+            --font-main: "Inter", sans-serif;
         }
 
         * {
@@ -27,285 +35,385 @@
         }
 
         body {
-            font-family: 'Inter', sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-primary);
+            font-family: var(--font-main);
+            background-color: var(--bg-deep);
+            color: var(--text-main);
+            line-height: 1.5;
             overflow-x: hidden;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
         }
 
-        .ambient-bg {
+        /* --- Background Effects --- */
+        .hero-bg {
             position: fixed;
             top: 0;
             left: 0;
-            width: 100vw;
+            width: 100%;
             height: 100vh;
             z-index: -1;
-            background:
-                radial-gradient(circle at 20% 20%, rgba(59, 130, 246, 0.15) 0%, transparent 40%),
-                radial-gradient(circle at 80% 80%, rgba(147, 51, 234, 0.1) 0%, transparent 40%);
+            background: 
+                linear-gradient(to bottom, rgba(3, 3, 3, 0.4), var(--bg-deep)),
+                url('hero-bg.png') center/cover no-repeat;
+            opacity: 0.6;
+            filter: saturate(1.2) brightness(0.8);
+            animation: bgShift 40s linear infinite alternate;
         }
 
-        .container {
-            max-width: 900px;
-            width: 90%;
-            text-align: center;
-            z-index: 1;
+        @keyframes bgShift {
+            from { transform: scale(1.0); }
+            to { transform: scale(1.1); }
         }
 
-        .card {
-            background: var(--glass-bg);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid var(--glass-border);
-            border-radius: 32px;
-            padding: 60px 40px;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-            animation: fadeIn 1s ease-out;
-            position: relative;
+        .ambient-glow {
+            position: fixed;
+            top: -10%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80%;
+            height: 40%;
+            background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+            z-index: -1;
+            filter: blur(100px);
+            opacity: 0.3;
         }
 
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        /* Language Switcher */
-        .lang-switcher {
-            position: absolute;
-            top: 24px;
-            right: 32px;
+        /* --- UI Elements --- */
+        .nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 24px 5%;
             display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        .logo-group {
+            display: flex;
+            align-items: center;
             gap: 12px;
-            background: rgba(255, 255, 255, 0.05);
-            padding: 4px 12px;
-            border-radius: 12px;
+            text-decoration: none;
+            color: white;
+        }
+
+        .logo-img {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+        }
+
+        .logo-text {
+            font-weight: 900;
+            font-size: 1.2rem;
+            letter-spacing: -0.05em;
+            text-transform: uppercase;
+        }
+
+        .lang-switch {
+            display: flex;
+            background: var(--glass);
             border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            overflow: hidden;
+            padding: 2px;
         }
 
         .lang-btn {
             background: none;
             border: none;
-            color: var(--text-secondary);
-            font-size: 0.8rem;
-            font-weight: 600;
+            color: var(--text-dim);
+            padding: 6px 14px;
+            font-size: 0.75rem;
+            font-weight: 800;
             cursor: pointer;
-            transition: color 0.2s;
-            padding: 4px 0;
+            transition: all 0.2s;
+            border-radius: 9px;
         }
 
         .lang-btn.active {
-            color: #fff;
+            background: white;
+            color: black;
         }
 
-        .lang-btn:hover {
-            color: #fff;
+        /* --- Hero Section --- */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 100px 5%;
         }
 
-        [data-lang] {
-            display: none;
+        .badge {
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            padding: 6px 16px;
+            border-radius: 100px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-bottom: 24px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
         }
 
-        html[lang="en"] [data-lang="en"] {
-            display: block;
-        }
-
-        html[lang="en"] p[data-lang="en"] {
-            display: block;
-        }
-
-        html[lang="en"] div[data-lang="en"] {
-            display: block;
-        }
-
-        html[lang="ru"] [data-lang="ru"] {
-            display: block;
-        }
-
-        html[lang="ru"] p[data-lang="ru"] {
-            display: block;
-        }
-
-        html[lang="ru"] div[data-lang="ru"] {
-            display: block;
-        }
-
-        .logo {
-            font-size: 3.5rem;
-            font-weight: 700;
-            letter-spacing: -0.05em;
+        .hero h1 {
+            font-size: clamp(3rem, 10vw, 6rem);
+            font-weight: 900;
+            line-height: 0.95;
+            letter-spacing: -0.06em;
             margin-bottom: 20px;
-            background: linear-gradient(135deg, #fff 0%, rgba(255, 255, 255, 0.4) 100%);
+            background: linear-gradient(to bottom, #fff 40%, rgba(255,255,255,0.4));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
 
-        .tagline {
-            font-size: 1.25rem;
-            color: var(--text-secondary);
-            margin-bottom: 40px;
+        .hero p {
+            font-size: clamp(1rem, 4vw, 1.4rem);
+            color: var(--text-dim);
             max-width: 600px;
-            margin-left: auto;
-            margin-right: auto;
+            margin-bottom: 48px;
+            font-weight: 400;
         }
 
-        .download-btn {
+        .cta-group {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 16px;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+            padding: 18px 36px;
+            border-radius: 16px;
+            font-weight: 800;
+            text-decoration: none;
+            font-size: 1.1rem;
+            transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+            box-shadow: 0 10px 40px -10px var(--accent-glow);
             display: inline-flex;
             align-items: center;
             gap: 12px;
-            background: #ffffff;
-            color: #000;
-            padding: 16px 32px;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-4px) scale(1.02);
+            box-shadow: 0 15px 50px -5px var(--accent-glow);
+        }
+
+        .btn-secondary {
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            color: white;
+            padding: 18px 36px;
             border-radius: 16px;
-            font-weight: 600;
+            font-weight: 700;
             text-decoration: none;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            box-shadow: 0 4px 12px rgba(255, 255, 255, 0.2);
-        }
-
-        .download-btn:hover {
-            transform: scale(1.05);
-            box-shadow: 0 8px 24px rgba(255, 255, 255, 0.3);
-        }
-
-        .download-btn svg {
-            width: 20px;
-            height: 20px;
-        }
-
-        .features {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 30px;
-            margin-top: 60px;
-        }
-
-        .feature-item {
-            text-align: left;
-        }
-
-        .feature-item h3 {
             font-size: 1.1rem;
+            transition: all 0.3s;
+            backdrop-filter: blur(10px);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        /* --- Feature Grid --- */
+        .features {
+            padding: 0 5% 100px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 24px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .feature-card {
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            padding: 40px;
+            transition: all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .feature-card:hover {
+            border-color: rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.05);
+            transform: translateY(-8px);
+        }
+
+        .feature-card h3 {
+            font-size: 1.5rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+        }
+
+        .feature-card p {
+            color: var(--text-dim);
+            font-size: 1rem;
+            line-height: 1.6;
+        }
+
+        .feature-icon {
+            width: 48px;
+            height: 48px;
+            background: var(--accent-glow);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--accent);
             margin-bottom: 8px;
-            color: #fff;
         }
 
-        .feature-item p {
-            font-size: 0.9rem;
-            color: var(--text-secondary);
-        }
-
+        /* --- Footer --- */
         footer {
-            margin-top: 40px;
-            font-size: 0.8rem;
-            color: rgba(255, 255, 255, 0.3);
+            padding: 60px 5%;
+            text-align: center;
+            border-top: 1px solid var(--glass-border);
+            color: var(--text-dim);
+            font-size: 0.9rem;
         }
 
         footer a {
-            color: inherit;
+            color: white;
             text-decoration: none;
+            font-weight: 600;
         }
 
-        footer a:hover {
-            text-decoration: underline;
+        /* --- Translation Logic --- */
+        [data-en], [data-ru] { display: none; }
+        
+        html[lang="en"] [data-en] { display: inline; }
+        html[lang="en"] p[data-en] { display: block; }
+        html[lang="en"] h1[data-en] { display: block; }
+        html[lang="en"] h3[data-en] { display: block; }
+
+        html[lang="ru"] [data-ru] { display: inline; }
+        html[lang="ru"] p[data-ru] { display: block; }
+        html[lang="ru"] h1[data-ru] { display: block; }
+        html[lang="ru"] h3[data-ru] { display: block; }
+
+        @media (max-width: 768px) {
+            .hero h1 { font-size: 3.5rem; }
+            .cta-group { flex-direction: column; width: 100%; }
+            .btn-primary, .btn-secondary { width: 100%; justify-content: center; }
         }
     </style>
 </head>
-
 <body onload="checkLang()">
-    <div class="ambient-bg"></div>
+    <div class="hero-bg"></div>
+    <div class="ambient-glow"></div>
 
-    <div class="container">
-        <div class="card">
-            <div class="lang-switcher">
-                <button class="lang-btn" id="btn-en" onclick="setLang('en')">EN</button>
-                <button class="lang-btn" id="btn-ru" onclick="setLang('ru')">RU</button>
-            </div>
-
-            <h1 class="logo">NYX Vox</h1>
-
-            <p class="tagline" data-lang="en">A rapid, private, and stunning AI voice interface for macOS. Zero latency,
-                maximum elegance.</p>
-            <p class="tagline" data-lang="ru">Быстрый, приватный и потрясающий AI-голосовой интерфейс для macOS. Нулевая
-                задержка, максимальная элегантность.</p>
-
-            <a href="https://github.com/AVP-Dev/nyx-vox/releases/latest" class="download-btn">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
-                    stroke-linejoin="round">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" />
-                </svg>
-                <span data-lang="en">Download for macOS</span>
-                <span data-lang="ru">Скачать для macOS</span>
-            </a>
-
-            <div class="features">
-                <div class="feature-item">
-                    <h3 data-lang="en">Swift Delivery</h3>
-                    <h3 data-lang="ru">Мгновенный ввод</h3>
-                    <p data-lang="en">Powered by Cloud acceleration (Deepgram) and local Whisper for instant results.
-                    </p>
-                    <p data-lang="ru">Использует облачное ускорение (Deepgram) и локальный Whisper для мгновенных
-                        результатов.</p>
-                </div>
-                <div class="feature-item">
-                    <h3 data-lang="en">Private by Default</h3>
-                    <h3 data-lang="ru">Приватно по умолчанию</h3>
-                    <p data-lang="en">Switch to Offline mode to process everything locally on your Mac. No data leaves.
-                    </p>
-                    <p data-lang="ru">Переключитесь в офлайн-режим, чтобы обрабатывать всё локально на вашем Mac. Данные
-                        никуда не уходят.</p>
-                </div>
-                <div class="feature-item">
-                    <h3 data-lang="en">Glass UI</h3>
-                    <h3 data-lang="ru">Элегантный дизайн</h3>
-                    <p data-lang="en">Beautiful translucent interface that sits perfectly on your desktop.</p>
-                    <p data-lang="ru">Красивый полупрозрачный интерфейс, который идеально вписывается в ваш рабочий
-                        стол.</p>
-                </div>
-            </div>
+    <nav class="nav">
+        <a href="#" class="logo-group">
+            <img src="logo.png" alt="NYX Vox" class="logo-img">
+            <span class="logo-text">NYX Vox</span>
+        </a>
+        <div class="lang-switch">
+            <button class="lang-btn" id="btn-en" onclick="setLang('en')">EN</button>
+            <button class="lang-btn" id="btn-ru" onclick="setLang('ru')">RU</button>
         </div>
+    </nav>
 
-        <footer>
-            <span data-lang="en">Built with Rust & Tauri by <a href="https://github.com/AVP-Dev">AVP-Dev</a></span>
-            <span data-lang="ru">Создано на Rust & Tauri разработчиком <a
-                    href="https://github.com/AVP-Dev">AVP-Dev</a></span>
-        </footer>
-    </div>
+    <main>
+        <section class="hero">
+            <div class="badge">
+                <span data-en>v0.1.2-beta now live</span>
+                <span data-ru>v0.1.2-beta доступна</span>
+            </div>
+            <h1 data-en>Voice to Text.<br>At the Speed of Thought.</h1>
+            <h1 data-ru>Голос в текст.<br>Быстрее, чем мысли.</h1>
+            <p data-en>A premium, minimalist AI voice interface for macOS. Privacy by default, instant cloud acceleration, and stunning design.</p>
+            <p data-ru>Премиальный минималистичный интерфейс диктовки для macOS. Приватность по умолчанию, мгновенное облако и потрясающий дизайн.</p>
+            
+            <div class="cta-group">
+                <a href="https://github.com/AVP-Dev/nyx-vox/releases/latest" class="btn-primary">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                    <span data-en>Download DMG</span>
+                    <span data-ru>Скачать DMG</span>
+                </a>
+                <a href="https://github.com/AVP-Dev/nyx-vox" class="btn-secondary">
+                    <span data-en>View GitHub</span>
+                    <span data-ru>Открыть GitHub</span>
+                </a>
+            </div>
+        </section>
+
+        <section class="features">
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+                </div>
+                <h3 data-en>Cloud Turbo</h3>
+                <h3 data-ru>Облачное Турбо</h3>
+                <p data-en>Leverage Deepgram and Groq for blazing fast transcription with perfect punctuation and formatting.</p>
+                <p data-ru>Используйте Deepgram и Groq для мгновенной расшифровки с идеальной пунктуацией и форматированием.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                </div>
+                <h3 data-en>Total Privacy</h3>
+                <h3 data-ru>Полная Приватность</h3>
+                <p data-en>Run Whisper locally on your Mac. No internet required, no data sent to cloud. Pure local power.</p>
+                <p data-ru>Запускайте Whisper локально на вашем Mac. Интернет не нужен, данные не покидают устройство.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12a10 10 0 1 0 20 0 10 10 0 1 0-20 0Z"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                </div>
+                <h3 data-en>Native Flow</h3>
+                <h3 data-ru>Нативная Работа</h3>
+                <p data-en>Automated text insertion in any app. Smart window anchoring to the macOS menu bar for easy access.</p>
+                <p data-ru>Автоматическая вставка текста в любое приложение. Умная фиксация у менюбара macOS.</p>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>Built with <b>Rust</b> & <b>Tauri</b> by <a href="https://github.com/AVP-Dev">AVP-Dev</a></p>
+        <div style="margin-top: 20px; font-size: 0.7rem; opacity: 0.5;">
+            &copy; 2026 NYX Vox Project. All architectural rights reserved.
+        </div>
+    </footer>
 
     <script>
         function setLang(lang) {
             document.documentElement.setAttribute('lang', lang);
             document.querySelectorAll('.lang-btn').forEach(btn => btn.classList.remove('active'));
             document.getElementById('btn-' + lang).classList.add('active');
-            localStorage.setItem('preferredLang', lang);
+            localStorage.setItem('nyx_preferred_lang', lang);
         }
 
         function checkLang() {
-            const saved = localStorage.getItem('preferredLang');
+            const saved = localStorage.getItem('nyx_preferred_lang');
             if (saved) {
                 setLang(saved);
             } else {
                 const nav = navigator.language || navigator.userLanguage;
-                if (nav.startsWith('ru')) {
-                    setLang('ru');
-                } else {
-                    setLang('en');
-                }
+                setLang(nav.startsWith('ru') ? 'ru' : 'en');
             }
         }
     </script>
 </body>
-
 </html>
