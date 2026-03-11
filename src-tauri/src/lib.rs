@@ -452,7 +452,7 @@ async fn start_recording(
                 end if
                 if (exists process "Safari") then
                     try
-                        tell application "Safari" to execute (current tab of window 1) javascript "document.querySelectorAll('video, audio').forEach(m => m.pause())"
+                        tell application "Safari" to do JavaScript "document.querySelectorAll('video, audio').forEach(m => m.pause())" in current tab of window 1
                     end try
                 end if
                 if (exists process "Yandex") then
@@ -1016,10 +1016,12 @@ async fn fix_browser_permissions() -> Result<(), String> {
             "com.google.Chrome.canary",
             "company.thebrowser.Browser", // Arc
             "com.apple.Safari",
+            "com.apple.Safari.SandboxBroker", // New Safari Sandbox
             "ru.yandex.desktop.yandex-browser",
             "com.brave.Browser",
             "com.microsoft.edgemac",
-            "com.vivaldi.Vivaldi"
+            "com.vivaldi.Vivaldi",
+            "org.chromium.Chromium"
         ];
         
         for bundle in bundles {
