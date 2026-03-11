@@ -289,14 +289,48 @@ fn update_tray_lang(app: AppHandle, lang: String) {
 }
 
 #[tauri::command]
-async fn check_microphone_permission() -> Result<bool, String> {
+async fn check_microphone_permission() -> Result<i32, String> {
     #[cfg(target_os = "macos")]
     {
-        use objc2_av_foundation::{AVCaptureDevice, AVMediaTypeAudio, AVAuthorizationStatus};
+        use objc2_av_foundation::{AVCaptureDevice, AVMediaTypeAudio};
         unsafe {
             if let Some(media_type) = AVMediaTypeAudio {
+                // 0: NotDetermined, 1: Restricted, 2: Denied, 3: Authorized
                 let status = AVCaptureDevice::authorizationStatusForMediaType(media_type);
-                Ok(status == AVAuthorizationStatus::Authorized)
+                Ok(status as i32)
+            } else {
+                Err("Could not get audio media type constant".to_string())
+            }
+        }
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        Ok(3) // Authorized
+    }
+}
+
+#[tauri::command]
+async fn request_microphone_permission() -> Result<bool, String> {
+    #[cfg(target_os = "macos")]
+    {
+        use objc2_av_foundation::{AVCaptureDevice, AVMediaTypeAudio};
+        use objc2::rc::Retained;
+        use objc2::block::StackBlock;
+
+        unsafe {
+            if let Some(media_type) = AVMediaTypeAudio {
+                let (tx, rx) = std::sync::mpsc::channel();
+                let handler = StackBlock::new(move |granted: bool| {
+                    let _ = tx.send(granted);
+                });
+                
+                AVCaptureDevice::requestAccessForMediaType_completionHandler(media_type, &handler);
+                
+                // Wait for the block to execute (it usually shows a dialog)
+                match rx.recv_timeout(std::time::Duration::from_secs(300)) {
+                    Ok(granted) => Ok(granted),
+                    Err(_) => Err("Permission request timed out".to_string()),
+                }
             } else {
                 Err("Could not get audio media type constant".to_string())
             }

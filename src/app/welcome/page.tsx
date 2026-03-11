@@ -14,7 +14,7 @@ export default function WelcomePage() {
     const [language, setLanguage] = useState<'ru' | 'en'>('ru');
     const [isLoaded, setIsLoaded] = useState(false);
     const [accGranted, setAccGranted] = useState<boolean | null>(null);
-    const [micGranted, setMicGranted] = useState<boolean | null>(null);
+    const [micStatus, setMicStatus] = useState<number | null>(null); // 0: NotDetermined, 1: Restricted, 2: Denied, 3: Authorized
 
     useEffect(() => {
         setIsLoaded(true);
@@ -34,8 +34,8 @@ export default function WelcomePage() {
             try {
                 const acc = await invoke<boolean>('check_accessibility');
                 setAccGranted(acc);
-                const mic = await invoke<boolean>('check_microphone_permission');
-                setMicGranted(mic);
+                const mic = await invoke<number>('check_microphone_permission');
+                setMicStatus(mic);
             } catch (e) {
                 console.error(e);
             }
@@ -58,6 +58,14 @@ export default function WelcomePage() {
             }
         } catch (e) {
             console.error('Failed to close window:', e);
+        }
+    };
+
+    const handleRequestMic = async () => {
+        try {
+            await invoke('request_microphone_permission');
+        } catch (e) {
+            console.error('Mic request failed:', e);
         }
     };
 
@@ -165,18 +173,22 @@ export default function WelcomePage() {
                             <div className="text-[9px] font-black text-white/20 uppercase tracking-[0.3em] ml-2 mb-2">{C.welcome.permTitle}</div>
                             {[
                                 {
+                                    id: 'acc',
                                     icon: <Accessibility className="text-orange-400" size={17} />,
                                     title: C.welcome.permAccess,
                                     desc: C.welcome.permAccessDesc,
-                                    cmd: 'open_accessibility_settings',
-                                    granted: accGranted
+                                    action: () => invoke('open_accessibility_settings'),
+                                    granted: accGranted,
+                                    btnLabel: language === 'ru' ? 'ВЫДАТЬ' : 'SET'
                                 },
                                 {
+                                    id: 'mic',
                                     icon: <Mic2 className="text-emerald-400" size={17} />,
                                     title: C.welcome.permMic,
-                                    desc: C.welcome.permMicDesc,
-                                    cmd: 'open_microphone_settings',
-                                    granted: micGranted
+                                    desc: micStatus === 0 ? (language === 'ru' ? 'Будет запрошен при первой записи' : 'Will be requested on first record') : C.welcome.permMicDesc,
+                                    action: micStatus === 0 ? handleRequestMic : () => invoke('open_microphone_settings'),
+                                    granted: micStatus === 3,
+                                    btnLabel: micStatus === 0 ? (language === 'ru' ? 'ЗАПРОС' : 'ASK') : (language === 'ru' ? 'НАСТРОЙКИ' : 'SETTINGS')
                                 }
                             ].map((p, i) => (
                                 <div key={i} className={`flex items-center gap-4 p-4 rounded-xl bg-white/5 border transition-all group ${p.granted ? 'border-green-500/50 hover:bg-green-500/5' : 'border-white/5 hover:bg-white/10'}`}>
@@ -188,10 +200,10 @@ export default function WelcomePage() {
                                         <div className="text-[11px] text-white/30 leading-snug mt-1 font-bold">{p.desc}</div>
                                     </div>
                                     <button
-                                        onClick={() => invoke(p.cmd)}
+                                        onClick={p.action}
                                         className={`h-8 px-3 rounded-lg text-[10px] font-black transition-all border uppercase tracking-widest ${p.granted ? 'bg-green-500/10 text-green-500 border-green-500/30' : 'bg-white/5 hover:bg-orange-600 active:scale-95 text-white/70 hover:text-white border-white/10'}`}
                                     >
-                                        {p.granted ? (language === 'ru' ? 'ВЫДАНО' : 'GRANTED') : (language === 'ru' ? 'ВЫДАТЬ' : 'SET')}
+                                        {p.granted ? (language === 'ru' ? 'ВЫДАНО' : 'GRANTED') : p.btnLabel}
                                     </button>
                                 </div>
                             ))}
