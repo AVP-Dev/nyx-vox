@@ -168,14 +168,21 @@
         }
 
         .hero h1 {
-            font-size: clamp(3rem, 10vw, 6rem);
+            font-size: clamp(3rem, 10vw, 5.5rem);
             font-weight: 900;
-            line-height: 0.95;
-            letter-spacing: -0.06em;
-            margin-bottom: 20px;
-            background: linear-gradient(to bottom, #fff 40%, rgba(255,255,255,0.4));
+            line-height: 1.0;
+            letter-spacing: -0.05em;
+            margin-bottom: 24px;
+            /* Improved contrast gradient */
+            background: linear-gradient(to bottom, #ffffff 100%, #ffffff 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
+            text-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        /* Brighten the Ru text specifically if needed, but the primary fix is the gradient */
+        html[lang="ru"] .hero h1 {
+            letter-spacing: -0.03em; /* Cyrillic needs a bit more space usually */
         }
 
         .hero p {
@@ -336,8 +343,7 @@
     <main>
         <section class="hero">
             <div class="badge">
-                <span data-en>v0.1.2-beta now live</span>
-                <span data-ru>v0.1.2-beta доступна</span>
+                <span id="version-tag">Loading...</span> <span data-en>now live</span><span data-ru>доступна</span>
             </div>
             <h1 data-en>Voice to Text.<br>At the Speed of Thought.</h1>
             <h1 data-ru>Голос в текст.<br>Быстрее, чем мысли.</h1>
@@ -391,13 +397,38 @@
     </main>
 
     <footer>
-        <p>Built with <b>Rust</b> & <b>Tauri</b> by <a href="https://github.com/AVP-Dev">AVP-Dev</a></p>
-        <div style="margin-top: 20px; font-size: 0.7rem; opacity: 0.5;">
-            &copy; 2026 NYX Vox Project. All architectural rights reserved.
+        <div class="creator-signature">
+            <div style="display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 8px;">
+                <a href="https://avpdev.com/en/" style="font-weight: 700; opacity: 0.9; color: white; text-decoration: none;">Alexios Odos</a>
+                <span style="opacity: 0.2;">|</span>
+                <a href="https://avpdev.com/ru/" style="font-weight: 700; opacity: 0.9; color: white; text-decoration: none;">Aliaksei Patskevich</a>
+            </div>
+            <div style="font-size: 10px; text-transform: uppercase; letter-spacing: 0.15em; font-weight: 600; opacity: 0.4; display: flex; align-items: center; justify-content: center; gap: 12px;">
+                <span>Software Engineer</span>
+                <span style="opacity: 0.3;">•</span>
+                <a href="https://github.com/AVP-Dev" style="color: inherit; text-decoration: none; transition: 0.2s;" onmouseover="this.style.opacity=1; this.style.color='#3b82f6'" onmouseout="this.style.opacity=0.4; this.style.color='inherit'">GitHub</a>
+                <span style="opacity: 0.3;">•</span>
+                <a href="https://t.me/AVP_Dev" style="color: inherit; text-decoration: none; transition: 0.2s;" onmouseover="this.style.opacity=1; this.style.color='#3b82f6'" onmouseout="this.style.opacity=0.4; this.style.color='inherit'">Telegram</a>
+            </div>
+            <div style="margin-top: 32px; font-size: 0.7rem; opacity: 0.2;">
+                &copy; 2026 NYX Vox Project. All architectural rights reserved.
+            </div>
         </div>
     </footer>
 
     <script>
+        async function fetchVersion() {
+            try {
+                const res = await fetch('https://api.github.com/repos/AVP-Dev/nyx-vox/releases/latest');
+                const data = await res.json();
+                if (data.tag_name) {
+                    document.getElementById('version-tag').innerText = data.tag_name;
+                }
+            } catch (e) {
+                document.getElementById('version-tag').innerText = 'v0.1.2-beta';
+            }
+        }
+
         function setLang(lang) {
             document.documentElement.setAttribute('lang', lang);
             document.querySelectorAll('.lang-btn').forEach(btn => btn.classList.remove('active'));
@@ -413,6 +444,7 @@
                 const nav = navigator.language || navigator.userLanguage;
                 setLang(nav.startsWith('ru') ? 'ru' : 'en');
             }
+            fetchVersion();
         }
     </script>
 </body>
