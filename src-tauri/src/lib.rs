@@ -34,6 +34,9 @@ struct AutoPause(Mutex<bool>);
 // Auto-Paste flag
 struct AutoPaste(Mutex<bool>);
 
+// Always-on-top flag
+struct AlwaysOnTop(Mutex<bool>);
+
 // Target application info (Name, Bundle ID)
 struct TargetApp(Mutex<(String, String)>);
 
@@ -290,49 +293,54 @@ fn update_tray_lang(app: AppHandle, lang: String) {
 
 #[tauri::command]
 async fn check_microphone_permission() -> Result<i32, String> {
-    #[cfg(target_os = "macos")]
-    {
-        use objc2_av_foundation::{AVCaptureDevice, AVMediaTypeAudio, AVAuthorizationStatus};
-        unsafe {
-            if let Some(media_type) = AVMediaTypeAudio {
-                let status = AVCaptureDevice::authorizationStatusForMediaType(media_type);
-                // Map enum to i32: 0=NotDetermined, 1=Restricted, 2=Denied, 3=Authorized
-                let code = match status {
-                    AVAuthorizationStatus::NotDetermined => 0,
-                    AVAuthorizationStatus::Restricted => 1,
-                    AVAuthorizationStatus::Denied => 2,
-                    AVAuthorizationStatus::Authorized => 3,
-                    _ => -1,
-                };
-                Ok(code)
-            } else {
-                Err("Could not get audio media type constant".to_string())
-            }
+    // Use cpal to check real mic access — AVCaptureDevice doesn't reflect
+    // CoreAudio permissions on macOS 26+.
+    tokio::task::spawn_blocking(|| {
+        use cpal::traits::{HostTrait, DeviceTrait};
+        let host = cpal::default_host();
+        match host.default_input_device() {
+            Some(device) => {
+                match device.supported_input_configs() {
+                    Ok(mut configs) => {
+                        if configs.next().is_some() { 3 } else { 0 }
+                    },
+                    Err(_) => 2
+                }
+            },
+            None => 0
         }
-    }
-    #[cfg(not(target_os = "macos"))]
-    {
-        Ok(3)
-    }
+    }).await.map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 async fn request_microphone_permission() -> Result<bool, String> {
-    #[cfg(target_os = "macos")]
-    {
-        // Opens the Microphone privacy pane so the user can grant access.
-        // macOS requires a completion-handler block for requestAccessForMediaType,
-        // which needs block2 crate. Instead, we open System Settings directly.
-        let _ = std::process::Command::new("open")
-            .arg("x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone")
-            .spawn();
-        Ok(false)
-    }
-    #[cfg(not(target_os = "macos"))]
-    {
-        Ok(true)
-    }
+    // Trigger the macOS permission dialog by briefly probing the mic via cpal.
+    tokio::task::spawn_blocking(|| {
+        use cpal::traits::{HostTrait, DeviceTrait, StreamTrait};
+        let host = cpal::default_host();
+        match host.default_input_device() {
+            Some(device) => {
+                if let Ok(config) = device.default_input_config() {
+                    let stream = device.build_input_stream(
+                        &config.into(),
+                        |_data: &[f32], _: &cpal::InputCallbackInfo| {},
+                        |_err| {},
+                        None,
+                    );
+                    if let Ok(s) = stream {
+                        let _ = s.play();
+                        std::thread::sleep(std::time::Duration::from_millis(200));
+                        drop(s);
+                        return true;
+                    }
+                }
+                false
+            },
+            None => false
+        }
+    }).await.map_err(|e| e.to_string())
 }
+
 
 #[tauri::command]
 async fn set_app_language(app: AppHandle, lang: String, state: State<'_, AppLanguage>) -> Result<(), String> {
@@ -952,6 +960,26 @@ fn get_auto_paste(state: State<'_, AutoPaste>) -> bool {
 }
 
 #[tauri::command]
+async fn set_always_on_top(app_handle: tauri::AppHandle, state: State<'_, AlwaysOnTop>, enabled: bool) -> Result<(), String> {
+    if let Ok(mut lock) = state.0.lock() {
+        *lock = enabled;
+    }
+    // Apply to window immediately
+    if let Some(w) = app_handle.get_webview_window("main") {
+        let _ = w.set_always_on_top(enabled);
+    }
+    let store = app_handle.store("settings.json").map_err(|e| e.to_string())?;
+    store.set("always_on_top", serde_json::Value::Bool(enabled));
+    let _ = store.save();
+    Ok(())
+}
+
+#[tauri::command]
+fn get_always_on_top(state: State<'_, AlwaysOnTop>) -> bool {
+    *state.0.lock().unwrap()
+}
+
+#[tauri::command]
 async fn check_model_available() -> Result<bool, String> {
     Ok(whisper::is_model_available())
 }
@@ -1020,6 +1048,7 @@ pub fn run() {
         .manage(GroqLanguage(Mutex::new("auto".to_string())))
         .manage(AutoPause(Mutex::new(true)))
         .manage(AutoPaste(Mutex::new(true)))
+        .manage(AlwaysOnTop(Mutex::new(true)))
         .manage(DgApiKey(Mutex::new(None)))
         .manage(GroqApiKey(Mutex::new(None)))
         .plugin(tauri_plugin_shell::init())
@@ -1114,6 +1143,19 @@ pub fn run() {
                                 if let Ok(mut lock) = ap_state.0.lock() {
                                     *lock = p;
                                 }
+                            }
+                        }
+                    }
+                    // Load saved always_on_top (default true)
+                    if let Some(aot_val) = store.get("always_on_top") {
+                        if let Some(aot) = aot_val.as_bool() {
+                            if let Some(aot_state) = app.try_state::<AlwaysOnTop>() {
+                                if let Ok(mut lock) = aot_state.0.lock() {
+                                    *lock = aot;
+                                }
+                            }
+                            if let Some(w) = app.get_webview_window("main") {
+                                let _ = w.set_always_on_top(aot);
                             }
                         }
                     }
@@ -1247,6 +1289,8 @@ pub fn run() {
             get_clear_on_paste,
             set_clear_on_paste,
             check_microphone_permission,
+            set_always_on_top,
+            get_always_on_top,
             request_microphone_permission,
             set_app_language,
             get_app_language,

@@ -48,6 +48,7 @@ export default function Home() {
     const [autoPaste, setAutoPaste] = useState(true);
     const [clearOnPaste, setClearOnPaste] = useState(false);
     const [startMinimized, setStartMinimized] = useState(false);
+    const [alwaysOnTop, setAlwaysOnTop] = useState(true);
     const [targetApp, setTargetApp] = useState<string>('');
     const [isVisible, setIsVisible] = useState(false);
     const [showWelcome, setShowWelcome] = useState(false);
@@ -217,7 +218,8 @@ export default function Home() {
                     invoke<boolean>('get_auto_paste'),
                     invoke<boolean>('get_clear_on_paste'),
                     invoke<boolean>('get_start_minimized'),
-                    invoke<boolean>('check_model_available')
+                    invoke<boolean>('check_model_available'),
+                    invoke<boolean>('get_always_on_top')
                 ]);
 
                 setSttMode(results[0] as 'deepgram' | 'whisper' | 'groq');
@@ -227,6 +229,7 @@ export default function Home() {
                 setAutoPaste(results[4]);
                 setClearOnPaste(results[5]);
                 setStartMinimized(results[6]);
+                setAlwaysOnTop(results[8] ?? true);
                 
                 const savedAppLang = await invoke<'ru' | 'en'>('get_app_language').catch(() => 'ru' as const);
                 setAppLanguageState(savedAppLang || 'ru');
@@ -480,6 +483,8 @@ export default function Home() {
                                             onToggleAutoPaste={() => { const n = !autoPaste; setAutoPaste(n); invoke('set_auto_paste', { enabled: n }); }} 
                                             onToggleClearOnPaste={() => { const n = !clearOnPaste; setClearOnPaste(n); invoke('set_clear_on_paste', { enabled: n }); }} 
                                             onToggleStartMinimized={() => { const n = !startMinimized; setStartMinimized(n); invoke('set_start_minimized', { minimized: n }); }} 
+                                            alwaysOnTop={alwaysOnTop}
+                                            onToggleAlwaysOnTop={() => { const n = !alwaysOnTop; setAlwaysOnTop(n); invoke('set_always_on_top', { enabled: n }); }}
                                         />
                                     </motion.div>
                                 ) : showWelcome ? (

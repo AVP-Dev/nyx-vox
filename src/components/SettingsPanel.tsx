@@ -23,6 +23,8 @@ interface SettingsPanelProps {
     onToggleClearOnPaste: () => void;
     startMinimized: boolean;
     onToggleStartMinimized: () => void;
+    alwaysOnTop: boolean;
+    onToggleAlwaysOnTop: () => void;
 }
 
 export const CONTENT = {
@@ -88,6 +90,8 @@ export const CONTENT = {
             clearOnPasteDesc: 'Удалять текст из поля после успешной вставки',
             startMinimized: 'Запуск в свернутом виде',
             startMinimizedDesc: 'При запуске приложение будет только в трее',
+            alwaysOnTop: 'Поверх всех окон',
+            alwaysOnTopDesc: 'Окно всегда будет видно поверх остальных',
             autoPause: 'Авто-пауза медиа',
             autoPauseDesc: 'Ставить медиа на паузу во время диктовки',
             accessibility: 'macOS: Универсальный доступ',
@@ -227,6 +231,8 @@ export const CONTENT = {
             clearOnPasteDesc: 'Clear the text field after a successful paste',
             startMinimized: 'Start Minimized',
             startMinimizedDesc: 'App will stay in the tray on launch',
+            alwaysOnTop: 'Always On Top',
+            alwaysOnTopDesc: 'Keep the window above all other windows',
             autoPause: 'Auto-Pause Media',
             autoPauseDesc: 'Pause media playback while dictating',
             accessibility: 'macOS: Accessibility',
@@ -317,7 +323,7 @@ const Toggle = ({ checked, onChange }: { checked: boolean; onChange: () => void 
     </button>
 );
 
-export function SettingsPanel({ onClose, autoPaste, clearOnPaste, onToggleAutoPaste, onToggleClearOnPaste, startMinimized, onToggleStartMinimized }: SettingsPanelProps) {
+export function SettingsPanel({ onClose, autoPaste, clearOnPaste, onToggleAutoPaste, onToggleClearOnPaste, startMinimized, onToggleStartMinimized, alwaysOnTop, onToggleAlwaysOnTop }: SettingsPanelProps) {
     const [tab, setTab] = useState<Tab>('guide');
     const [lang, setLang] = useState<Lang>('ru');
     const [showFeedback, setShowFeedback] = useState(false);
@@ -610,6 +616,13 @@ export function SettingsPanel({ onClose, autoPaste, clearOnPaste, onToggleAutoPa
                                             <div className="text-[11px] text-white/40 mt-0.5">{c.settings.autoPauseDesc}</div>
                                         </div>
                                         <Toggle checked={autoPauseMedia} onChange={handleToggleAutoPauseMedia} />
+                                    </div>
+                                    <div className="flex items-center justify-between p-3.5 rounded-xl bg-white/4 border border-white/8">
+                                        <div>
+                                            <div className="text-[13px] font-semibold text-white/90">{c.settings.alwaysOnTop}</div>
+                                            <div className="text-[11px] text-white/40 mt-0.5">{c.settings.alwaysOnTopDesc}</div>
+                                        </div>
+                                        <Toggle checked={alwaysOnTop} onChange={onToggleAlwaysOnTop} />
                                     </div>
                                 </div>
                             </div>
