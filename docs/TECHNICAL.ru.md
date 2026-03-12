@@ -27,8 +27,6 @@ graph TD
     A -->|1. Офлайн STT| B["Локальный Whisper (whisper-rs)"]
     A -->|2. Облачный STT| G["Deepgram API"]
     A -->|3. Облачный STT| H["Groq API"]
-    note left of G: <a href="https://console.deepgram.com/">Ключи Deepgram</a>
-    note left of H: <a href="https://console.groq.com/keys">Ключи Groq</a>
     A -->|Планы: Постобработка| I["LLM Модели (Грамматика/Формат)"]
     A -->|IPC Мост| D["React Фронтенд (Next.js)"]
     D --> E["Стили Tailwind v4"]
