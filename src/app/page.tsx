@@ -438,7 +438,7 @@ export default function Home() {
     const containerVariants: Variants = {
         idle: { width: 140, height: 48, borderRadius: 24 },
         recording: { width: 260, height: 48, borderRadius: 24 },
-        result: { width: 400, height: 'auto', borderRadius: 24 },
+        result: { width: 400, borderRadius: 24 }, // Removed height: 'auto' so it follows window height
         editing: { width: 440, height: 360, borderRadius: 24 },
         overlay: { width: 440, height: 540, borderRadius: 24 }
     };
@@ -462,7 +462,7 @@ export default function Home() {
                             animate={showSettings || showWelcome ? 'overlay' : (phase === 'editing' ? 'editing' : (phase === 'result' ? 'result' : (isIdle ? 'idle' : 'recording')))}
                             variants={containerVariants}
                             transition={{ layout: { type: "spring", stiffness: 350, damping: 32 }, opacity: { duration: 0.15 } }}
-                            className="bg-[#1C1C1E] border border-white/10 overflow-hidden flex flex-col relative"
+                            className="bg-[#1C1C1E] border border-white/10 overflow-hidden flex flex-col relative h-full w-full"
                             style={{ backdropFilter: 'blur(40px) saturate(200%)' }}
                         >
                             <AnimatePresence mode="wait">
@@ -605,7 +605,7 @@ export default function Home() {
                                                     )}
                                                 </div>
                                                 
-                                                <div className="flex items-center justify-between gap-2 h-8 mt-0.5 pb-1">
+                                                <div className="flex items-center justify-between gap-2 h-9 mt-auto pb-1 shrink-0">
                                                     <div className="flex items-center gap-0.5 relative group/target">
                                                         <button 
                                                             onClick={() => setPhase(p => p === 'editing' ? 'result' : 'editing')} 
