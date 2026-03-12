@@ -435,10 +435,14 @@ export default function Home() {
         exit: { opacity: 0, scale: 0.95, transition: { duration: 0.2, ease: "easeIn" } }
     };
 
+    const resultTextLen = transcriptText?.length || 0;
+    const resultRows = Math.max(1, Math.ceil(resultTextLen / 36));
+    const resultHeight = Math.min(460, Math.max(180, 180 + (resultRows * 18)));
+
     const containerVariants: Variants = {
         idle: { width: 140, height: 48, borderRadius: 24 },
         recording: { width: 260, height: 48, borderRadius: 24 },
-        result: { width: 400, borderRadius: 24 }, // Removed height: 'auto' so it follows window height
+        result: { width: 400, height: resultHeight, borderRadius: 24 },
         editing: { width: 440, height: 360, borderRadius: 24 },
         overlay: { width: 440, height: 540, borderRadius: 24 }
     };
