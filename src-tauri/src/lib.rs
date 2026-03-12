@@ -1188,9 +1188,13 @@ pub fn run() {
                         .and_then(|v| v.as_bool())
                         .unwrap_or(false);
                     
-                    if !minimized {
+                    let welcome_key = format!("welcome_seen_{}", "0.1.3-beta");
+                    let welcome_seen = store.get(welcome_key).and_then(|v| v.as_bool()).unwrap_or(false);
+
+                    if !minimized || !welcome_seen {
                         if let Some(w) = app.get_webview_window("main") {
                             let _ = w.show();
+                            let _ = w.set_focus();
                         }
                     }
                 }

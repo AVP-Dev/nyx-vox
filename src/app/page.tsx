@@ -201,6 +201,14 @@ export default function Home() {
     useEffect(() => {
         const load = async () => {
             try {
+                // 1. Check welcome first as it's critical for the initial screen state
+                const seen = await invoke<boolean>('get_welcome_seen', { version: APP_VERSION }).catch(() => true);
+                if (!seen) setShowWelcome(true);
+                
+                // 2. Show the window content immediately so there is no blank delay
+                setIsVisible(true);
+
+                // 3. Load the rest of settings in background
                 const results = await Promise.all([
                     invoke<string>('get_stt_mode'),
                     invoke<'auto'|'ru'|'en'>('get_deepgram_language'),
@@ -225,14 +233,8 @@ export default function Home() {
                 const savedAppLang = await invoke<'ru' | 'en'>('get_app_language').catch(() => 'ru' as const);
                 setAppLanguageState(savedAppLang || 'ru');
                 setTimeout(() => checkUpdates(savedAppLang || 'ru'), 5000);
-
-                const seen = await invoke<boolean>('get_welcome_seen', { version: APP_VERSION }).catch(() => true);
-                if (!seen) setShowWelcome(true);
-
-                setIsVisible(true);
             } catch (err) {
                 console.error('Initial settings load error:', err);
-                // Even if some settings fail to load, show the UI
                 setIsVisible(true);
             }
         };

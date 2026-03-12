@@ -27,6 +27,8 @@ graph TD
     A -->|1. Offline Engine| B["whisper-rs Engine (Local)"]
     A -->|2. Cloud Engine| G["Deepgram API (Remote)"]
     A -->|3. Cloud Engine| H["Groq Whisper API (Remote)"]
+    note left of G: <a href="https://console.deepgram.com/">API Key Guide</a>
+    note left of H: <a href="https://console.groq.com/keys">API Key Guide</a>
     A -->|Future: Post-Process| I["LLM Integration (Grammar/Format)"]
     A -->|IPC Bridge| D["React Frontend (Next.js)"]
     D --> E["Tailwind v4 Styling"]

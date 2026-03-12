@@ -17,8 +17,22 @@ Welcome to **NYX Vox**! This is our **very first project built with Rust** and o
 NYX Vox brings fast, offline-capable and cloud-accelerated voice transcription directly to your desktop. Built with modern, high-performance tools, it's designed to be functional, aesthetically pleasing, and remarkably stable. The interface leverages smooth Glassmorphism UI elements to keep things clean and engaging.
 
 ### 🎙 AI Transcription Engines
-1. **CLOUD (Groq) — [Recommended]:** Our primary recommendation. Runs Whisper Large-v3-Turbo on blazing-fast LPU™ hardware. It offers the best balance of speed, accuracy, and smart punctuation.
+1. **CLOUD (Groq) — [Recommended]:** Our primary recommendation. Runs Whisper Large-v3-Turbo on blazing-fast LPU™ hardware.
+   <details>
+   <summary><b>How to get free Groq API Key</b></summary>
+   1. Go to <a href="https://console.groq.com/keys">Groq Cloud Console</a>.<br/>
+   2. Login (Google/Email).<br/>
+   3. Click "Create API Key", name it "NYX-Vox" and copy it.
+   </details>
+
 2. **CLOUD (Deepgram):** Commercial-grade model. High stability and excellent noise filtering.
+   <details>
+   <summary><b>How to get Deepgram API Key</b></summary>
+   1. Go to <a href="https://console.deepgram.com/">Deepgram Console</a>.<br/>
+   2. Create an account.<br/>
+   3. Go to "API Keys" section and generate a new key.
+   </details>
+
 3. **OFFLINE (whisper-rs):** Runs locally on your Mac using `ggml-small.bin`. Ultimate privacy, no internet required.
 
 ## 📦 Installation & Setup
