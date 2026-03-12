@@ -27,6 +27,7 @@ graph TD
     A -->|1. Offline Engine| B["whisper-rs Engine (Local)"]
     A -->|2. Cloud Engine| G["Deepgram API (Remote)"]
     A -->|3. Cloud Engine| H["Groq Whisper API (Remote)"]
+    A -->|Future: Post-Process| I["LLM Integration (Grammar/Format)"]
     A -->|IPC Bridge| D["React Frontend (Next.js)"]
     D --> E["Tailwind v4 Styling"]
     D --> F["Zustand Frontend State"]
@@ -45,6 +46,9 @@ bun install
 # Start the Next.js frontend alongside the Tauri Rust backend
 bun run tauri dev
 ```
+
+> [!TIP]
+> **API Economy & Optimization**: NYX-Vox focuses on utilizing high-performance, accessible, and free-tier (Freemium) API endpoints. Models like **Groq (Whisper Large-v3-Turbo)** are prioritized for their extreme processing speed on LPU™ hardware, enabling near-instant feedback without financial barriers for individual developers.
 
 > [!TIP]
 > All sensitive environmental setups and logs limit specific directory reporting for maximum privacy. No absolute paths or local system hashes are mapped during build cycles.
