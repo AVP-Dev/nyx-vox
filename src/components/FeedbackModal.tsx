@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { X, Bug, Lightbulb, MessageSquare, Send, CheckCircle } from 'lucide-react';
+import { CONTENT, APP_VERSION } from '@/components/SettingsPanel';
 
 type FeedbackType = 'bug' | 'feature' | 'other';
 type Status = 'idle' | 'sending' | 'success' | 'error';
@@ -24,6 +25,7 @@ export function FeedbackModal({ onClose }: Props) {
     const [message, setMessage] = useState('');
     const [status, setStatus] = useState<Status>('idle');
 
+    const c = CONTENT[lang];
     const ru = lang === 'ru';
     const typeObj = TYPES.find(t => t.id === type)!;
 
@@ -36,7 +38,7 @@ export function FeedbackModal({ onClose }: Props) {
             name: name.trim() || 'Anonymous',
             contact: contact.trim() || '—',
             message: message.trim(),
-            app: 'NYX VOX v0.1.0-beta',
+            app: `NYX VOX v${APP_VERSION}`,
         };
 
         // Formspree endpoint — self-contained, no backend needed
@@ -93,7 +95,7 @@ export function FeedbackModal({ onClose }: Props) {
                 <div className="flex items-center justify-between px-4 pt-2 pb-3">
                     <div>
                         <h2 className="text-[14px] font-bold text-white">
-                            {ru ? 'Обратная связь' : 'Feedback'}
+                            {c.ui.feedback}
                         </h2>
                         <p className="text-[11px] text-white/35 mt-0.5">
                             {ru ? 'Поможет сделать NYX VOX лучше' : 'Help us make NYX VOX better'}

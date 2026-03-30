@@ -5,9 +5,10 @@
   [![Скачать](https://img.shields.io/github/v/release/AVP-Dev/nyx-vox?label=Download%20Latest&style=for-the-badge&color=orange)](https://github.com/AVP-Dev/nyx-vox/releases/latest)
 
   <p>
-    <a href="https://avp-dev.github.io/nyx-vox/" target="_blank" rel="noopener noreferrer">🌐 Landing Page</a> &nbsp;|&nbsp; 
-    <a href="./README.ru.md">🇷🇺 Russian Version</a> &nbsp;|&nbsp; 
-    <a href="./docs/TECHNICAL.md" target="_blank" rel="noopener noreferrer">⚙️ Technical Specs</a>
+    <a href="https://avp-dev.github.io/nyx-vox/" target="_blank" rel="noopener noreferrer">🌐 Landing Page</a> &nbsp;|&nbsp;
+    <a href="./README.ru.md">🇷🇺 Russian Version</a> &nbsp;|&nbsp;
+    <a href="./docs/TECHNICAL.md" target="_blank" rel="noopener noreferrer">⚙️ Technical Specs</a> &nbsp;|&nbsp;
+    <a href="./docs/CHANGELOG.md" target="_blank" rel="noopener noreferrer">📝 Changelog</a>
   </p>
 </div>
 
@@ -64,9 +65,10 @@ NYX Vox requires **Accessibility** (for auto-pasting text) and **Microphone** pe
 - [x] Glassmorphism UI & Dynamic Windows
 - [x] Native HID Auto-Paste (MacOS)
 - [ ] Custom Global Shortcuts
-- [ ] Local Transcription History & Search
-- [ ] **Intelligent AI Formatting**: Implementing LLM models to correct grammar, refine punctuation, and remove filler words from transcribed text.
-- [ ] Multi-Modal AI Processing (Planned)
+- [x] Local Transcription History & Search
+- [x] **Intelligent AI Formatting**: LLM models (Gemini, Qwen, DeepSeek) for grammar, punctuation, and style refinement.
+- [ ] Voice Commands & App Control (Planned)
+- [ ] Multi-Language Translation (Planned)
 
 > [!TIP]
 > **API Transparency & Accessibility**: NYX Vox utilizes modern, free, or freemium API models. We specifically choose engines like **Groq** and **Deepgram** because they provide high-tier performance while remaining accessible for individual developers and power users without high entry costs.

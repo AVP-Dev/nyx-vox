@@ -8,7 +8,8 @@
   "windows": [
     "main",
     "welcome",
-    "update"
+    "update",
+    "history"
   ],
   "permissions": [
     "global-shortcut:default",

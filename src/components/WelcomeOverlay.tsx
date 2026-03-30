@@ -2,10 +2,13 @@
 
 import React, { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { ShieldCheck, Zap, Mic2, Accessibility, BookOpen, ExternalLink, AlertTriangle, ShieldAlert, Check, X, Info, Keyboard, UserCircle, Globe, Github, MessageCircle, Send, Instagram, Linkedin, ChevronRight } from 'lucide-react';
+import { getCurrentWindow } from '@tauri-apps/api/window';
+import { ShieldCheck, Zap, Mic2, Accessibility, BookOpen, AlertTriangle, ShieldAlert, Check, X, Info, Keyboard, UserCircle, Globe, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import Image from 'next/image';
 import { CONTENT } from './SettingsPanel';
 import { APP_VERSION } from '@/constants/version';
+import { CREATOR_INFO, APP_DESCRIPTION, MISSION, FUTURE_ITEMS } from '@/constants/appInfo';
 
 type Tab = 'welcome' | 'perms' | 'help' | 'quarantine' | 'about';
 
@@ -20,6 +23,15 @@ export function WelcomeOverlay({ onClose, appLanguage, onLanguageToggle }: Welco
     const [welcomeDoNotShowAgain, setWelcomeDoNotShowAgain] = useState(false);
     const [accGranted, setAccGranted] = useState<boolean | null>(null);
     const [micGranted, setMicGranted] = useState<boolean | null>(null);
+
+    // Focus back when granted
+    useEffect(() => {
+        if (micGranted === true || accGranted === true) {
+            getCurrentWindow().show().then(() => {
+                getCurrentWindow().setFocus();
+            });
+        }
+    }, [micGranted, accGranted]);
 
     useEffect(() => {
         const checkPerms = async () => {
@@ -64,7 +76,7 @@ export function WelcomeOverlay({ onClose, appLanguage, onLanguageToggle }: Welco
             <div className="absolute inset-0 z-0 pointer-events-none" style={{ backdropFilter: 'blur(32px) saturate(180%)' }} />
 
             {/* HEADER */}
-            <div data-tauri-drag-region className="flex items-center justify-between px-4 pt-4 pb-2 shrink-0 z-10 transition-colors">
+            <div data-tauri-drag-region className="flex items-center justify-center px-4 pt-4 pb-2 shrink-0 z-10 transition-colors relative">
                 <div className="flex gap-0.5 p-1 bg-white/5 rounded-xl border border-white/5">
                     {tabs.map(t => (
                         <button
@@ -82,7 +94,7 @@ export function WelcomeOverlay({ onClose, appLanguage, onLanguageToggle }: Welco
                 </div>
                 <button
                     onClick={handleExit}
-                    className="w-7 h-7 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/15 text-white/50 hover:text-white transition-all shrink-0 border border-white/5"
+                    className="absolute right-4 top-5 w-7 h-7 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/15 text-white/50 hover:text-white transition-all shrink-0 border border-white/5"
                 >
                     <X size={14} strokeWidth={3} />
                 </button>
@@ -100,7 +112,7 @@ export function WelcomeOverlay({ onClose, appLanguage, onLanguageToggle }: Welco
                             className="flex flex-col items-center justify-center min-h-full pb-6 text-center"
                         >
                             <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mb-4 relative">
-                                <img src="/logo.png" alt="Logo" className="w-9 h-9 object-contain" />
+                                <Image src="/logo.png" alt="Logo" width={36} height={36} className="object-contain" />
                                 <div className="absolute -bottom-1 -right-1 bg-orange-600 w-3.5 h-3.5 rounded-full flex items-center justify-center border-2 border-black/50">
                                     <Zap size={7} className="text-white" fill="white" />
                                 </div>
@@ -119,9 +131,9 @@ export function WelcomeOverlay({ onClose, appLanguage, onLanguageToggle }: Welco
                                 <div className="text-[8px] font-black text-white/20 uppercase tracking-[0.4em] text-center mb-0.5">Production Release v{APP_VERSION}</div>
                                 <div className="flex flex-col gap-3 mx-auto w-fit">
                                     {[
-                                        { icon: <Keyboard size={12} />, label: appLanguage === 'ru' ? '⌥ + Space (Запись / Вставка)' : '⌥ + Space (Record / Paste)', color: 'text-orange-500' },
-                                        { icon: <Zap size={12} />, label: appLanguage === 'ru' ? 'Нейросетевая обработка голоса' : 'Neural Audio Engine', color: 'text-amber-500' },
-                                        { icon: <ShieldCheck size={12} />, label: appLanguage === 'ru' ? 'Приватная безопасная архитектура' : 'Encrypted Privacy Protocol', color: 'text-blue-500' }
+                                        { icon: <Zap size={12} />, label: appLanguage === 'ru' ? 'Мгновенная скорость (Groq/Deepgram)' : 'Instant Speed (Groq/Deepgram)', color: 'text-orange-500' },
+                                        { icon: <ShieldCheck size={12} />, label: appLanguage === 'ru' ? 'Приватная безопасная архитектура' : 'Secure Privacy Architecture', color: 'text-emerald-500' },
+                                        { icon: <Keyboard size={12} />, label: appLanguage === 'ru' ? '⌥ + Space — Старт / Стоп / Вставка' : '⌥ + Space — Start / Stop / Paste', color: 'text-blue-500' }
                                     ].map((item, idx) => (
                                         <div key={idx} className="flex items-center gap-3 text-[12px] font-bold text-white/70">
                                             <div className={`${item.color} opacity-90 drop-shadow-md`}>{item.icon}</div>
@@ -177,7 +189,7 @@ export function WelcomeOverlay({ onClose, appLanguage, onLanguageToggle }: Welco
                                             <button
                                                 onClick={async () => {
                                                     await invoke('reset_accessibility_permissions');
-                                                    alert(appLanguage === 'ru' ? 'Сброшено! Теперь нажмите "+" в настройках или перезапустите запись.' : 'Reset! Now click "+" in settings or restart recording.');
+                                                    alert(C.settings.accessibilityResetAlert);
                                                 }}
                                                 className="text-[8px] font-black text-red-500/60 hover:text-red-500 transition-colors uppercase tracking-[0.15em] border-b border-red-500/20 hover:border-red-500/50 pb-0.5"
                                             >
@@ -199,9 +211,9 @@ export function WelcomeOverlay({ onClose, appLanguage, onLanguageToggle }: Welco
                         >
                             <div className="text-[9px] font-black text-white/20 uppercase tracking-[0.3em] ml-1 mb-2">Technical Guide / FAQ</div>
                             {[
-                                { q: C.welcome.faqQ1, a: C.welcome.faqA1 },
-                                { q: C.welcome.faqQ2, a: C.welcome.faqA2 },
-                                { q: C.welcome.faqQ3, a: C.welcome.faqA3 },
+                                { q: C.settings.faqQ1, a: C.settings.faqA1 },
+                                { q: C.settings.faqQ2, a: C.settings.faqA2 },
+                                { q: C.settings.faqQ3, a: C.settings.faqA3 },
                                 { q: C.welcome.faqQ4, a: C.welcome.faqA4 },
                             ].filter(f => f.q).map((f, i) => (
                                 <div key={i} className="space-y-2">
@@ -224,35 +236,30 @@ export function WelcomeOverlay({ onClose, appLanguage, onLanguageToggle }: Welco
                             <div className="text-[9px] font-black text-white/20 uppercase tracking-[0.3em] ml-1 mb-2">{C.about.title}</div>
                             <div className="flex items-center gap-4 px-1">
                                 <div className="w-[60px] h-[60px] rounded-[16px] border border-white/10 flex items-center justify-center shadow-xl overflow-hidden shrink-0 relative bg-white/5">
-                                    <img src="/logo.png" alt="NYX Vox" className="w-full h-full object-cover opacity-80" />
+                                    <Image src="/logo.png" alt="NYX Vox" width={48} height={48} className="object-cover opacity-80" />
                                 </div>
                                 <div>
                                     <div className="flex items-baseline gap-2">
                                         <span className="text-[20px] font-bold text-white tracking-tight">{C.about.app}</span>
-                                        <span className="text-[12px] text-white/30 font-mono">{C.about.version}</span>
+                                        <span className="text-[12px] text-white/30 font-mono">v{APP_VERSION}</span>
                                     </div>
-                                    <div className="text-[12px] text-white/50 mt-0.5 leading-relaxed max-w-[260px] font-medium">{C.about.desc}</div>
+                                    <div className="text-[12px] text-white/50 mt-0.5 leading-relaxed font-medium">{APP_DESCRIPTION[appLanguage]}</div>
                                 </div>
                             </div>
 
                             <div className="p-4 rounded-2xl bg-white/4 border border-white/8 space-y-3">
                                 <div className="text-[11px] font-bold text-white/30 uppercase tracking-widest leading-none">{C.about.author}</div>
                                 <div>
-                                    <div className="text-[15px] font-bold text-white tracking-tight">Aliaksei Patskevich</div>
-                                    <div className="text-[11px] text-white/40 font-mono mt-0.5 leading-none">Software Engineer • Code, Design & AI</div>
+                                    <div className="text-[15px] font-bold text-white tracking-tight">{CREATOR_INFO.name}</div>
+                                    <div className="text-[11px] text-white/40 font-mono mt-0.5 leading-none">{CREATOR_INFO.role}</div>
                                 </div>
                                 <div className="flex items-center gap-2 pt-1 flex-wrap">
-                                    {[
-                                        { title: 'avpdev.com', href: 'https://avpdev.com', icon: <Globe className="w-4 h-4" />, color: 'hover:text-sky-400' },
-                                        { title: 'GitHub', href: 'https://github.com/AVP-Dev', icon: <Github className="w-4 h-4" />, color: 'hover:text-white' },
-                                        { title: 'Telegram', href: 'https://t.me/AVP_Dev', icon: <MessageCircle className="w-4 h-4" />, color: 'hover:text-sky-400' },
-                                        { title: 'Instagram', href: 'https://instagram.com/avpdev', icon: <Instagram className="w-4 h-4" />, color: 'hover:text-pink-400' },
-                                        { title: 'LinkedIn', href: 'https://www.linkedin.com/in/aliaksei-alexey-patskevich-545586b8', icon: <Linkedin className="w-4 h-4" />, color: 'hover:text-blue-400' },
-                                    ].map((s, i) => (
+                                    {CREATOR_INFO.links.map((s, i) => (
                                         <a 
                                             key={i} 
                                             href={s.href} 
                                             target="_blank" 
+                                            rel="noopener noreferrer"
                                             title={s.title}
                                             className={`w-9 h-9 flex items-center justify-center rounded-xl bg-white/5 border border-white/8 text-white/30 transition-all duration-200 ${s.color} hover:bg-white/10`}
                                             onClick={(e) => {
@@ -268,13 +275,13 @@ export function WelcomeOverlay({ onClose, appLanguage, onLanguageToggle }: Welco
 
                             <div className="p-4 rounded-2xl bg-white/4 border border-white/8">
                                 <div className="text-[11px] font-bold text-white/30 uppercase tracking-widest mb-2">{C.about.mission}</div>
-                                <div className="text-[13px] text-white/80 italic leading-relaxed font-medium">&ldquo;{C.about.missionText}&rdquo;</div>
+                                <div className="text-[13px] text-white/80 italic leading-relaxed font-medium">&ldquo;{MISSION[appLanguage]}&rdquo;</div>
                             </div>
 
                             <div className="p-4 rounded-2xl bg-white/4 border border-white/8">
                                 <div className="text-[11px] font-bold text-white/30 uppercase tracking-widest mb-3">{C.about.future}</div>
                                 <div className="space-y-1.5">
-                                    {C.about.futureItems.map((item: string, i: number) => (
+                                    {FUTURE_ITEMS[appLanguage].map((item, i) => (
                                         <div key={i} className="flex items-center gap-2 text-[12px] text-white/50 font-bold italic">
                                             <ChevronRight className="w-3 h-3 text-white/20 shrink-0" />
                                             {item}

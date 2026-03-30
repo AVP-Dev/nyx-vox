@@ -5,9 +5,10 @@
   [![Скачать](https://img.shields.io/github/v/release/AVP-Dev/nyx-vox?label=%D0%A1%D0%BA%D0%B0%D1%87%D0%B0%D1%82%D1%8C&style=for-the-badge&color=orange)](https://github.com/AVP-Dev/nyx-vox/releases/latest)
 
   <p>
-    <a href="https://avp-dev.github.io/nyx-vox/" target="_blank" rel="noopener noreferrer">🌐 Лендинг</a> &nbsp;|&nbsp; 
-    <a href="./README.md">🇺🇸 English Version</a> &nbsp;|&nbsp; 
-    <a href="./docs/TECHNICAL.ru.md" target="_blank" rel="noopener noreferrer">⚙️ Техническая часть</a>
+    <a href="https://avp-dev.github.io/nyx-vox/" target="_blank" rel="noopener noreferrer">🌐 Лендинг</a> &nbsp;|&nbsp;
+    <a href="./README.md">🇺🇸 English Version</a> &nbsp;|&nbsp;
+    <a href="./docs/TECHNICAL.ru.md" target="_blank" rel="noopener noreferrer">⚙️ Техническая часть</a> &nbsp;|&nbsp;
+    <a href="./docs/CHANGELOG.ru.md" target="_blank" rel="noopener noreferrer">📝 История изменений</a>
   </p>
 </div>
 
@@ -64,9 +65,10 @@ NYX Vox — это быстрый, локально-ориентированны
 - [x] Современный интерфейс (Glassmorphism)
 - [x] Нативная вставка текста (MacOS HID)
 - [ ] Кастомные горячие клавиши
-- [ ] Локальная история и поиск по текстам
-- [ ] **Интеллектуальное AI-форматирование**: Внедрение моделей для исправления грамматики, расстановки пунктуации и удаления слов-паразитов.
-- [ ] Мультимодальная обработка (в планах)
+- [x] Локальная история и поиск по текстам
+- [x] **Интеллектуальное AI-форматирование**: Внедрение моделей (Gemini, Qwen, DeepSeek) для исправления грамматики и стиля.
+- [ ] Голосовые команды и управление Mac (в планах)
+- [ ] Мультиплатформенность (в планах)
 
 > [!TIP]
 > **Прозрачность и Доступность API**: В приложении используются современные, бесплатные или условно-бесплатные (Freemium) API модели. Мы выбираем решения вроде **Groq** и **Deepgram** не только из-за их мощности, но и потому, что они позволяют каждому разработчику или пользователю получить доступ к технологиям мирового уровня без огромных затрат.

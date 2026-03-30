@@ -2,9 +2,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { ShieldCheck, Zap, Mic2, Accessibility, BookOpen, ExternalLink, AlertTriangle, ShieldAlert, Check, X, Info, Keyboard, UserCircle, Globe, Github, MessageCircle, Send, Instagram, Linkedin } from 'lucide-react';
+import { ShieldCheck, Zap, Mic2, Accessibility, BookOpen, AlertTriangle, ShieldAlert, Check, X, Info, Keyboard, UserCircle, Globe, Github, MessageCircle, Send, Instagram, Linkedin } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CONTENT } from '@/components/SettingsPanel';
+import Image from 'next/image';
+import { CONTENT, APP_VERSION } from '@/components/SettingsPanel';
 
 type Tab = 'welcome' | 'perms' | 'help' | 'quarantine' | 'about';
 
@@ -23,7 +24,7 @@ export default function WelcomePage() {
             try {
                 const savedLang = await invoke<'ru' | 'en'>('get_app_language');
                 setLanguage(savedLang);
-            } catch (e) {
+            } catch {
                 if (navigator.language.startsWith('ru')) setLanguage('ru');
                 else setLanguage('en');
             }
@@ -50,7 +51,7 @@ export default function WelcomePage() {
 
     const handleExit = async () => {
         try {
-            await invoke('set_welcome_seen', { version: '0.1.2-beta', seen: welcomeDoNotShowAgain });
+            await invoke('set_welcome_seen', { version: APP_VERSION, seen: welcomeDoNotShowAgain });
             if (window.__TAURI_INTERNALS__) {
                 const { getCurrentWindow } = await import('@tauri-apps/api/window');
                 const win = getCurrentWindow();
@@ -120,7 +121,7 @@ export default function WelcomePage() {
                             className="flex flex-col items-center justify-center min-h-full pb-10 text-center"
                         >
                             <div className="w-16 h-16 rounded-[22px] bg-white/5 border border-white/10 flex items-center justify-center mb-6 shadow-2xl relative">
-                                <img src="/logo.png" alt="Logo" className="w-10 h-10 object-contain drop-shadow-lg" />
+                                <Image src="/logo.png" alt="Logo" width={40} height={40} className="object-contain drop-shadow-lg" />
                                 <div className="absolute -bottom-1 -right-1 bg-orange-600 w-4 h-4 rounded-full flex items-center justify-center border-2 border-black/50">
                                     <Zap size={8} className="text-white" fill="white" />
                                 </div>
@@ -136,7 +137,7 @@ export default function WelcomePage() {
                             </p>
 
                             <div className="mt-8 w-full max-w-[340px] p-5 rounded-2xl bg-white/3 border border-white/10 space-y-4">
-                                <div className="text-[9px] font-black text-white/20 uppercase tracking-[0.4em] text-center mb-1">Production Release v0.1.2-beta</div>
+                                <div className="text-[9px] font-black text-white/20 uppercase tracking-[0.4em] text-center mb-1">Production Release {C.about.version}</div>
                                 <div className="flex flex-col gap-4 mx-auto w-fit">
                                     {[
                                         { icon: <Keyboard size={13} />, label: language === 'ru' ? '⌥ + Space (Запись / Вставка)' : '⌥ + Space (Record / Paste)', color: 'text-orange-500' },
@@ -247,7 +248,7 @@ export default function WelcomePage() {
                             {/* App info */}
                             <div className="flex items-center gap-4 px-1">
                                 <div className="w-[60px] h-[60px] rounded-[16px] bg-white/5 border border-white/10 flex items-center justify-center shadow-xl overflow-hidden shrink-0 relative">
-                                    <img src="/logo.png" alt="NYX Vox" className="w-[40px] h-[40px] object-cover" />
+                                    <Image src="/logo.png" alt="NYX Vox" width={40} height={40} className="object-cover" />
                                 </div>
                                 <div>
                                     <div className="flex items-baseline gap-2">
@@ -277,7 +278,7 @@ export default function WelcomePage() {
                                     {([
                                         { title: 'avpdev.com', href: 'https://avpdev.com', icon: <Globe className="w-4 h-4" />, color: 'hover:text-sky-400   hover:shadow-[0_0_12px_rgba(56,189,248,0.5)]' },
                                         { title: 'GitHub', href: 'https://github.com/AVP-Dev', icon: <Github className="w-4 h-4" />, color: 'hover:text-white      hover:shadow-[0_0_12px_rgba(255,255,255,0.3)]' },
-                                        { title: 'Telegram', href: 'https://t.me/AVP_Dev', icon: <MessageCircle className="w-4 h-4" />, color: 'hover:text-sky-400   hover:shadow-[0_0_12px_rgba(56,189,248,0.5)]' },
+                                        { title: 'Telegram', href: 'https://t.me/AVP_Dev', icon: <Send className="w-4 h-4" />, color: 'hover:text-sky-400   hover:shadow-[0_0_12px_rgba(56,189,248,0.5)]' },
                                         { title: 'Email', href: 'mailto:contact@avpdev.com', icon: <Send className="w-4 h-4" />, color: 'hover:text-emerald-400 hover:shadow-[0_0_12px_rgba(52,211,153,0.5)]' },
                                         { title: 'WhatsApp', href: 'https://wa.me/375291217371', icon: <MessageCircle className="w-4 h-4" />, color: 'hover:text-green-400  hover:shadow-[0_0_12px_rgba(74,222,128,0.5)]' },
                                         { title: 'Instagram', href: 'https://instagram.com/avpdev', icon: <Instagram className="w-4 h-4" />, color: 'hover:text-pink-400  hover:shadow-[0_0_12px_rgba(244,114,182,0.5)]' },

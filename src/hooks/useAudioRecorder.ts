@@ -2,15 +2,6 @@ import { useState, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { useStore } from '@/store/useStore';
 
-/**
- * useAudioRecorder — Offline Whisper Edition
- *
- * Recording lifecycle:
- *   startRecording → invoke('start_whisper_recording') → Rust cpal captures mic
- *   stopRecording  → invoke('stop_whisper_recording')  → Rust runs Whisper → returns text
- *
- * No WebSocket, no API keys, no network. 100% offline.
- */
 export const useAudioRecorder = () => {
     const [isRecording, setIsRecording] = useState(false);
     const { setTranscript, setProcessing } = useStore();
@@ -18,7 +9,7 @@ export const useAudioRecorder = () => {
     const startRecording = useCallback(async () => {
         try {
             setIsRecording(true);
-            await invoke('start_whisper_recording');
+            await invoke('start_recording');
         } catch (err) {
             console.error('Failed to start recording:', err);
             const msg = err instanceof Error ? err.message : String(err);
@@ -32,8 +23,9 @@ export const useAudioRecorder = () => {
                 setTranscript(`Error: ${msg}`);
             }
             setIsRecording(false);
+            setProcessing(false);
         }
-    }, [setTranscript]);
+    }, [setTranscript, setProcessing]);
 
     const stopRecording = useCallback(async () => {
         if (!isRecording) return;
@@ -42,7 +34,7 @@ export const useAudioRecorder = () => {
         setProcessing(true);
 
         try {
-            const text = await invoke<string>('stop_whisper_recording');
+            const text = await invoke<string>('stop_recording');
             if (text && text.trim()) {
                 setTranscript((prev: string) => {
                     if (!prev.trim()) return text.trim();

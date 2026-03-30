@@ -21,9 +21,9 @@
 /build
 
 # misc
-# misc
 .DS_Store
 *.pem
+*.log
 
 # AI Agents & Assistants
 .agent/
@@ -31,6 +31,7 @@
 .cursor/
 .history/
 .gemini/
+.qwen/
 
 # debug
 npm-debug.log*
@@ -40,6 +41,10 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 
 # vercel
 .vercel
@@ -51,3 +56,30 @@ next-env.d.ts
 # Misc Generated
 MASTER.md
 *.metal
+
+# Rust
+/target/
+**/*.rs.bk
+Cargo.lock
+
+# Tauri
+src-tauri/target/
+src-tauri/**/*.lock
+
+# Bun
+bun.lockb
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Build outputs
+dist/
+build/
+*.app
+*.dmg
+*.exe
+*.msi

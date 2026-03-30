@@ -2,23 +2,129 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { listen, type Event } from '@tauri-apps/api/event';
+import { listen } from '@tauri-apps/api/event';
 import { useStore } from '@/store/useStore';
 import { WaveformVisualizer } from '@/components/WaveformVisualizer';
-import { SettingsPanel } from '@/components/SettingsPanel';
+import { SettingsPanel, CONTENT, APP_VERSION } from '@/components/SettingsPanel';
+
+interface TranslationDict {
+    ui: Record<string, string>;
+    settings: Record<string, any>;
+    history: Record<string, string>;
+    about: Record<string, string>;
+    guide: Record<string, any>;
+    welcome: Record<string, any>;
+    perms: Record<string, any>;
+    quarantine: Record<string, any>;
+    update: Record<string, string>;
+}
+
+const C = CONTENT as unknown as Record<string, TranslationDict>;
 import { WelcomeOverlay } from '@/components/WelcomeOverlay';
 import { writeText } from '@tauri-apps/plugin-clipboard-manager';
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
-import { Settings2, Mic, Check, Copy, Send, Pencil, X } from 'lucide-react';
-import { APP_VERSION } from '@/constants/version';
-import { UpdatePopup } from '@/components/UpdatePopup';
+import { Settings2, Mic, Check, Copy, Send, Pencil, X, Zap, History } from 'lucide-react';
 
 type Phase = 'idle' | 'recording' | 'processing' | 'result' | 'editing';
 
+type FormattingMode = 'none' | 'gemini' | 'deepseek' | 'qwen' | 'groq';
+
+interface QuickMenuProps {
+    isOpen: boolean;
+    formattingMode: FormattingMode;
+    lastActiveFormatting: Exclude<FormattingMode, 'none'>;
+    lang: string;
+    sttMode: string;
+    onToggleFormatting: (mode: FormattingMode) => void;
+    onToggleSTTMode: () => void;
+    onOpenSettings: () => void;
+    onClose: () => void;
+}
+
+const QuickMenu = ({ 
+    isOpen, 
+    formattingMode, 
+    lastActiveFormatting, 
+    lang, 
+    sttMode,
+    onToggleFormatting,
+    onToggleSTTMode,
+    onOpenSettings,
+    onClose
+}: QuickMenuProps) => {
+    return (
+        <AnimatePresence>
+            {isOpen && (
+                <motion.div 
+                    initial={{ opacity: 0, y: -5, x: '-50%', scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, x: '-50%', scale: 1 }}
+                    exit={{ opacity: 0, y: -5, x: '-50%', scale: 0.98 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 30, delay: 0.1 }}
+                    className="absolute top-[42px] left-1/2 w-[190px] bg-[#1A1A1C]/98 backdrop-blur-3xl border border-white/10 rounded-2xl p-1.5 z-[99999] flex flex-col gap-0.5 shadow-xl pointer-events-auto overflow-hidden"
+                >
+                    <button 
+                        onClick={() => {
+                            const next = formattingMode === 'none' ? lastActiveFormatting : 'none';
+                            onToggleFormatting(next);
+                        }}
+                        className={`flex items-center justify-between px-3 py-2.5 rounded-xl transition-all ${formattingMode !== 'none' ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' : 'hover:bg-white/5 text-white/50 hover:text-white'}`}
+                    >
+                        <div className="flex items-center gap-2">
+                            <Zap size={14} className={formattingMode !== 'none' ? 'animate-pulse' : ''} />
+                            <span className="text-[11px] font-black uppercase tracking-wider">{C[lang].ui.aiRefine}</span>
+                        </div>
+                        <div className={`w-6 h-3 rounded-full relative transition-colors ${formattingMode !== 'none' ? 'bg-cyan-500/40' : 'bg-white/10'}`}>
+                            <motion.div animate={{ x: formattingMode !== 'none' ? 12 : 2 }} className="absolute top-0.5 w-2 h-2 bg-white rounded-full shadow-none" />
+                        </div>
+                    </button>
+
+                    <button 
+                        onClick={onToggleSTTMode}
+                        className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-white/5 text-white/50 hover:bg-white/10 hover:text-white transition-all border border-transparent hover:border-white/5"
+                    >
+                        <div className="flex items-center gap-2">
+                            <Mic size={14} />
+                            <span className="text-[11px] font-black uppercase tracking-wider">{C[lang].ui.engine}</span>
+                        </div>
+                        <span className="text-[10px] font-black text-orange-500 uppercase tracking-tighter">
+                            {sttMode === 'deepgram' ? 'Cloud' : sttMode === 'whisper' ? 'Local' : sttMode.toUpperCase()}
+                        </span>
+                    </button>
+
+                    <div className="h-px bg-white/5 my-1 mx-2" />
+
+                    <button 
+                        onClick={() => {
+                            invoke('open_history_window').catch(console.error);
+                            onClose();
+                        }}
+                        className="flex items-center gap-2 px-3 py-2.5 rounded-xl hover:bg-white/5 text-white/50 hover:text-white transition-all"
+                    >
+                        <History size={14} />
+                        <span className="text-[11px] font-black uppercase tracking-wider">{C[lang].history.openHistory}</span>
+                    </button>
+
+                    <button 
+                        onClick={onOpenSettings}
+                        className="flex items-center gap-2 px-3 py-2.5 rounded-xl hover:bg-white/5 text-white/50 hover:text-white transition-all"
+                    >
+                        <Settings2 size={14} />
+                        <span className="text-[11px] font-black uppercase tracking-wider">{C[lang].ui.settings}</span>
+                    </button>
+                </motion.div>
+            )}
+        </AnimatePresence>
+    );
+};
+
 export default function Home() {
     const { transcriptText, setProcessing, setTranscript } = useStore();
+    const [aiStatus, setAiStatus] = useState<string>('');
     const [phase, setPhase] = useState<Phase>('idle');
+    const isRec = phase === 'recording';
+    const isProc = phase === 'processing';
     const phaseRef = useRef<Phase>('idle');
+    const lastTriggerTime = useRef<number>(0);
     
     useEffect(() => { 
         phaseRef.current = phase; 
@@ -27,22 +133,90 @@ export default function Home() {
     const isIdle = phase === 'idle';
 
     const cleanHallucinations = useCallback((t: string | undefined | null): string => {
-        if (!t) return '';
-        const text = t.trim();
-        const lower = text.toLowerCase();
-        const badPhrases = ['продолжение следует', 'спасибо за просмотр', 'подписывайтесь на канал', 'subtitles by', 'amara.org', 'субтитры', 'диктор', 'с вами был', 'а. кулаков', '[music]', '[silence]'];
+        if (!t) {
+            console.log('>>> [CLEAN] Input is empty, returning empty');
+            return '';
+        }
+        let text = t.trim();
+        console.log('>>> [CLEAN] Input text:', text.substring(0, 50));
         
-        // Only clear if the text is short and contains a hallucination pattern
-        if (text.length < 100) {
-            for (const p of badPhrases) { 
-                if (lower.includes(p)) return ''; 
+        // Capitalize first letter
+        if (text.length > 0) {
+            text = text.charAt(0).toUpperCase() + text.slice(1);
+        }
+        
+        // Remove common Whisper hallucinations and junk phrases
+        const junkPhrases = [
+            // Music/sound markers
+            '[music]', '[silence]', '[noise]',
+            '♪', '♫', '♬', '♭', '♮',
+            '(музыка)', '(тишина)', '(шум)', '(аплодисменты)',
+            '(Music)', '(Silence)', '(Laughter)', '(Applause)',
+            
+            // Subtitle credits
+            'subtitles by', 'transcribed by', 'copyright', 'subtitles',
+            'редактор субтитров', 'субтитры', 'перевод', 'translated by', 'translation',
+            'автор субтитров', 'специально для', 'благодарим за',
+            
+            // Common hallucinations
+            'DimaTorzok', 'Dima Torzok', 'Hoje pursui', 'pursui', 'uvoir',
+            'продолжение следует', 'to be continued', 'continued',
+            'amara.org', 'amara', 'www.', 'http', '.com', '.ru', 'https://',
+            
+            // YouTube/video endings
+            'подпишитесь на канал', 'спасибо за просмотр', 'с вами был',
+            'диктор', 'диктовка', 'диктовка.', 'в выпуске', 'следующий выпуск',
+            'смотрите далее', 'реклама', 'спонсор', 'партнёр', 'sponsor',
+            
+            // Technical markers
+            'end of transcript', 'transcript end', 'конец записи',
+            'тишина', 'пауза', 'pause', 'silence',
+            'неразборчиво', 'не разборчиво', 'inaudible', 'unclear',
+            'аплодисменты', 'смех', 'laughter', 'applause',
+            'music fades', 'music plays', 'играет музыка',
+            
+            // Random junk
+            'игорь негода', 'игорь не года', 'а. кулаков', 'а. кулакова', 'кулакова'
+        ];
+        
+        const lowerText = text.toLowerCase();
+        let foundJunk = false;
+        for (const phrase of junkPhrases) {
+            const lowerPhrase = phrase.toLowerCase();
+            if (lowerText.includes(lowerPhrase)) {
+                foundJunk = true;
+                console.log('>>> [CLEAN] Found junk phrase:', phrase);
+                text = text.replace(new RegExp(phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), '');
             }
         }
+        if (foundJunk) {
+            console.log('>>> [CLEAN] Text after junk removal:', text.substring(0, 50));
+        }
+        
+        // Clean up multiple spaces and trim
+        text = text.replace(/\s+/g, ' ').trim();
+        
+        // Remove trailing incomplete sentences (common Whisper artifact)
+        const trailingJunk = ['...', '—', '–', '…'];
+        for (const junk of trailingJunk) {
+            if (text.endsWith(junk)) {
+                text = text.slice(0, text.lastIndexOf(junk)).trim();
+            }
+        }
+        
+        // If text is too short (less than 2 characters), return empty
+        // DON'T check for punctuation-only as regex breaks with Cyrillic
+        if (text.length < 2) {
+            console.log('>>> [CLEAN] Text too short (< 2 chars), returning empty');
+            return '';
+        }
+        
+        console.log('>>> [CLEAN] Final cleaned text:', text.substring(0, 50));
         return text;
     }, []);
 
     const [showSettings, setShowSettings] = useState(false);
-    const [sttMode, setSttMode] = useState<'deepgram' | 'whisper' | 'groq'>('deepgram');
+    const [sttMode, setSttMode] = useState<'deepgram' | 'whisper' | 'groq' | 'gemini'>('deepgram');
     const [dgLanguage, setDgLanguage] = useState<'auto' | 'ru' | 'en'>('auto');
     const [whisperLanguage, setWhisperLanguage] = useState<'auto' | 'ru' | 'en'>('ru');
     const [groqLanguage, setGroqLanguage] = useState<'auto' | 'ru' | 'en'>('auto');
@@ -51,9 +225,23 @@ export default function Home() {
     const [clearOnPaste, setClearOnPaste] = useState(false);
     const [startMinimized, setStartMinimized] = useState(false);
     const [alwaysOnTop, setAlwaysOnTop] = useState(true);
+    const [autoPauseMedia, setAutoPauseMedia] = useState(false);
     const [targetApp, setTargetApp] = useState<string>('');
     const [isVisible, setIsVisible] = useState(false);
     const [showWelcome, setShowWelcome] = useState(false);
+    const [formattingStatus, setFormattingStatus] = useState<string | null>(null);
+    const [formattingStyle, setFormattingStyle] = useState<'casual' | 'professional'>('casual');
+
+    // Helper visibility states
+    const isOverlay = showSettings || showWelcome;
+    const isCompact = (phase === 'recording' || phase === 'processing') || (autoPaste && phase === 'result');
+    
+    const [showQuickMenu, setShowQuickMenu] = useState(false);
+    const [formattingMode, setFormattingMode] = useState<FormattingMode>('none'); // По умолчанию ВЫКЛЮЧЕНО!
+    const [lastActiveFormatting, setLastActiveFormatting] = useState<Exclude<FormattingMode, 'none'>>('gemini');
+
+    // Quick alias for translation logic
+    const lang = appLanguage;
     
     const containerRef = useRef<HTMLDivElement>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
@@ -100,47 +288,32 @@ export default function Home() {
     const resizeWindow = useCallback(async (w: number, h: number) => {
         if (typeof window === 'undefined' || !window.__TAURI_INTERNALS__) return;
         try {
-            const { getCurrentWindow, LogicalSize, PhysicalPosition, primaryMonitor } = await import('@tauri-apps/api/window');
+            const { getCurrentWindow, LogicalSize, LogicalPosition } = await import('@tauri-apps/api/window');
             const win = getCurrentWindow();
-            
-            const oldPos = await win.outerPosition();
-            const oldSize = await win.outerSize();
-            const monitor = await primaryMonitor();
-            const scale = monitor ? monitor.scaleFactor : 2;
 
-            // Target dimensions in physical pixels
-            const newPhysicalW = w * scale;
+            // Only center if we haven't been dragged yet
+            if (!lastPos.current) {
+                await invoke('resize_window', { width: w, height: h, center: true });
+            } else {
+                const scale = await win.scaleFactor();
+                // lastPos is physical, convert center point to logical
+                const logCenterX = lastPos.current.x / scale;
+                const logTopY = lastPos.current.y / scale;
 
-            // Anchor logic: TOP-CENTER
-            // We want the horizontal center of the window to remain the same after resize.
-            let targetCenter_x = oldPos.x + oldSize.width / 2;
-            let targetTop_y = oldPos.y;
+                const newX = logCenterX - (w / 2);
 
-            // If we have a saved position (from dragging), use it.
-            if (lastPos.current) {
-                targetCenter_x = lastPos.current.x;
-                targetTop_y = lastPos.current.y;
+                // Set size and then adjust position to keep it centered around lastPos.x
+                await win.setSize(new LogicalSize(w, h));
+                await win.setPosition(new LogicalPosition(newX, logTopY));
             }
 
-            // DRIFT PROTECTION: Always use current Y or last known valid Y
-            // Do not recalculate top_y from oldPos during rapid resizes if possible
-            let newX = Math.round(targetCenter_x - newPhysicalW / 2);
-            let newY = targetTop_y;
-
-            // Clinging to top menu bar by default if y is near 0 or not set
-            if (!lastPos.current || newY < 10) {
-                newY = 0;
-            }
-
-            // Apply size first, then position
-            await win.setSize(new LogicalSize(w, h));
-            // Force Y to stay exactly where it is to prevent 'dropping'
-            await win.setPosition(new PhysicalPosition(newX, newY));
-            
+            // Always on top during recording/processing/result, otherwise use user setting
+            const shouldBeOnTop = (phase === 'recording' || phase === 'processing' || phase === 'result') ? true : alwaysOnTop;
+            await win.setAlwaysOnTop(shouldBeOnTop);
         } catch (err) {
             console.error('Window management error:', err);
         }
-    }, []);
+    }, [alwaysOnTop, phase]);
 
     // Listen for window movement to update lastPos
     useEffect(() => {
@@ -181,22 +354,38 @@ export default function Home() {
 
     useEffect(() => {
         if (!isVisible) return;
-        const w = (showSettings || showWelcome) ? 440 : (phase === 'editing' ? 440 : (phase === 'result' ? 400 : (isIdle ? 140 : 260)));
         
-        // Dynamic height for result phase
+        // Sizing logic
+        let w = 260;
         let h = 48;
-        if (showSettings || showWelcome) h = 540;
-        else if (phase === 'editing') h = 360;
-        else if (phase === 'result') {
+
+        if (showSettings) {
+            w = 620;
+            h = 680;
+        } else if (showWelcome) {
+            w = 580;
+            h = 560;
+        } else if (isOverlay) {
+            w = 440;
+            h = 540;
+        } else if (showQuickMenu && isIdle) {
+            w = 200;
+            h = 230;
+        } else if (phase === 'editing') {
+            w = 400; // Unified with Result
+            h = 360;
+        } else if (phase === 'result' && !isCompact) {
+            w = 400;
             const textLen = transcriptText?.length || 0;
             const rows = Math.max(1, Math.ceil(textLen / 36));
-            // Increased baseline and row height + 20px buffer for bottom rounding
-            const calcH = 180 + (rows * 18); 
-            h = Math.min(460, Math.max(180, calcH));
+            const calcH = 160 + (rows * 20); 
+            h = Math.min(500, Math.max(160, calcH));
+        } else if (isIdle) {
+            w = 150;
         }
 
         resizeWindow(w, h);
-    }, [phase, isIdle, showSettings, showWelcome, isVisible, transcriptText, resizeWindow]);
+    }, [phase, isIdle, isOverlay, isCompact, isVisible, transcriptText, showQuickMenu, resizeWindow, showSettings, showWelcome]);
 
     useEffect(() => {
         const load = async () => {
@@ -218,10 +407,13 @@ export default function Home() {
                     invoke<boolean>('get_clear_on_paste'),
                     invoke<boolean>('get_start_minimized'),
                     invoke<boolean>('check_model_available'),
-                    invoke<boolean>('get_always_on_top')
+                    invoke<boolean>('get_always_on_top'),
+                    invoke<string>('get_formatting_mode').catch(() => 'none'),
+                    invoke<string>('get_formatting_style').catch(() => 'casual'),
+                    invoke<boolean>('get_auto_pause').catch(() => false)
                 ]);
 
-                setSttMode(results[0] as 'deepgram' | 'whisper' | 'groq');
+                setSttMode(results[0] as 'deepgram' | 'whisper' | 'groq' | 'gemini');
                 setDgLanguage(results[1]);
                 setWhisperLanguage(results[2]);
                 setGroqLanguage(results[3]);
@@ -229,6 +421,15 @@ export default function Home() {
                 setClearOnPaste(results[5]);
                 setStartMinimized(results[6]);
                 setAlwaysOnTop(results[8] ?? true);
+
+                const fMode = results[9] as FormattingMode;
+                setFormattingMode(fMode || 'none');
+                if (fMode && fMode !== 'none') setLastActiveFormatting(fMode);
+
+                const fStyle = results[10] as 'casual' | 'professional';
+                setFormattingStyle(fStyle || 'casual');
+
+                setAutoPauseMedia(results[11] ?? false);
                 
                 const savedAppLang = await invoke<'ru' | 'en'>('get_app_language').catch(() => 'ru' as const);
                 setAppLanguageState(savedAppLang || 'ru');
@@ -239,29 +440,49 @@ export default function Home() {
             }
         };
         load();
+        
+        // Self-diagnosis on start
+        invoke('run_self_diagnosis').then(res => {
+            console.log('🛡️ NYX Vox Self-Diagnosis:', res);
+        }).catch(err => console.error('🚫 Diagnosis failed:', err));
     }, [checkUpdates]);
 
-    useEffect(() => {
-        if (!showSettings) {
-            invoke<string>('get_stt_mode').then(m => m && setSttMode(m as 'deepgram' | 'whisper' | 'groq'));
-            invoke<'ru'|'en'>('get_app_language').then(l => l && setAppLanguageState(l));
-        }
-    }, [showSettings]);
+// Deleted redundant useEffect for reloading settings as it is now handled via shared props
 
-    const updateTarget = useCallback(() => {
-         if (phaseRef.current === 'result' || phaseRef.current === 'editing') {
+    const updateTarget = useCallback(async (currentPhase: Phase) => {
+         if (currentPhase === 'result' || currentPhase === 'editing') {
+            // First, ask backend to recapture the frontmost app IF we just finished
+            if (currentPhase === 'result') {
+                await invoke('update_target_app').catch(console.error);
+            }
             invoke<string>('get_target_app').then(name => {
                 if (name && name !== 'Unknown') setTargetApp(name);
                 else setTargetApp('');
             }).catch(console.error);
-        } else if (phaseRef.current === 'idle') {
+        } else if (currentPhase === 'idle') {
             setTargetApp('');
         }
     }, []);
 
     useEffect(() => {
-        updateTarget();
+        updateTarget(phase);
     }, [phase, updateTarget]);
+
+    // Live target app updates from backend polling
+    useEffect(() => {
+        let isMounted = true;
+        let unlistenFn: (() => void) | null = null;
+
+        listen<string>('target-app-changed', (event) => {
+            if (isMounted && event.payload && event.payload !== 'Unknown' && event.payload !== 'NYX Vox' && event.payload !== 'app') {
+                setTargetApp(event.payload);
+            }
+        }).then(u => {
+            if (isMounted) unlistenFn = u; else u();
+        });
+
+        return () => { isMounted = false; if (unlistenFn) unlistenFn(); };
+    }, []);
 
     useEffect(() => {
         const langCode = sttMode === 'deepgram' ? dgLanguage : (sttMode === 'whisper' ? whisperLanguage : groqLanguage);
@@ -270,56 +491,54 @@ export default function Home() {
     }, [sttMode, dgLanguage, whisperLanguage, groqLanguage, appLanguage]);
 
     useEffect(() => {
-        let unlisten: (() => void) | null = null;
-        listen<string>('language-changed', (e) => setAppLanguageState(e.payload as 'ru' | 'en')).then(u => unlisten = u);
-        return () => { if (unlisten) unlisten(); };
+        let isMounted = true;
+        let unlistenFn: (() => void) | null = null;
+        listen<string>('language-changed', (e) => {
+            if (isMounted) setAppLanguageState(e.payload as 'ru' | 'en');
+        }).then(u => {
+            if (isMounted) unlistenFn = u; else u();
+        });
+        return () => { isMounted = false; if (unlistenFn) unlistenFn(); };
     }, []);
 
-    const toggleQuickLang = useCallback(async () => {
-        const sequence: ('auto' | 'ru' | 'en')[] = ['auto', 'ru', 'en'];
-        const cur = sttMode === 'deepgram' ? dgLanguage : (sttMode === 'whisper' ? whisperLanguage : groqLanguage);
-        const next = sequence[(sequence.indexOf(cur) + 1) % sequence.length];
+    const handleFormattingModeChange = useCallback(async (mode: 'none' | 'gemini' | 'deepseek' | 'qwen' | 'groq') => {
+        setFormattingMode(mode);
+        if (mode !== 'none') setLastActiveFormatting(mode);
+        await invoke('set_formatting_mode', { mode });
+    }, []);
+
+    const toggleSTTMode = useCallback(async () => {
+        const modes: ('deepgram' | 'whisper' | 'groq' | 'gemini')[] = ['deepgram', 'whisper', 'groq', 'gemini'];
+        const next = modes[(modes.indexOf(sttMode) + 1) % modes.length];
+        setSttMode(next);
+        await invoke('set_stt_mode', { mode: next });
+    }, [sttMode]);
+
+    const handlePaste = useCallback(async (explicitText?: string) => {
+        // Safety: if called as an event handler, explicitText will be the Event object.
+        // We only want to use it if it's explicitly a string.
+        const textToPaste = (typeof explicitText === 'string') ? explicitText : transcriptText;
         
+        if (!textToPaste) return;
         try {
-            if (sttMode === 'deepgram') {
-                setDgLanguage(next);
-                await invoke('set_deepgram_language', { lang: next });
-            } else if (sttMode === 'whisper') {
-                setWhisperLanguage(next);
-                await invoke('set_whisper_language', { lang: next });
-            } else if (sttMode === 'groq') {
-                setGroqLanguage(next);
-                await invoke('set_groq_language', { lang: next });
-            }
+            setProcessing(true);
+            await invoke('paste_text', { text: textToPaste });
+            if (clearOnPaste) setTranscript('');
+            setPhase('idle');
+            
+            // После вставки — скрываем окно и возвращаем alwaysOnTop к пользовательскому значению
+            const { getCurrentWindow } = await import('@tauri-apps/api/window');
+            const win = getCurrentWindow();
+            await win.setAlwaysOnTop(alwaysOnTop);
+            await win.hide();
         } catch (err) {
             console.error(err);
-        }
-    }, [sttMode, dgLanguage, whisperLanguage, groqLanguage]);
-
-    const triggerStart = useCallback(() => {
-        setTranscript('');
-        setShowSettings(false);
-        invoke('start_recording').catch(err => {
-            setTranscript(`Ошибка: ${err}`);
-            setPhase('result');
-        });
-    }, [setTranscript]);
-
-    const triggerStop = useCallback(async () => {
-        setProcessing(true);
-        try {
-            const rawText = await invoke<string>('stop_recording');
-            if (rawText) {
-                setTranscript(cleanHallucinations(rawText));
-            }
-            setPhase('result');
-        } catch (err) {
-            setTranscript(`Ошибка: ${err}`);
-            setPhase('result');
+            const msg = appLanguage === 'ru' ? 'Ошибка вставки' : 'Paste error';
+            setTranscript(`[${msg}: ${err}]`);
         } finally {
             setProcessing(false);
         }
-    }, [setTranscript, setProcessing, cleanHallucinations]);
+    }, [transcriptText, clearOnPaste, setTranscript, appLanguage, setProcessing, alwaysOnTop]);
 
     const handleLanguageToggle = useCallback(async () => {
         const next = appLanguage === 'ru' ? 'en' : 'ru';
@@ -327,128 +546,220 @@ export default function Home() {
         await invoke('set_app_language', { lang: next });
     }, [appLanguage]);
 
-    useEffect(() => {
-        let isMounted = true;
-        const unlisteners: (() => void)[] = [];
+    const triggerStart = useCallback(() => {
+        setTranscript('');
+        setFormattingStatus(null);
+        setAiStatus('');
+        setShowSettings(false);
+        setShowWelcome(false);
+        setPhase('recording');
+        invoke('start_recording').catch(err => {
+            setTranscript(`Ошибка: ${err}`);
+            setPhase('result');
+        });
+    }, [setTranscript]);
 
-        const setup = async () => {
-            const add = async <T,>(ev: string, cb: (e: Event<T>) => void) => {
-                const u = await listen<T>(ev, cb);
-                if (isMounted) unlisteners.push(u); else u();
-            };
-
-            await add<void>('shortcut-trigger', () => {
-                setPhase(p => {
-                    if (p === 'idle' || p === 'result') { 
-                        setShowSettings(false); 
-                        setTimeout(() => triggerStart(), 0); 
-                        return 'recording'; 
-                    }
-                    if (p === 'recording') { 
-                        setTimeout(() => triggerStop(), 0); 
-                        return 'processing'; 
-                    }
-                    return p;
-                });
-            });
-
-            await add<void>('open-settings', () => {
-                setShowWelcome(false);
-                setShowSettings(true);
-            });
-
-            await add<void>('open-welcome', () => {
-                setShowSettings(false);
-                setShowWelcome(true);
-            });
-
-            await add<void>('app-summon', () => updateTarget());
-
-            await add<string>('transcript-partial', (e) => {
-                const t = cleanHallucinations(e.payload);
-                if (t) setTranscript(t);
-            });
-
-            await add<string>('deepgram-final', (e) => {
-                const t = cleanHallucinations(e.payload);
-                if (t) {
-                    setTranscript(t);
-                    setPhase('result');
-                }
-            });
-
-            await add<string>('deepgram-error', (e) => {
-                const err = String(e.payload);
-                if (err.includes('401') || err.includes('Unauthorized')) {
-                    const msg = (appLanguage === 'ru' ? 'Ошибка API ключа (401). Проверьте настройки.' : 'API Key Error (401). Check settings.');
-                    setTranscript(msg);
-                } else {
-                    setTranscript(`Ошибка: ${err}`);
-                }
-                setPhase('result');
-            });
-
-            await add<string>('stt-fallback', (e) => {
-                setTranscript(`[Fallback: ${e.payload}]`);
-                setPhase('result');
-            });
-
-            await add<string>('mode-changed', (e) => {
-                if (e.payload) setSttMode(e.payload as 'deepgram' | 'whisper' | 'groq');
-            });
-        };
-
-        setup();
-        return () => { 
-            isMounted = false; 
-            unlisteners.forEach(u => u()); 
-        };
-    }, [triggerStart, triggerStop, updateTarget, cleanHallucinations, setTranscript, appLanguage]);
-
-    const handleCopy = async () => {
-        if (transcriptText) await writeText(transcriptText);
-    };
-
-    const handlePaste = async () => {
-        if (!transcriptText) return;
+    const triggerStop = useCallback(async () => {
+        setPhase('processing');
+        setProcessing(true);
         try {
-            setProcessing(true);
-            await invoke('paste_text', { text: transcriptText });
-            if (clearOnPaste) setTranscript('');
-            setPhase('idle');
+            console.log('>>> [FRONTEND] stop_recording INVOKED');
+            const rawText = await invoke<string>('stop_recording');
+            console.log('DEBUG: UI received text:', rawText ? rawText.substring(0, 30) + '...' : 'empty');
+            
+            let processedText = rawText;
+            if (rawText && (rawText.startsWith('{') || rawText.startsWith('['))) {
+                try {
+                    const parsed = JSON.parse(rawText);
+                    processedText = parsed.content || parsed.text || rawText;
+                } catch {
+                    console.warn('Response looks like JSON but parsing failed, using as raw string');
+                }
+            }
+
+            if (processedText) {
+                const cleanedText = cleanHallucinations(processedText);
+                setTranscript(cleanedText);
+                if (autoPaste && cleanedText) {
+                    handlePaste(cleanedText);
+                    return;
+                }
+            }
+            setPhase('result');
         } catch (err) {
-            console.error(err); 
-            const msg = appLanguage === 'ru' ? 'Ошибка вставки' : 'Paste error';
-            setTranscript(`[${msg}: ${err}]`);
+            if (err === 'ALREADY_IDLE') {
+                console.log('>>> [FRONTEND] Ignoring duplicate stop_recording call');
+                return;
+            }
+            console.error('DEBUG: stop_recording failed:', err);
+            setTranscript(`Ошибка: ${err}`);
+            setPhase('result');
         } finally {
             setProcessing(false);
         }
-    };
+    }, [setTranscript, setProcessing, cleanHallucinations, autoPaste, handlePaste]);
 
-    const isRec = phase === 'recording';
-    const isProc = phase === 'processing';
-    const lang = appLanguage || 'ru';
+    // Stable Refs for state and handlers to prevent event listener re-subscription storms
+    const autoPasteRef = useRef(autoPaste);
+    useEffect(() => { autoPasteRef.current = autoPaste; }, [autoPaste]);
+
+    const appLanguageRef = useRef(appLanguage);
+    useEffect(() => { appLanguageRef.current = appLanguage; }, [appLanguage]);
+
+    // Unified handlers ref for events
+    const handlersRefs = useRef({ triggerStart, triggerStop, handlePaste, updateTarget });
+    useEffect(() => {
+        handlersRefs.current = { triggerStart, triggerStop, handlePaste, updateTarget };
+    }, [triggerStart, triggerStop, handlePaste, updateTarget]);
+
+    useEffect(() => {
+        const unlisteners: (() => void)[] = [];
+
+        const setupEvents = async () => {
+            const handlers = [
+                listen<void>('shortcut-trigger', () => {
+                    const now = Date.now();
+                    if (now - lastTriggerTime.current < 500) return;
+                    lastTriggerTime.current = now;
+
+                    const p = phaseRef.current;
+                    if (p === 'idle' || p === 'result') { 
+                        setShowSettings(false); 
+                        handlersRefs.current.triggerStart(); 
+                    } else if (p === 'recording') { 
+                        handlersRefs.current.triggerStop(); 
+                    }
+                }),
+                listen<void>('open-settings', () => { setShowWelcome(false); setShowSettings(true); }),
+                listen<void>('open-welcome', () => { setShowSettings(false); setShowWelcome(true); }),
+                listen<void>('app-summon', () => handlersRefs.current.updateTarget(phaseRef.current)),
+                listen<string>('transcript-partial', (e) => {
+                    const t = cleanHallucinations(e.payload);
+                    if (t) setTranscript(t);
+                }),
+                listen<string>('deepgram-final', (e) => {
+                    const t = cleanHallucinations(e.payload);
+                    if (t) { 
+                        setTranscript(t); 
+                        if (autoPasteRef.current) {
+                            handlersRefs.current.handlePaste(t);
+                        } else {
+                            setPhase('result'); 
+                        }
+                    }
+                }),
+                listen<string>('ai-status', (e) => setAiStatus(e.payload)),
+                listen<string>('ai-result', (e) => {
+                    const t = cleanHallucinations(e.payload);
+                    if (t) setTranscript(t);
+                }),
+                listen<string>('deepgram-error', (e) => {
+                    const err = String(e.payload);
+                    const msg = err.includes('401') ? (appLanguageRef.current === 'ru' ? 'Ошибка ключа Deepgram' : 'Deepgram Key Error') : `Ошибка: ${err}`;
+                    setTranscript(msg);
+                    setPhase('result');
+                }),
+                listen<string>('recording-error', (e) => {
+                    const err = String(e.payload || 'Recording error');
+                    const msg = appLanguageRef.current === 'ru' ? `Ошибка записи: ${err}` : `Recording error: ${err}`;
+                    setTranscript(msg);
+                    setPhase('result');
+                }),
+                listen<string>('stt-fallback', (e) => {
+                    setTranscript(`[Fallback: ${e.payload}]`);
+                    setPhase('result');
+                }),
+                listen<string>('mode-changed', (e) => {
+                    if (e.payload) setSttMode(e.payload as 'deepgram' | 'whisper' | 'groq' | 'gemini');
+                }),
+                listen<string>('formatting-status', (e) => {
+                    setFormattingStatus(e.payload === 'done' ? null : e.payload);
+                })
+            ];
+
+            const settled = await Promise.all(handlers);
+            unlisteners.push(...settled);
+        };
+
+        setupEvents();
+
+        return () => {
+            unlisteners.forEach(fn => fn());
+        };
+    }, [cleanHallucinations, setTranscript, setPhase]);
+
+
+    const handleCopy = useCallback(async (explicitText?: string) => {
+        const text = explicitText || transcriptText;
+        if (text) {
+            await writeText(text);
+        }
+    }, [transcriptText]);
+
+    const handleTextSelection = useCallback((e: React.MouseEvent | React.KeyboardEvent) => {
+        const selection = window.getSelection();
+        const selectedText = selection?.toString().trim() || '';
+        
+        if (selectedText.length > 0) {
+            handleCopy(selectedText);
+            
+            // Показываем "Скопировано!" на 600ms
+            setAiStatus('✓ Скопировано!');
+            setTimeout(() => setAiStatus(''), 600);
+        }
+    }, [handleCopy]);
+
+    // Keyboard Shortcuts for Result/Editing phases
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            const currentPhase = phaseRef.current;
+            if (currentPhase === 'result' || currentPhase === 'editing') {
+                // Enter: Send/Paste
+                // In 'result' mode, plain Enter pastes.
+                // In 'editing' mode, Command+Enter (or Ctrl+Enter) pastes.
+                if (e.key === 'Enter') {
+                    const isMod = e.metaKey || e.ctrlKey;
+                    if (currentPhase === 'result' || isMod) {
+                        e.preventDefault();
+                        handlePaste();
+                    }
+                }
+                
+                // Escape: Dismiss
+                if (e.key === 'Escape') {
+                    setTranscript('');
+                    setPhase('idle');
+                }
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [handlePaste, setTranscript, setPhase]);
 
     const windowEntrance: Variants = {
         hidden: { opacity: 0, scale: 0.95 },
-        show: { opacity: 1, scale: 1, transition: { type: "spring", stiffness: 400, damping: 25, mass: 1 } },
-        exit: { opacity: 0, scale: 0.95, transition: { duration: 0.2, ease: "easeIn" } }
+        show: { opacity: 1, scale: 1, transition: { type: "spring", stiffness: 300, damping: 25 } },
+        exit: { opacity: 0, scale: 0.95, transition: { duration: 0.2 } }
     };
 
     const resultTextLen = transcriptText?.length || 0;
     const resultRows = Math.max(1, Math.ceil(resultTextLen / 36));
-    const resultHeight = Math.min(460, Math.max(180, 180 + (resultRows * 18)));
+    const resultHeight = Math.min(500, Math.max(160, 160 + (resultRows * 20)));
 
     const containerVariants: Variants = {
-        idle: { width: 140, height: 48, borderRadius: 24 },
-        recording: { width: 260, height: 48, borderRadius: 24 },
-        result: { width: 400, height: resultHeight, borderRadius: 24 },
-        editing: { width: 440, height: 360, borderRadius: 24 },
-        overlay: { width: 440, height: 540, borderRadius: 24 }
+        idle: { width: 150, height: 48, borderRadius: 24 },      // [Pill: Idle]
+        quickMenu: { width: 200, height: 230, borderRadius: 24 }, // [Menu: Quick Access]
+        recording: { width: 260, height: 48, borderRadius: 24 },  // [Pill: Live]
+        result: { width: 400, height: resultHeight, borderRadius: 24 }, // [Board: Result]
+        editing: { width: 400, height: 360, borderRadius: 24 },   // [Board: Editor]
+        overlay: { width: 440, height: 540, borderRadius: 24 },   // [Panel: Generic Overlay]
+        settings: { width: 620, height: 680, borderRadius: 32 },  // [Panel: Settings]
+        welcome: { width: 580, height: 560, borderRadius: 24 }    // [Panel: Welcome]
     };
 
     return (
-        <main className="w-screen h-screen flex flex-col items-center justify-start bg-transparent select-none font-sans antialiased overflow-hidden pointer-events-none z-[9999]">
+        <main className="w-screen h-screen flex flex-col items-center justify-start bg-transparent font-sans antialiased overflow-hidden pointer-events-none z-[9999]">
             <AnimatePresence>
                 {isVisible && (
                     <motion.div 
@@ -462,29 +773,46 @@ export default function Home() {
                         <motion.div 
                             ref={containerRef}
                             data-tauri-drag-region
-                            initial="idle"
-                            animate={showSettings || showWelcome ? 'overlay' : (phase === 'editing' ? 'editing' : (phase === 'result' ? 'result' : (isIdle ? 'idle' : 'recording')))}
+                            initial={false}
+                            animate={showSettings ? 'settings' : (showWelcome ? 'welcome' : (phase === 'editing' ? 'editing' : (phase === 'result' && !autoPaste ? 'result' : (isIdle ? (showQuickMenu ? 'quickMenu' : 'idle') : 'recording'))))}
                             variants={containerVariants}
-                            transition={{ layout: { type: "spring", stiffness: 350, damping: 32 }, opacity: { duration: 0.15 } }}
-                            className="bg-[#1C1C1E] border border-white/10 overflow-hidden flex flex-col relative h-full w-full"
+                            transition={{ type: "spring", stiffness: 350, damping: 32 }}
+                            className={`bg-[#1C1C1E] border border-white/10 flex flex-col relative h-full w-full shadow-none overflow-hidden`}
                             style={{ backdropFilter: 'blur(40px) saturate(200%)' }}
                         >
                             <AnimatePresence mode="wait">
                                 {showSettings ? (
                                     <motion.div key="settings-overlay" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="w-full h-full flex flex-col">
-                                        <SettingsPanel 
-                                            onClose={() => setShowSettings(false)} 
-                                            autoPaste={autoPaste} 
-                                            clearOnPaste={clearOnPaste} 
-                                            startMinimized={startMinimized} 
-                                            onToggleAutoPaste={() => { const n = !autoPaste; setAutoPaste(n); invoke('set_auto_paste', { enabled: n }); }} 
-                                            onToggleClearOnPaste={() => { const n = !clearOnPaste; setClearOnPaste(n); invoke('set_clear_on_paste', { enabled: n }); }} 
-                                            onToggleStartMinimized={() => { const n = !startMinimized; setStartMinimized(n); invoke('set_start_minimized', { minimized: n }); }} 
+                                        <SettingsPanel
+                                            onClose={() => setShowSettings(false)}
+                                            lang={appLanguage}
+                                            setLang={(v: 'ru' | 'en') => { setAppLanguageState(v); invoke('set_app_language', { lang: v }); }}
+                                            autoPaste={autoPaste}
+                                            clearOnPaste={clearOnPaste}
+                                            startMinimized={startMinimized}
+                                            onToggleAutoPaste={(v) => { setAutoPaste(v); invoke('set_auto_paste', { enabled: v }); }}
+                                            onToggleClearOnPaste={(v) => { setClearOnPaste(v); invoke('set_clear_on_paste', { enabled: v }); }}
+                                            onToggleStartMinimized={(v) => { setStartMinimized(v); invoke('set_start_minimized', { minimized: v }); }} 
                                             alwaysOnTop={alwaysOnTop}
-                                            onToggleAlwaysOnTop={() => { const n = !alwaysOnTop; setAlwaysOnTop(n); invoke('set_always_on_top', { enabled: n }); }}
+                                            onToggleAlwaysOnTop={(v) => { setAlwaysOnTop(v); invoke('set_always_on_top', { enabled: v }); }}
+                                            autoPauseMedia={autoPauseMedia}
+                                            handleToggleAutoPauseMedia={(v) => { setAutoPauseMedia(v); invoke('set_auto_pause', { pause: v }); }}
+                                            formattingStyle={formattingStyle}
+                                            onSetFormattingStyle={(s) => { setFormattingStyle(s); invoke('set_formatting_style', { style: s }); }}
+                                            sttMode={sttMode}
+                                            onSetSttMode={setSttMode}
+                                            dgLanguage={dgLanguage}
+                                            onSetDgLanguage={setDgLanguage}
+                                            whisperLanguage={whisperLanguage}
+                                            onSetWhisperLanguage={setWhisperLanguage}
+                                            groqLanguage={groqLanguage}
+                                            onSetGroqLanguage={setGroqLanguage}
+                                            formattingMode={formattingMode}
+                                            onSetFormattingMode={handleFormattingModeChange}
                                         />
                                     </motion.div>
                                 ) : showWelcome ? (
+                                    /* [Panel: Welcome] */
                                     <motion.div key="welcome-overlay" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="w-full h-full flex flex-col">
                                         <WelcomeOverlay 
                                             onClose={() => setShowWelcome(false)} 
@@ -493,152 +821,225 @@ export default function Home() {
                                         />
                                     </motion.div>
                                 ) : (
-                                    <motion.div key="main-pill" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="w-full h-full flex flex-col">
-                                        <div data-tauri-drag-region className="flex items-center h-12 px-2 shrink-0">
-                                            <motion.div layout className="flex items-center bg-white/5 rounded-full p-1 border border-white/5">
-                                                <button 
-                                                    onClick={isIdle ? triggerStart : triggerStop} 
-                                                    className={`rounded-full flex items-center justify-center transition-all duration-300 w-8 h-8 ${isRec ? 'bg-red-500 shadow-none' : 'bg-white/5 hover:bg-white/10'}`}
-                                                >
-                                                    {isIdle ? <Mic size={15} className="text-white/50" /> : isRec ? <div className="w-[9px] h-[9px] bg-white rounded-[2px]" /> : isProc ? <div className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" /> : <Mic size={15} className="text-white/50" />}
-                                                </button>
-                                                
-                                                {isIdle && (
-                                                    <button 
-                                                        onClick={() => setShowSettings(true)} 
-                                                        className="w-8 h-8 ml-1 flex items-center justify-center hover:bg-white/10 rounded-full transition-colors"
-                                                    >
-                                                        <Settings2 className="w-4 h-4 text-white/50" />
-                                                    </button>
-                                                )}
+                                     <motion.div key="main-pill" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, transition: { duration: 0.3 } }} className="w-full h-full flex flex-col relative px-1 py-1">
+                                         {/* Header Bar */}
+                                        <div data-tauri-drag-region className="flex items-center h-10 w-full relative px-2 shrink-0 cursor-default">
+                                              {/* Left Area: Main Action Button (Mic) */}
+                                             <div className="absolute left-2 top-0 bottom-0 flex items-center">
+                                                 <motion.button
+                                                     onMouseDown={(e) => { e.stopPropagation(); void (isIdle ? triggerStart() : triggerStop()); }}
+                                                     className={`rounded-full flex items-center justify-center transition-all duration-300 w-8 h-8 ${isRec ? 'bg-red-500 text-white animate-pulse' : 'bg-white/5 hover:bg-white/10 text-white/50 hover:text-white'}`}
+                                                 >
+                                                     {isRec ? <div className="w-2.5 h-2.5 bg-white rounded-sm" /> : <Mic size={14} />}
+                                                 </motion.button>
+                                             </div>
 
-                                                {!isIdle && (
-                                                    <>
-                                                        <button 
-                                                            onClick={toggleQuickLang} 
-                                                            className="ml-1.5 px-1.5 py-0.5 rounded-md bg-white/5 hover:bg-white/10 border border-white/5 transition-colors flex items-center justify-center min-w-[28px]"
+                                             <div data-tauri-drag-region className="flex-1 flex justify-center items-center h-full pointer-events-none px-12">
+                                                 <AnimatePresence mode="wait">
+                                                     {isRec || isProc || (autoPaste && phase === 'result' && !isOverlay) ? (
+                                                         <motion.div key="rec-lbl" initial={{ opacity: 0, y: 2 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex items-center gap-1.5 overflow-hidden max-w-full">
+                                                             <div ref={scrollRef} className="whitespace-nowrap overflow-hidden text-[11px] text-white/80 font-bold tracking-tight truncate max-w-[150px]">
+                                                                 {isRec 
+                                                                    ? (transcriptText || (lang === 'ru' ? 'Слушаю...' : 'Listening...'))
+                                                                    : (aiStatus || (lang === 'ru' ? 'Обработка...' : 'Processing...'))
+                                                                 }
+                                                             </div>
+                                                             {isRec ? <WaveformVisualizer isActive={true} /> : <div className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" />}
+                                                         </motion.div>
+                                                     ) : (phase === 'result' || isProc) ? (
+                                                          <motion.div key="res-lbl" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex items-center gap-2">
+                                                              <div className={`w-1.5 h-1.5 rounded-full ${aiStatus.toLowerCase().includes("ошибка") || aiStatus.toLowerCase().includes("error") ? "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.4)]" : "bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.4)]"} ${isProc ? "animate-bounce" : ""}`} />
+                                                              <div className="flex items-center gap-2">
+                                                                  <span className="text-[10px] font-black uppercase tracking-[0.14em] text-white/40 select-none">
+                                                                      {aiStatus.toLowerCase().includes("ошибка") || aiStatus.toLowerCase().includes("error")
+                                                                          ? (lang === "ru" ? `ОШИБКА: ${aiStatus.replace(/Ошибка:? ?/i, "")}` : `ERROR: ${aiStatus.replace(/Error:? ?/i, "")}`)
+                                                                          : isProc 
+                                                                              ? (aiStatus || (lang === 'ru' ? 'ИИ-агент работает...' : 'AI-agent is working...'))
+                                                                              : (lang === 'ru' ? 'РЕЗУЛЬТАТ' : 'RESULT')
+                                                                      }
+                                                                  </span>
+                                                                  {formattingStatus?.startsWith('error') && (
+                                                                      <motion.div 
+                                                                          initial={{ opacity: 0 }}
+                                                                          animate={{ opacity: [0.7, 1, 0.7] }}
+                                                                          transition={{ opacity: { duration: 3, repeat: Infinity, ease: "easeInOut" } }}
+                                                                          className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-red-500/10 border border-red-500/20 shadow-[0_0_10px_rgba(239,68,68,0.05)] h-[18px]"
+                                                                      >
+                                                                          <span className="text-[9px] font-bold text-red-500 uppercase tracking-wider flex items-center leading-none">
+                                                                              {lang === 'ru' ? 'AI-ОШИБКА' : 'AI-ERROR'}
+                                                                              <span className="ml-1 opacity-60 font-medium whitespace-nowrap">({formattingStatus.split(':')[1] || 'Err'})</span>
+                                                                          </span>
+                                                                      </motion.div>
+                                                                  )}
+                                                              </div>
+                                                          </motion.div>
+                                                     ) : phase === 'editing' ? (
+                                                          <motion.div key="edit-lbl" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex items-center gap-2">
+                                                              <div className="w-1.5 h-1.5 rounded-full bg-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.4)]" />
+                                                              <span className="text-[10px] font-black uppercase tracking-[0.14em] text-white/40 select-none">
+                                                                  {lang === 'ru' ? 'РЕДАКТОР' : 'EDITOR'}
+                                                              </span>
+                                                          </motion.div>
+                                                     ) : null}
+                                                 </AnimatePresence>
+                                             </div>
+
+                                             {/* Right Area: Informational Label or Actions */}
+                                             <div className="absolute right-2 top-0 bottom-0 flex items-center h-full">
+                                                 {!isIdle ? (
+                                                     <motion.button 
+                                                         onMouseDown={async (e) => { 
+                                                             e.stopPropagation(); 
+                                                             if (phase === 'recording') {
+                                                                 await invoke('stop_recording').catch(() => {});
+                                                             } else if (phase === 'processing') {
+                                                                 // If we are processing, we just want to stop and show what we have (or idle)
+                                                                 setProcessing(false);
+                                                             }
+                                                             setTranscript('');
+                                                             setPhase('idle');
+                                                         }}
+                                                         initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }}
+                                                         className="w-8 h-8 rounded-full flex items-center justify-center bg-white/5 hover:bg-white/10 text-white/50 hover:text-white transition-all"
+                                                     >
+                                                         <X size={14} />
+                                                     </motion.button>
+                                                 ) : (
+                                                     <motion.div 
+                                                         onMouseDown={(e) => { e.stopPropagation(); setShowQuickMenu(!showQuickMenu); }}
+                                                         className={`flex items-center gap-2 px-2.5 py-1.5 rounded-full bg-white/4 border border-white/5 transition-all cursor-pointer active:scale-95 hover:bg-white/10 ${showQuickMenu ? 'bg-white/10 border-orange-500/30' : ''}`}
+                                                     >
+                                                         <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 border bg-gradient-to-br from-orange-500/20 to-orange-600/10 border-orange-500/20`}>
+                                                             <span className={`text-[9px] font-black tracking-tighter select-none text-orange-500`}>NV</span>
+                                                         </div>
+                                                         
+                                                         <AnimatePresence mode="wait">
+                                                             {showQuickMenu ? (
+                                                                 <motion.span 
+                                                                     key="menu-lbl" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
+                                                                     className="text-[10px] font-black text-orange-500 tracking-[0.1em] whitespace-nowrap uppercase"
+                                                                 >
+                                                                     {lang === 'ru' ? 'МЕНЮ' : 'MENU'}
+                                                                 </motion.span>
+                                                             ) : (
+                                                                 <motion.div key="idle-dots" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex gap-1.5 items-center">
+                                                                     <div className={`w-1.5 h-1.5 rounded-full ${(() => { const cur = sttMode === 'deepgram' ? dgLanguage : (sttMode === 'whisper' ? whisperLanguage : groqLanguage); return cur === 'ru' ? 'bg-blue-400' : (cur === 'en' ? 'bg-slate-200' : 'bg-white/20'); })()}`} />
+                                                                     <div className={`w-1.5 h-1.5 rounded-full ${sttMode === 'whisper' ? 'bg-emerald-400' : 'bg-orange-400'}`} />
+                                                                     <div className={`w-1.5 h-1.5 rounded-full ${formattingMode !== 'none' ? 'bg-cyan-400' : 'bg-white/5'}`} />
+                                                                 </motion.div>
+                                                             )}
+                                                         </AnimatePresence>
+                                                     </motion.div>
+                                                 )}
+                                             </div>
+                                         </div>
+                                         {/* Quick Menu Popover Layer */}
+                                          <QuickMenu 
+                                              isOpen={showQuickMenu && isIdle && !showSettings && !showWelcome}
+                                              formattingMode={formattingMode}
+                                              lastActiveFormatting={lastActiveFormatting}
+                                              lang={appLanguage}
+                                              sttMode={sttMode}
+                                              onToggleFormatting={handleFormattingModeChange}
+                                              onToggleSTTMode={toggleSTTMode}
+                                              onOpenSettings={() => { setShowSettings(true); setShowQuickMenu(false); }}
+                                              onClose={() => setShowQuickMenu(false)}
+                                          />
+
+                                        
+                                        {/* Content Area (Result/Editing) */}
+                                         {(phase === 'result' || phase === 'editing' || phase === 'processing') && !( (phase === 'result' && autoPaste) || phase === 'processing') && !isOverlay && (
+                                            <motion.div data-tauri-drag-region initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} className="flex-1 flex flex-col min-h-0 px-3 pb-3 gap-2">
+                                                {phase === 'editing' ? (
+                                                    <div className="flex-1 rounded-[12px] border border-white/5 overflow-hidden bg-white/[0.03] p-4 pt-1.5">
+                                                        <textarea 
+                                                            autoFocus value={transcriptText} onChange={e => setTranscript(e.target.value)} 
+                                                            className="w-full h-full bg-transparent text-[13px] text-white/95 leading-relaxed resize-none focus:outline-none custom-scrollbar" spellCheck={false} 
+                                                        />
+                                                    </div>
+                                                ) : (
+                                                    /* [Board: Result / Processing] */
+                                                    <motion.div
+                                                        key="result-pane"
+                                                        data-result-pane
+                                                        initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                                                        className="flex-1 flex flex-col p-4 pt-1.5 relative overflow-hidden rounded-[12px] border border-white/5 bg-white/[0.03] text-left items-start pointer-events-auto"
+                                                    >
+                                                        {/* Copy status - appears inside the result pane */}
+                                                        {aiStatus && (
+                                                            <div className="absolute inset-0 flex items-center justify-center z-50 pointer-events-none bg-black/20 backdrop-blur-sm">
+                                                                <span className="px-4 py-2 rounded-xl bg-orange-500/30 backdrop-blur-md text-orange-300 text-[13px] font-black uppercase tracking-wider border border-orange-500/40 shadow-2xl">
+                                                                    {aiStatus}
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                        
+                                                        <div
+                                                            onMouseUp={handleTextSelection}
+                                                            onKeyUp={handleTextSelection}
+                                                            className="flex-1 w-full overflow-y-auto custom-scrollbar select-text result-text text-[13px] text-white/80 leading-relaxed font-normal relative z-10 pointer-events-auto"
+                                                            style={{ userSelect: 'text', WebkitUserSelect: 'text', cursor: 'text', display: 'block' }}
                                                         >
-                                                            <span className="text-[9px] font-bold text-white/40 uppercase tracking-tight">
-                                                                {(() => { 
-                                                                    const cur = sttMode === 'deepgram' ? dgLanguage : (sttMode === 'whisper' ? whisperLanguage : groqLanguage); 
-                                                                    return cur === 'auto' ? 'Auto' : (cur === 'ru' ? 'RU' : 'EN'); 
-                                                                })()}
+                                                            <span className="block whitespace-pre-wrap break-words" style={{ userSelect: 'text', WebkitUserSelect: 'text' }}>
+                                                                {transcriptText || (
+                                                                    <span className="text-white/20 italic">
+                                                                        {lang === 'ru' ? 'Текст не распознан' : 'No text detected'}
+                                                                    </span>
+                                                                )}
                                                             </span>
+                                                        </div>
+                                                    </motion.div>
+                                                )}
+                                                
+                                                {/* Bottom Action Bar */}
+                                                <div className="flex items-center justify-between gap-2 h-10 mt-auto shrink-0 pb-0.5">
+                                                    <div className="flex items-center gap-1 relative group/target">
+                                                        {/* Brand Accent */}
+                                                        <div className="w-8 h-8 rounded-full flex items-center justify-center bg-white/[0.03] border border-white/5 mr-0.5 pointer-events-none">
+                                                            <span className="text-[9px] font-black text-white/20 select-none tracking-tighter">NV</span>
+                                                        </div>
+
+                                                        <button 
+                                                            onClick={() => setPhase(p => p === 'editing' ? 'result' : 'editing')} 
+                                                            className={`w-8 h-8 flex items-center justify-center rounded-xl transition-all ${phase === 'editing' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/10 shadow-[inset_0_0_10px_rgba(52,211,153,0.05)]' : 'hover:bg-white/10 text-white/40 hover:text-white'}`}
+                                                            title={C[lang].ui.edit}
+                                                        >
+                                                            {phase === 'editing' ? <Check size={14} /> : <Pencil size={14} />}
                                                         </button>
                                                         
                                                         <button 
-                                                            onClick={async () => { 
-                                                                const next = sttMode === 'deepgram' ? 'whisper' : sttMode === 'whisper' ? 'groq' : 'deepgram'; 
-                                                                setSttMode(next); 
-                                                                invoke('set_stt_mode', { mode: next }).catch(console.error); 
-                                                            }} 
-                                                            className="ml-1 px-1.5 py-0.5 rounded-md bg-white/5 hover:bg-white/10 border border-white/5 transition-colors flex items-center justify-center min-w-[36px]"
+                                                            onClick={() => handleCopy()} 
+                                                            className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-white/10 text-white/40 hover:text-white transition-all"
+                                                            title={C[lang].ui.copy}
                                                         >
-                                                            <span className="text-[9px] font-bold text-white/40 uppercase tracking-tight">
-                                                                {sttMode === 'deepgram' ? (lang === 'ru' ? 'ОБЛАКО' : 'CLOUD') : sttMode === 'whisper' ? (lang === 'ru' ? 'ОФФЛАЙН' : 'OFFLINE') : 'GROQ'}
-                                                            </span>
+                                                            <Copy size={14} />
                                                         </button>
-                                                    </>
-                                                )}
-                                            </motion.div>
-                                            
-                                            {isIdle && (
-                                                <div data-tauri-drag-region className="flex-1 h-full flex items-center justify-end pr-2 opacity-60 hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing">
-                                                    <div data-tauri-drag-region className="w-7 h-7 rounded-full bg-white/5 border border-white/10 flex items-center justify-center relative pointer-events-none">
-                                                        <span className="text-[11px] font-black text-white/50 tracking-tighter">NV</span>
-                                                        <div className="absolute top-0 right-0 w-1.5 h-1.5 rounded-full bg-orange-500/80 blur-[0.5px]" />
-                                                    </div>
-                                                </div>
-                                            )}
-                                            
-                                            {!isIdle && (
-                                                <motion.div layout data-tauri-drag-region className="flex-1 px-3 overflow-hidden relative cursor-default">
-                                                    <AnimatePresence mode="wait">
-                                                        {isRec ? (
-                                                            <motion.div 
-                                                                key="rec-feedback" 
-                                                                initial={{ opacity: 0, x: 20 }} 
-                                                                animate={{ opacity: 1, x: 0 }} 
-                                                                exit={{ opacity: 0, x: -20 }} 
-                                                                className="flex flex-col justify-center h-full gap-1"
-                                                            >
-                                                                {transcriptText && (
-                                                                    <div ref={scrollRef} className="whitespace-nowrap overflow-hidden text-[13px] text-white/80 font-medium tracking-tight">
-                                                                        {transcriptText}
-                                                                    </div>
-                                                                )}
-                                                                <WaveformVisualizer isActive />
-                                                            </motion.div>
-                                                        ) : isProc ? (
-                                                            <div key="proc-loader" className="flex-1 px-4 flex items-center">
-                                                                <div className="relative h-1 w-full bg-white/5 rounded-full overflow-hidden">
-                                                                    <motion.div 
-                                                                        animate={{ x: ['-100%', '100%'] }} 
-                                                                        transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }} 
-                                                                        className="absolute inset-0 w-1/2 bg-gradient-to-r from-transparent via-blue-400/50 to-transparent" 
-                                                                    />
-                                                                </div>
-                                                            </div>
-                                                        ) : null}
-                                                    </AnimatePresence>
-                                                </motion.div>
-                                            )}
-                                            
-                                            {!isIdle && (phase === 'recording' || phase === 'result' || isProc) && (
-                                                <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} className="flex items-center gap-1">
-                                                    <ActionBtn onClick={() => setShowSettings(true)} icon={<Settings2 className="w-4 h-4" />} />
-                                                </motion.div>
-                                            )}
-                                        </div>
-                                        
-                                        {(phase === 'result' || phase === 'editing') && (
-                                            <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} className="flex-1 flex flex-col min-h-0 px-3 pb-3 gap-2">
-                                                <div className={`flex-1 rounded-[12px] border border-white/5 overflow-y-auto custom-scrollbar select-text ${phase === 'editing' ? 'bg-white/5 p-4' : 'bg-white/[0.03] p-3'}`}>
-                                                    {phase === 'editing' ? (
-                                                        <textarea 
-                                                            autoFocus 
-                                                            value={transcriptText} 
-                                                            onChange={e => setTranscript(e.target.value)} 
-                                                            className="w-full h-full bg-transparent text-[14px] text-white/95 leading-relaxed resize-none focus:outline-none custom-scrollbar" 
-                                                            spellCheck={false} 
-                                                        />
-                                                    ) : (
-                                                        <div className="text-[12.5px] text-white/80 leading-relaxed font-normal">
-                                                            {transcriptText || <span className="text-white/20 italic">{lang === 'ru' ? 'Текст не распознан' : 'No text detected'}</span>}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                                
-                                                <div className="flex items-center justify-between gap-2 h-9 mt-auto pb-1 shrink-0">
-                                                    <div className="flex items-center gap-0.5 relative group/target">
+                                                        
                                                         <button 
-                                                            onClick={() => setPhase(p => p === 'editing' ? 'result' : 'editing')} 
-                                                            className={`w-7.5 h-7.5 flex items-center justify-center rounded-lg transition-all ${phase === 'editing' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/10' : 'hover:bg-white/10 text-white/40 hover:text-white'}`}
+                                                            onClick={() => { setTranscript(''); setPhase('idle'); }} 
+                                                            className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-red-500/10 text-white/40 hover:text-red-400 transition-all"
+                                                            title={C[lang].ui.reset}
                                                         >
-                                                            {phase === 'editing' ? <Check size={13} /> : <Pencil size={13.5} />}
+                                                            <X size={15} />
                                                         </button>
-                                                        <button onClick={handleCopy} className="w-7.5 h-7.5 flex items-center justify-center rounded-lg hover:bg-white/10 text-white/40 hover:text-white transition-all">
-                                                            <Copy size={13.5} />
-                                                        </button>
-                                                        <button onClick={() => { setTranscript(''); setPhase('idle'); }} className="w-7.5 h-7.5 flex items-center justify-center rounded-lg hover:bg-red-500/10 text-white/40 hover:text-red-400 transition-all">
-                                                            <X size={14.5} />
-                                                        </button>
-                                                        {targetApp && (
-                                                            <div className="flex items-center gap-1 ml-1 mr-0.5 px-1.5 py-0.5 rounded bg-white/5 border border-white/5 text-[8px] font-bold text-white/30 uppercase tracking-widest whitespace-nowrap overflow-hidden max-w-[100px]">
-                                                                <div className="w-1 h-1 rounded-full bg-orange-500/60 animate-pulse" />
-                                                                <span className="truncate">{targetApp}</span>
-                                                            </div>
-                                                        )}
                                                     </div>
                                                     
-                                                    <UpdatePopup language={appLanguage} />
                                                     <button 
-                                                        onClick={handlePaste} 
+                                                          onClick={() => handlePaste()} 
+                                                        onMouseEnter={() => {
+                                                            if (phase === 'result' || phase === 'editing') {
+                                                                invoke('update_target_app').then(() => updateTarget(phase)).catch(console.error);
+                                                            }
+                                                        }}
                                                         disabled={!transcriptText} 
-                                                        className={`h-8 px-3.5 flex items-center gap-1.5 rounded-lg font-bold text-[9.5px] uppercase tracking-widest transition-all ${transcriptText ? 'bg-[#F97316] hover:bg-orange-500 text-white active:scale-95 shadow-[0_4px_12px_rgba(249,115,22,0.3)]' : 'bg-white/5 text-white/10 opacity-50'}`}
+                                                        className={`h-8.5 px-4 flex items-center gap-2 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all shrink-0 max-w-[180px] ${transcriptText ? 'bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-400 hover:to-orange-500 text-white active:scale-95 shadow-lg shadow-orange-500/20' : 'bg-white/5 text-white/10 opacity-50 cursor-not-allowed'}`}
                                                     >
-                                                        <Send size={11} strokeWidth={2.5} />
-                                                        <span>{lang === 'en' ? 'Paste' : 'Вставить'}</span>
+                                                        <Send size={12} strokeWidth={3} className="shrink-0" />
+                                                        <span className="truncate">
+                                                            {targetApp 
+                                                                ? `${C[lang].ui.toApp} ${targetApp}`
+                                                                : C[lang].ui.paste}
+                                                        </span>
                                                     </button>
                                                 </div>
                                             </motion.div>
@@ -651,14 +1052,5 @@ export default function Home() {
                 )}
             </AnimatePresence>
         </main>
-    );
-}
-
-function ActionBtn({ onClick, icon, label }: { onClick: () => void; icon: React.ReactNode; label?: string }) {
-    return (
-        <button onClick={onClick} className="flex items-center gap-1.5 px-2 py-1.5 rounded-xl hover:bg-white/10 text-white/40 hover:text-white transition-all duration-200 active:scale-95">
-            {icon}
-            {label && <span className="text-[11px] font-medium tracking-wide">{label}</span>}
-        </button>
     );
 }

@@ -32,6 +32,19 @@ main {
     -webkit-user-drag: none;
 }
 
+/* Allow text selection in result pane */
+.select-text,
+.result-text {
+    user-select: text !important;
+    -webkit-user-select: text !important;
+    cursor: text;
+}
+
+/* Debug: highlight selectable text */
+.result-text span {
+    pointer-events: auto;
+}
+
 body {
     color: var(--foreground);
     background: transparent;

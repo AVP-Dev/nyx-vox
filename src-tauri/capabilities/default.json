@@ -5,7 +5,8 @@
   "windows": [
     "main",
     "welcome",
-    "update"
+    "update",
+    "history"
   ],
   "permissions": [
     "core:default",

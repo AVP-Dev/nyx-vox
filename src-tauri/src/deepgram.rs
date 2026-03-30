@@ -6,15 +6,10 @@ use tauri::{AppHandle, Emitter, Runtime};
 use std::io::Cursor;
 
 // ── Shared recording state (Same structure as Groq for batch processing) ──────
+#[derive(Default)]
 pub struct DeepgramState {
     pub samples: Vec<f32>,
     pub sample_rate: u32,
-}
-
-impl Default for DeepgramState {
-    fn default() -> Self {
-        Self { samples: Vec::new(), sample_rate: 0 }
-    }
 }
 
 pub type SharedDeepgramState = Arc<Mutex<DeepgramState>>;
@@ -118,10 +113,10 @@ pub async fn stop_recording(
 
     // Noise gate check
     let rms = (samples.iter().map(|s| s * s).sum::<f32>() / samples.len() as f32).sqrt();
-    if rms < 0.00005 { return Ok(String::new()); }
+    if rms < 0.0004 { return Ok(String::new()); }
 
     // Resample to 16k (Deepgram standard)
-    let processed_samples = super::resample_to_16k(&samples, src_rate, 16000);
+    let processed_samples = crate::utils::resample_to_16k(&samples, src_rate, 16000);
 
     // Convert to WAV in memory
     let mut wav_cursor = Cursor::new(Vec::new());
@@ -136,7 +131,8 @@ pub async fn stop_recording(
             .map_err(|e| format!("WavWriter error: {}", e))?;
 
         for &sample in &processed_samples {
-            let amplitude = (sample * 32767.0).clamp(-32768.0, 32767.0) as i16;
+            let val: f32 = sample * 32767.0;
+            let amplitude = val.clamp(-32768.0, 32767.0) as i16;
             writer.write_sample(amplitude).map_err(|e| format!("Write sample error: {}", e))?;
         }
         writer.finalize().map_err(|e| format!("Wav finalize error: {}", e))?;
@@ -145,7 +141,11 @@ pub async fn stop_recording(
     let wav_data = wav_cursor.into_inner();
     
     // REST API Request
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder()
+        .connect_timeout(std::time::Duration::from_secs(8))
+        .timeout(std::time::Duration::from_secs(25))
+        .build()
+        .map_err(|e| format!("Deepgram client init failed: {}", e))?;
     
     // Build query params
     let mut query_params = vec![
@@ -157,17 +157,22 @@ pub async fn stop_recording(
     if language == "auto" {
         query_params.push(("detect_language", "true"));
         // Deepgram sometimes struggles with short segments; a Russian-heavy prompt helps guide detection.
-        query_params.push(("prompt", "Привет, это русский язык. Пожалуйста, распознай и расставь знаки препинания."));
+        query_params.push(("prompt", crate::prompts::DEEPGRAM_AUTO_PROMPT));
     } else {
         query_params.push(("language", language));
         if language == "ru" {
-            query_params.push(("prompt", "Привет, это русский текст. Я диктую важное сообщение. Пожалуйста, расставляй запятые."));
+            query_params.push(("prompt", crate::prompts::DEEPGRAM_RU_PROMPT));
         }
+    }
+
+    let api_key = api_key.trim_matches('"').trim_matches('\'').trim().to_string();
+    if api_key.is_empty() {
+        return Err("API ключ Deepgram не найден. Пожалуйста, проверьте настройки.".to_string());
     }
 
     let res = client
         .post("https://api.deepgram.com/v1/listen")
-        .header("Authorization", format!("Token {}", api_key.trim()))
+        .header("Authorization", format!("Token {}", api_key))
         .header("Content-Type", "audio/wav")
         .query(&query_params)
         .body(wav_data)
