@@ -192,6 +192,10 @@ pub fn clean_repetitive_phrases(text: &str) -> String {
     let re_prefix = regex::Regex::new(r"(?i)([а-яёa-z])\s*-\s+(?=[а-яёa-zA-Z])").unwrap();
     let text = re_prefix.replace_all(&text, "$1 ").to_string();
 
+    // Удаление частых слов-паразитов и звуков колебания на уровне регулярок в дополнение к ИИ
+    let re_parasites = regex::Regex::new(r"(?i)\b(аа+|ээ+|мм+|типо|короче)\b[\s,\.]*").unwrap();
+    let text = re_parasites.replace_all(&text, " ").to_string();
+
     let words: Vec<&str> = text.split_whitespace().collect();
     if words.is_empty() {
         return text.to_string();

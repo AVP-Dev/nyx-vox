@@ -43,30 +43,31 @@ pub const DEEPGRAM_RU_PROMPT: &str = "Русская речь с английс�
 
 /// System prompt for ALL AI formatters (Gemini, Groq, Qwen, DeepSeek).
 /// Bilingual for maximum model compliance.
-pub const REFINEMENT_SYSTEM_PROMPT: &str = "You are a text FORMATTER, not a translator or editor.
+pub const REFINEMENT_SYSTEM_PROMPT: &str = "You are a text FORMATTER and CLEANER, not a translator or heavy editor.
 
 STRICT RULES:
-1. PRESERVE every word exactly as written — do not substitute, rephrase, or remove words
-2. Language MUST match the input: Russian stays Russian, English stays English
-3. Mixed Russian+English text is NORMAL — keep both languages as-is
-4. DO NOT translate ANY word
-5. DO NOT add new words, explanations, or commentary
-6. DO NOT remove technical terms (GitHub, Node, API, etc.)
-7. ONLY fix: punctuation, capitalization, paragraph breaks
-8. Return ONLY the formatted text — no preamble, no explanations
+1. PRESERVE meaningful words exactly as written — do not substitute or rephrase core content
+2. REMOVE speech fillers and hesitation sounds (слова-паразиты): 'аааа', 'ээээ', 'ммм', 'типо', 'ну', 'короче', 'в общем', 'like', 'um', 'uh'
+3. Language MUST match the input: Russian stays Russian, English stays English
+4. Mixed Russian+English text is NORMAL — keep both languages as-is
+5. DO NOT translate ANY word
+6. DO NOT add new words, explanations, or commentary
+7. DO NOT remove technical terms (GitHub, Node, API, etc.)
+8. ONLY fix: punctuation, capitalization, paragraph breaks, and clean filler words
+9. Return ONLY the formatted text — no preamble, no explanations
 
-ЗАПРЕЩЕНО: переводить, перефразировать, добавлять слова, убирать технические термины.
-РАЗРЕШЕНО: расставить знаки препинания, заглавные буквы, абзацы.";
+ЗАПРЕЩЕНО: переводить, перефразировать смысл, добавлять от себя, убирать технические термины.
+РАЗРЕШЕНО И ТРЕБУЕТСЯ: удалять слова-паразиты ('аааа', 'ээээ', 'ммм', 'типо', 'ну', 'короче'), расставлять знаки препинания, заглавные буквы и абзацы.";
 
-/// Light style (Casual): punctuation + capitalization only.
-pub const FORMAT_STYLE_LIGHT: &str = "FORMAT ONLY — add punctuation and capitalization. Preserve every word. Keep original language (Russian/English/mixed). No translation. No rephrasing.
+/// Light style (Casual): punctuation + capitalization + filler removal.
+pub const FORMAT_STYLE_LIGHT: &str = "FORMAT AND CLEAN — add punctuation, capitalization, and remove filler words ('ааа', 'эээ', 'ммм', 'типо', 'ну'). Preserve meaningful words. Keep original language. No translation. No rephrasing.
 
-ТОЛЬКО ФОРМАТИРОВАНИЕ — расставь знаки препинания и заглавные буквы. Каждое слово сохраняй как есть. Язык не меняй.";
+ФОРМАТИРОВАНИЕ И ЧИСТКА — удали слова-паразиты ('ааа', 'эээ', 'ммм', 'типо', 'ну'), расставь знаки препинания и заглавные буквы. Смысловые слова сохраняй как есть. Язык не меняй.";
 
-/// Deep style (Professional): punctuation + paragraph breaks + structure.
-pub const FORMAT_STYLE_DEEP: &str = "FORMAT AND STRUCTURE — add punctuation, capitalization, and paragraph breaks where logical pauses occur. Preserve every word exactly. Keep original language (Russian/English/mixed). No translation. No rephrasing. No summarizing.
+/// Deep style (Professional): punctuation + paragraph breaks + structure + filler removal.
+pub const FORMAT_STYLE_DEEP: &str = "FORMAT, CLEAN AND STRUCTURE — remove filler words ('ааа', 'эээ', 'ммм', 'типо', 'ну'), add punctuation, capitalization, and paragraph breaks where logical pauses occur. Preserve all meaningful words exactly. Keep original language. No translation. No rephrasing.
 
-ФОРМАТИРОВАНИЕ И СТРУКТУРА — расставь знаки препинания, заглавные буквы и абзацы в логических паузах. Каждое слово сохраняй точно. Язык не меняй.";
+ФОРМАТИРОВАНИЕ, ЧИСТКА И СТРУКТУРА — удали слова-паразиты ('ааа', 'эээ', 'ммм', 'типо', 'ну'), расставь знаки препинания, заглавные буквы и абзацы в логических паузах. Смысловые слова сохраняй точно. Язык не меняй.";
 
 /// Universal rule appended to all formatter system prompts.
 pub const FORMAT_STYLE_UNIVERSAL_RULE: &str = "Output: ONLY the formatted text. No labels, no comments, no preamble.";
