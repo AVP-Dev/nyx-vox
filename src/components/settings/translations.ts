@@ -27,7 +27,7 @@ export const DICTIONARY = {
         about: {
             title: 'О приложении',
             app: 'NYX VOX',
-            version: 'v1.0.0',
+            version: 'v1.1.0',
             desc: 'Премиальный инструмент диктовки для macOS, который сокращает путь от мысли до текста. Мгновенная транскрибация голоса через Deepgram, Groq или локальный Whisper AI.',
             author: 'Разработчик',
             mission: 'Миссия',
@@ -241,7 +241,7 @@ export const DICTIONARY = {
         about: {
             title: 'Info',
             app: 'NYX VOX',
-            version: '1.0.0',
+            version: '1.1.0',
             desc: 'A premium macOS dictation tool. Convert voice to text instantly using Deepgram, Groq, or offline Whisper AI.',
             author: 'Developer',
             mission: 'Mission',

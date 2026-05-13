@@ -17,7 +17,7 @@ import { KeysTab } from './settings/KeysTab';
 import { HistoryTab } from './settings/HistoryTab';
 import { InfoTab } from './settings/InfoTab';
 
-export const APP_VERSION = '1.0.0';
+export const APP_VERSION = '1.1.0';
 
 interface EngineHelpItem {
     title: string;
@@ -115,6 +115,8 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
     // Updates
     const [updateStatus, setUpdateStatus] = useState('idle');
+    const [showUpdatePopup, setShowUpdatePopup] = useState(false);
+    const [releaseData, setReleaseData] = useState<{ version: string; url: string; notes: string } | null>(null);
 
     const c = DICTIONARY[lang as keyof typeof DICTIONARY] || DICTIONARY.en;
 
@@ -302,8 +304,38 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     const handleOpenHistory = () => invoke('open_history_window');
     
     const handleCheckUpdates = async () => {
+        if (updateStatus === 'available' && releaseData) {
+            setShowUpdatePopup(true);
+            return;
+        }
         setUpdateStatus('checking');
-        setTimeout(() => setUpdateStatus('idle'), 2000);
+        try {
+            const res = await fetch('https://api.github.com/repos/AVP-Dev/nyx-vox/releases/latest', {
+                headers: { 'Accept': 'application/vnd.github.v3+json' }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                const latestTag = (data.tag_name || '').replace(/^v/, '');
+                if (latestTag && latestTag !== APP_VERSION) {
+                    setUpdateStatus('available');
+                    setReleaseData({
+                        version: latestTag,
+                        url: data.html_url || 'https://github.com/AVP-Dev/nyx-vox/releases/latest',
+                        notes: data.body || ''
+                    });
+                    setShowUpdatePopup(true);
+                } else {
+                    setUpdateStatus('idle');
+                    alert(lang === 'ru' ? 'У вас установлена самая актуальная версия!' : 'You have the latest version installed!');
+                }
+            } else {
+                setUpdateStatus('idle');
+                alert(lang === 'ru' ? 'Не удалось проверить обновления.' : 'Failed to check for updates.');
+            }
+        } catch (err) {
+            setUpdateStatus('idle');
+            alert(lang === 'ru' ? 'Ошибка при проверке обновлений.' : 'Error checking for updates.');
+        }
     };
 
     return (
@@ -424,6 +456,75 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                     <div className="absolute top-0 inset-x-0 h-4 bg-gradient-to-b from-[#18181B] to-transparent pointer-events-none z-10" />
                     <div className="absolute bottom-0 inset-x-0 h-8 bg-gradient-to-t from-[#18181B] to-transparent pointer-events-none z-10" />
                 </div>
+
+                {/* Update Modal Popup Notification */}
+                <AnimatePresence>
+                    {showUpdatePopup && releaseData && (
+                        <motion.div 
+                            initial={{ opacity: 0 }} 
+                            animate={{ opacity: 1 }} 
+                            exit={{ opacity: 0 }} 
+                            className="absolute inset-0 z-50 bg-black/80 backdrop-blur-xl flex items-center justify-center p-6"
+                        >
+                            <motion.div 
+                                initial={{ scale: 0.9, y: 20 }} 
+                                animate={{ scale: 1, y: 0 }} 
+                                exit={{ scale: 0.9, y: 20 }}
+                                className="w-full max-w-md bg-[#27272A] border border-emerald-500/30 rounded-3xl p-6 shadow-2xl flex flex-col relative max-h-[90%]"
+                            >
+                                <button 
+                                    onClick={() => setShowUpdatePopup(false)}
+                                    className="absolute top-4 right-4 w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 transition-all"
+                                >
+                                    <X className="w-4 h-4" />
+                                </button>
+                                
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
+                                        <Globe className="w-6 h-6" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-lg font-black text-white leading-tight">{c.update?.title || 'New Update!'}</h3>
+                                        <p className="text-xs text-emerald-400 font-mono mt-0.5">v{releaseData.version}</p>
+                                    </div>
+                                </div>
+
+                                <p className="text-xs text-white/70 mb-4 font-medium leading-relaxed">
+                                    {c.update?.desc || 'A newer version of NYX Vox is available for download.'}
+                                </p>
+
+                                {releaseData.notes && (
+                                    <div className="mb-5 flex-1 overflow-y-auto custom-scrollbar bg-black/30 rounded-xl p-3 border border-white/5">
+                                        <div className="text-[10px] font-bold text-white/30 uppercase tracking-wider mb-1">
+                                            {c.update?.notes || 'Release Notes:'}
+                                        </div>
+                                        <div className="text-[11px] text-white/80 font-sans whitespace-pre-wrap leading-relaxed">
+                                            {releaseData.notes}
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="flex items-center gap-3 pt-2 border-t border-white/5 shrink-0">
+                                    <button 
+                                        onClick={() => setShowUpdatePopup(false)}
+                                        className="flex-1 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white/60 hover:text-white font-bold text-xs transition-all"
+                                    >
+                                        {c.update?.later || 'Later'}
+                                    </button>
+                                    <a 
+                                        href={releaseData.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        onClick={() => setShowUpdatePopup(false)}
+                                        className="flex-1 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs text-center shadow-lg shadow-emerald-500/20 transition-all uppercase tracking-wider"
+                                    >
+                                        {c.update?.download || 'Download'}
+                                    </a>
+                                </div>
+                            </motion.div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
             </motion.div>
         </motion.div>
     );
