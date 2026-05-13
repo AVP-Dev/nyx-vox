@@ -262,7 +262,7 @@ pub async fn groq_refine_text<R: Runtime>(
         FormattingStyle::Professional => crate::prompts::FORMAT_STYLE_DEEP,
     };
 
-    let system_prompt = format!("{}\n\n{}", style_prompt, crate::prompts::FORMAT_STYLE_UNIVERSAL_RULE);
+    let system_prompt = format!("{}\n\n{}\n\n{}", crate::prompts::REFINEMENT_SYSTEM_PROMPT, style_prompt, crate::prompts::FORMAT_STYLE_UNIVERSAL_RULE);
     let _user_prompt = instruction.unwrap_or_else(|| crate::prompts::REFINEMENT_USER_INSTRUCTION_GENERIC.to_string());
 
     let body = json!({
@@ -334,7 +334,7 @@ pub async fn gemini_refine_text<R: Runtime>(
         FormattingStyle::Professional => crate::prompts::FORMAT_STYLE_DEEP,
     };
 
-    let system_prompt = format!("{}\n\n{}", style_prompt, crate::prompts::FORMAT_STYLE_UNIVERSAL_RULE);
+    let system_prompt = format!("{}\n\n{}\n\n{}", crate::prompts::REFINEMENT_SYSTEM_PROMPT, style_prompt, crate::prompts::FORMAT_STYLE_UNIVERSAL_RULE);
     let user_instruction = instruction.unwrap_or_else(|| crate::prompts::REFINEMENT_USER_INSTRUCTION_GENERIC.to_string());
     
     let combined_user_text = format!("{}\n\nTEXT TO CLEAN:\n{}", user_instruction, text);

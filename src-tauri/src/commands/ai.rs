@@ -17,9 +17,9 @@ pub async fn refine_transcription(
 
     match service {
         keys::Service::Gemini => ai_provider::gemini_refine_text(_app.clone(), text, key, instruction).await,
-        keys::Service::Deepseek => deepseek::refine_text(text, key, instruction).await,
+        keys::Service::Deepseek => deepseek::refine_text(_app.clone(), text, key, instruction).await,
         keys::Service::Groq => ai_provider::groq_refine_text(_app.clone(), text, key, instruction).await,
-        keys::Service::Qwen => qwen::refine_text(text, key, instruction).await,
+        keys::Service::Qwen => qwen::refine_text(_app.clone(), text, key, instruction).await,
         _ => Err("Unsupported service".to_string()),
     }
 }

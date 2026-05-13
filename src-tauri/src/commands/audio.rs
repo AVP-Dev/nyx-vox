@@ -271,8 +271,8 @@ pub async fn stop_recording(
                     let _ = app.emit("ai-status", if lang == "ru" { "✨ Форматирую..." } else { "✨ Formatting..." });
                     let refined = match service {
                         keys::Service::Gemini => ai_provider::gemini_refine_text(app.clone(), final_text.clone(), k, None).await,
-                        keys::Service::Qwen => crate::qwen::refine_text(final_text.clone(), k, None).await,
-                        keys::Service::Deepseek => crate::deepseek::refine_text(final_text.clone(), k, None).await,
+                        keys::Service::Qwen => crate::qwen::refine_text(app.clone(), final_text.clone(), k, None).await,
+                        keys::Service::Deepseek => crate::deepseek::refine_text(app.clone(), final_text.clone(), k, None).await,
                         keys::Service::Groq => ai_provider::groq_refine_text(app.clone(), final_text.clone(), k, None).await,
                         _ => Ok(final_text.clone()),
                     };

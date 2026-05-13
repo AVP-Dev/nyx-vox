@@ -1,7 +1,10 @@
 use serde_json::json;
 use reqwest::Client;
+use tauri::{AppHandle, Manager, Runtime};
+use crate::state::{FormattingStyle, FormattingStyleState};
 
-pub async fn refine_text(
+pub async fn refine_text<R: Runtime>(
+    app: AppHandle<R>,
     text: String,
     api_key: String,
     _instruction: Option<String>,
@@ -15,7 +18,21 @@ pub async fn refine_text(
     // For OpenRouter, use: https://openrouter.ai/api/v1/chat/completions
     let url = "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions";
 
-    let system_prompt = crate::prompts::REFINEMENT_SYSTEM_PROMPT;
+    let style_state = app.state::<FormattingStyleState>();
+    let style = *style_state.0.lock().unwrap_or_else(|e| e.into_inner());
+
+    let style_prompt = match style {
+        FormattingStyle::Casual => crate::prompts::FORMAT_STYLE_LIGHT,
+        FormattingStyle::Professional => crate::prompts::FORMAT_STYLE_DEEP,
+    };
+
+    let system_prompt = format!(
+        "{}\n\n{}\n\n{}", 
+        crate::prompts::REFINEMENT_SYSTEM_PROMPT, 
+        style_prompt, 
+        crate::prompts::FORMAT_STYLE_UNIVERSAL_RULE
+    );
+
     let user_instruction = _instruction.unwrap_or_else(|| crate::prompts::REFINEMENT_USER_INSTRUCTION_GENERIC.to_string());
     let user_content = format!(
         "{}{}{}{}", 

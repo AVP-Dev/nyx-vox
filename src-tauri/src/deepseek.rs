@@ -1,7 +1,10 @@
 use serde_json::json;
+use tauri::{AppHandle, Manager, Runtime};
+use crate::state::{FormattingStyle, FormattingStyleState};
 
 // ── Text Refinement (Formatting) using DeepSeek ──────────────────────────────
-pub async fn refine_text(
+pub async fn refine_text<R: Runtime>(
+    app: AppHandle<R>,
     text: String,
     api_key: String,
     instruction: Option<String>,
@@ -13,10 +16,22 @@ pub async fn refine_text(
         .map_err(|e| format!("Client build failed: {}", e))?;
     let url = "https://api.deepseek.com/chat/completions";
 
+    let style_state = app.state::<FormattingStyleState>();
+    let style = *style_state.0.lock().unwrap_or_else(|e| e.into_inner());
+
+    let style_prompt = match style {
+        FormattingStyle::Casual => crate::prompts::FORMAT_STYLE_LIGHT,
+        FormattingStyle::Professional => crate::prompts::FORMAT_STYLE_DEEP,
+    };
+
+    let system_prompt = format!(
+        "{}\n\n{}\n\n{}", 
+        crate::prompts::REFINEMENT_SYSTEM_PROMPT, 
+        style_prompt, 
+        crate::prompts::FORMAT_STYLE_UNIVERSAL_RULE
+    );
+
     let user_instruction = instruction.unwrap_or_else(|| crate::prompts::REFINEMENT_USER_INSTRUCTION_DEEPSEEK.to_string());
-    
-    // DeepSeek API accepts a system role. We will combine our new unified system prompt with the user input.
-    let system_prompt = crate::prompts::REFINEMENT_SYSTEM_PROMPT;
     
     let user_content = format!(
         "{}\n\n{}", 
