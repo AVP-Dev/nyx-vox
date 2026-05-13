@@ -277,7 +277,7 @@ pub async fn stop_recording(
         .map_err(|e| format!("Thread error: {}", e))?
 }
 
-fn run_whisper(samples: &[f32], beam_size: i32, language: &str, model_type: WhisperModelType) -> Result<String, String> {
+fn run_whisper(samples: &[f32], _beam_size: i32, language: &str, model_type: WhisperModelType) -> Result<String, String> {
     println!(">>> [WHISPER] Using model: {:?}", model_type);
     
     let mutex = match model_type {
