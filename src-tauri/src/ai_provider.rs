@@ -271,9 +271,8 @@ pub async fn groq_refine_text<R: Runtime>(
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": text}
         ],
-        "temperature": 0.0,
-        "top_p": 1.0,
-        "stop": ["\n\n", "###"]
+        "temperature": crate::prompts::DEFAULT_TEMPERATURE,
+        "top_p": crate::prompts::DEFAULT_TOP_P
     });
 
     let res = client
@@ -348,8 +347,8 @@ pub async fn gemini_refine_text<R: Runtime>(
             "parts": [{ "text": combined_user_text }]
         }],
         "generationConfig": {
-            "temperature": 0.0,
-            "topP": 1.0,
+            "temperature": crate::prompts::DEFAULT_TEMPERATURE,
+            "topP": crate::prompts::DEFAULT_TOP_P,
             "maxOutputTokens": 2048
         }
     });

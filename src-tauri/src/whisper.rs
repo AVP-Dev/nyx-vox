@@ -292,8 +292,13 @@ fn run_whisper(samples: &[f32], beam_size: i32, language: &str, model_type: Whis
     }
     let ctx = lock.as_ref().ok_or("Failed to initialize Whisper context")?;
 
+    // Beam size: 5 for large models, 3 for small (better than 2 for long audio)
+    let effective_beam = match model_type {
+        WhisperModelType::Medium | WhisperModelType::Turbo => 5,
+        WhisperModelType::Small => 3,
+    };
     let mut params = FullParams::new(SamplingStrategy::BeamSearch {
-        beam_size: if model_type == WhisperModelType::Medium || model_type == WhisperModelType::Turbo { 5 } else { beam_size },
+        beam_size: effective_beam,
         patience: 1.0,
     });
     let lang_code = if language == "auto" { None } else { Some(language) };
@@ -301,20 +306,22 @@ fn run_whisper(samples: &[f32], beam_size: i32, language: &str, model_type: Whis
     params.set_print_progress(false);
     params.set_print_realtime(false);
     params.set_print_timestamps(false);
-    params.set_suppress_blank(false); // Disabled to prevent cutting off quiet speech
-    params.set_suppress_nst(false); // Disabled to allow all speech patterns
+    params.set_suppress_blank(false); // Keep false: prevents cutting quiet words at start
+    params.set_suppress_nst(true);    // Enable: suppresses [music], [noise], ♪ hallucinations
     params.set_single_segment(false);
-    params.set_split_on_word(false); // Disabled to prevent artifacts in short segments
+    params.set_split_on_word(false);
     params.set_n_threads(4);
-    
-    // More sensitive initial prompt for better detection
-    if language == "en" {
-        params.set_initial_prompt("Transcribe all speech accurately, including quiet words.");
-    } else if language == "auto" {
-        params.set_initial_prompt("Распознай всю речь. Русский или английский. Записывай всё, даже тихие слова.");
-    } else {
-        params.set_initial_prompt("Распознай всю речь точно, включая тихие слова. Записывай всё.");
-    }
+
+    // Neutral English initial_prompt with tech vocabulary.
+    // Using English regardless of target language — prevents Whisper from
+    // language-drifting based on the prompt's own language.
+    let vocab_hint = "GitHub, GitLab, Node, Node.js, Bun, npm, API, CLI, JSON, TypeScript, JavaScript, React, Next.js, Docker, Linux, macOS, Tauri, DeepSeek, Groq, Whisper, Antigravity";
+    let initial_prompt = match language {
+        "en" => format!("Transcribe all speech accurately. Tech terms: {}", vocab_hint),
+        "auto" => format!("Transcribe speech in Russian or English. Preserve mixed-language tech terms. Tech vocabulary: {}", vocab_hint),
+        _ => format!("Transcribe Russian speech accurately. Preserve English tech terms as-is. Tech vocabulary: {}", vocab_hint),
+    };
+    params.set_initial_prompt(&initial_prompt);
 
     let mut wstate = ctx.create_state().map_err(|e| format!("{:?}", e))?;
     wstate.full(params, samples).map_err(|e| format!("{:?}", e))?;

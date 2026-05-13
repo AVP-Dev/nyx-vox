@@ -163,11 +163,11 @@ pub fn remove_hallucinations(text: &str) -> String {
         "для сайта", "специально для", "благодарим за", "автор субтитров",
         "Продолжение следует", "Спасибо за просмотр", "Подписывайтесь на канал",
         "редактор субтитров", "кулакова", "игорь негода", "игорь не года",
-        "а. кулаков", "а. кулакова", "диктор", "диктовка",
-        "субтитры", "перевод", "translated by", "translation",
+        "а. кулаков", "а. кулакова", "диктор", "диктовка", "диктовка.",
+        "субтитры", "перевод", "translated by", "translation", "Translated by", "Transcribed by",
         "в выпуске", "следующий выпуск", "смотрите далее",
-        "реклама", "спонсор", "партнёр", "sponsor",
-        "end of transcript", "transcript end", "конец записи",
+        "реклама", "спонсор", "партнёр", "sponsor", "Sponsor",
+        "end of transcript", "transcript end", "конец записи", "to be continued", "continued",
         "тишина", "пауза", "pause", "silence",
         "неразборчиво", "не разборчиво", "inaudible", "unclear",
         "аплодисменты", "смех", "laughter", "applause",
@@ -188,7 +188,8 @@ pub fn clean_repetitive_phrases(text: &str) -> String {
     
     // 1. Clean up artifacts like "у-ужа" or "у- ежа" -> "у ужа", "у ежа"
     // Handle single character prefixes followed by dash or dash+space
-    let re_prefix = regex::Regex::new(r"(?i)\b([а-яё|a-z])\s*-\s*").unwrap();
+    // Fixed regex: match Cyrillic/Latin letter, dash, space(s), followed by a letter.
+    let re_prefix = regex::Regex::new(r"(?i)([а-яёa-z])\s*-\s+(?=[а-яёa-zA-Z])").unwrap();
     let text = re_prefix.replace_all(&text, "$1 ").to_string();
 
     let words: Vec<&str> = text.split_whitespace().collect();

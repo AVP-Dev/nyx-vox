@@ -156,17 +156,18 @@ export default function Home() {
             // Subtitle credits
             'subtitles by', 'transcribed by', 'copyright', 'subtitles',
             'редактор субтитров', 'субтитры', 'перевод', 'translated by', 'translation',
-            'автор субтитров', 'специально для', 'благодарим за',
+            'автор субтитров', 'специально для', 'благодарим за', 'для сайта',
             
             // Common hallucinations
-            'DimaTorzok', 'Dima Torzok', 'Hoje pursui', 'pursui', 'uvoir',
+            'DimaTorzok', 'Dima Torzok', 'Hoje pursui', 'pursui', 'uvoir', 'Não mais', 'Today pursui',
             'продолжение следует', 'to be continued', 'continued',
             'amara.org', 'amara', 'www.', 'http', '.com', '.ru', 'https://',
+            'тебя отдаю code', 'увидеть şunu с',
             
             // YouTube/video endings
             'подпишитесь на канал', 'спасибо за просмотр', 'с вами был',
             'диктор', 'диктовка', 'диктовка.', 'в выпуске', 'следующий выпуск',
-            'смотрите далее', 'реклама', 'спонсор', 'партнёр', 'sponsor',
+            'смотрите далее', 'реклама', 'спонсор', 'партнёр', 'sponsor', 'отредактировано', 'транскрибация',
             
             // Technical markers
             'end of transcript', 'transcript end', 'конец записи',
@@ -579,13 +580,19 @@ export default function Home() {
 
             if (processedText) {
                 const cleanedText = cleanHallucinations(processedText);
-                setTranscript(cleanedText);
-                if (autoPaste && cleanedText) {
-                    handlePaste(cleanedText);
-                    return;
+                if (cleanedText) {
+                    setTranscript(cleanedText);
+                    if (autoPaste) {
+                        handlePaste(cleanedText);
+                        return;
+                    }
+                    setPhase('result');
+                } else {
+                    setPhase('idle');
                 }
+            } else {
+                setPhase('idle');
             }
-            setPhase('result');
         } catch (err) {
             if (err === 'ALREADY_IDLE') {
                 console.log('>>> [FRONTEND] Ignoring duplicate stop_recording call');
@@ -646,6 +653,8 @@ export default function Home() {
                         } else {
                             setPhase('result'); 
                         }
+                    } else {
+                        setPhase('idle');
                     }
                 }),
                 listen<string>('ai-status', (e) => setAiStatus(e.payload)),

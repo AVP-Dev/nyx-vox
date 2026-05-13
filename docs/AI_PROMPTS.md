@@ -2,18 +2,18 @@
 
 This document contains all current prompts and system settings for Speech-to-Text (STT) transcription and subsequent AI text refinement in the NYX Vox project.
 
-**Last Updated:** v1.0.0 (Current)
+**Last Updated:** v1.1.0 (Current)
 
 ---
 
 ## ⚙️ Global API Settings (Critical)
 
-For the AI Cleaning stage (Gemini, DeepSeek, Qwen), be sure to use the following parameters when calling the API to exclude hallucinations and fabricated content:
+For the AI Formatting stage (Gemini, DeepSeek, Qwen), be sure to use the following parameters when calling the API to ensure deterministic formatting and prevent hallucinations:
 
-- **temperature:** 0.1 (Maximum determinism, AI works as a strict corrector).
-- **top_p:** 0.1 or 0.2.
+- **temperature:** 0.0 (Strict rule-following, no hallucinations).
+- **top_p:** 0.3 (Allows natural punctuation choice while remaining strict).
 
-> **IMPORTANT:** Starting from version 1.0.0, prompts are maximally simplified to prevent text translation and adding information on their own.
+> **IMPORTANT:** Starting from version 1.1.0, prompts are fully bilingual and focus **only** on formatting (punctuation, capitalization, paragraphs). The system explicitly forbids changing words, translating, or removing technical terms (GitHub, Node.js, etc.).
 
 ---
 
@@ -23,34 +23,41 @@ Prompts for guiding STT engines (punctuation, language detection, formatting).
 
 ### 1.1. Google Gemini (Multimodal STT)
 
-Used when transmitting audio files directly to Gemini (generateContent with audio/wav).
-
 **Prompt:**
 ```
-Transcribe audio. IMPORTANT:
-- Detect language and transcribe in THAT language
+Transcribe audio exactly as spoken. Rules:
+- Detect language and transcribe in THAT language only
+- Russian speech → Russian text
+- English speech → English text
+- Mixed Russian+English (code-switching) → preserve each word in original language
 - DO NOT translate
-- DO NOT mix languages
-- If speaker speaks Russian → write Russian
-- If speaker speaks English → write English
+- DO NOT add commentary
+- Preserve technical terms: GitHub, Node, Bun, API, CLI, TypeScript, React, etc.
 - Return ONLY transcript text
 ```
 
 ### 1.2. Groq (Whisper-v3)
 
-Used for the Groq cloud engine. Transmitted via multipart form field.
-
 **Prompt:**
 ```
-Transcribe audio. Detect language. DO NOT translate. DO NOT mix languages. Russian=Russian, English=English. Only transcript text.
+Transcribe accurately. Language detection rules:
+- Russian speech → write in Russian
+- English speech → write in English
+- Mixed speech (Russian with English tech terms) → keep each word in its original language
+
+Tech vocabulary (recognize these exactly): GitHub, GitLab, Cursor, Node, Node.js, Bun, npm, pnpm, API, CLI, UI, UX, JSON, SQL, CSS, HTML, TypeScript, JavaScript, Rust, Python, Docker, Nginx, Linux, macOS, iOS, Android, React, Next.js, Tailwind, Prisma, Supabase, Antigravity, DeepSeek, Gemini, Groq, Whisper, Deepgram, Tauri, VS Code, Xcode
+
+Rules:
+- DO NOT translate
+- DO NOT mix up languages unnaturally
+- Preserve proper nouns and product names as-is
+- Return ONLY the transcript text
 ```
 
 ### 1.3. Deepgram (Nova-2)
 
-Transmitted as a Query parameter to improve punctuation.
-
-- **Auto-mode:** `Detect language. Transcribe in that language. DO NOT translate. DO NOT mix languages.`
-- **RU-mode:** `Русская речь. Пиши по-русски. НЕ переводи на английский.`
+- **Auto-mode:** `Transcribe in the detected language. Preserve technical terms in English (GitHub, Node, API, etc.) even in Russian speech. DO NOT translate.`
+- **RU-mode:** `Русская речь с английскими техническими терминами. Пиши по-русски, но сохраняй английские термины как есть: GitHub, Node, Bun, API, TypeScript, React, Docker и другие. НЕ переводи.`
 
 ---
 

@@ -13,9 +13,13 @@ pub async fn refine_text(
         .map_err(|e| format!("Client build failed: {}", e))?;
     let url = "https://api.deepseek.com/chat/completions";
 
-    let user_instruction = instruction.unwrap_or_else(|| "ОЧИСТИ И ОФОРМИ: / CLEAN AND FORMAT:".to_string());
+    let user_instruction = instruction.unwrap_or_else(|| crate::prompts::REFINEMENT_USER_INSTRUCTION_DEEPSEEK.to_string());
+    
+    // DeepSeek API accepts a system role. We will combine our new unified system prompt with the user input.
+    let system_prompt = crate::prompts::REFINEMENT_SYSTEM_PROMPT;
+    
     let user_content = format!(
-        "{}\n\nTEXT:\n{}\n\nRULES:\n1. Respond ONLY with the corrected text.\n2. KEEP THE ORIGINAL LANGUAGE. DO NOT TRANSLATE.\n3. START THE TEXT WITH A CAPITAL LETTER.\n4. No preamble or comments.", 
+        "{}\n\n{}", 
         user_instruction, 
         text
     );
@@ -23,9 +27,11 @@ pub async fn refine_text(
     let body = json!({
         "model": "deepseek-chat",
         "messages": [
+            {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_content}
         ],
-        "temperature": 0.1,
+        "temperature": crate::prompts::DEFAULT_TEMPERATURE,
+        "top_p": crate::prompts::DEFAULT_TOP_P,
         "stream": false
     });
 
