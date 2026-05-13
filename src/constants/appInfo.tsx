@@ -3,7 +3,7 @@ import { Globe, Github, Send, Instagram, Linkedin } from 'lucide-react';
 
 export const CREATOR_INFO = {
     name: 'Aliaksei Patskevich',
-    role: 'Software Engineer • Code, Design & AI',
+    role: 'Modern Web Architect • Code, Design & AI',
     initials: 'AVP',
     links: [
         { title: 'avpdev.com', href: 'https://avpdev.com', icon: <Globe className="w-4 h-4" />, color: 'hover:text-sky-400' },

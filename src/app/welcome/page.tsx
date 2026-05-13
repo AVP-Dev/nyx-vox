@@ -265,7 +265,7 @@ export default function WelcomePage() {
                                 <div className="flex items-center gap-4">
                                     <div>
                                         <div className="text-[15px] font-black tracking-wider uppercase text-white">Aliaksei Patskevich</div>
-                                        <div className="text-[11px] text-white/40 font-mono">Software Engineer • Code, Design & AI</div>
+                                        <div className="text-[11px] text-white/40 font-mono">Modern Web Architect • Code, Design & AI</div>
                                         <div className="text-[11px] text-white/50 mt-1 leading-relaxed font-bold">
                                             {language === 'ru'
                                                 ? 'Проектирую и разрабатываю современные IT-решения на стыке интерфейсов и ИИ.'

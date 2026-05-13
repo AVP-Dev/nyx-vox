@@ -60,7 +60,7 @@ bun run tauri dev
   <a href="https://avpdev.com/ru/"><b>Aliaksei Patskevich</b></a>
   <br />
   <sub>
-    <b>Software Engineer</b> • Code, Design & AI
+    <b>Modern Web Architect</b> • Code, Design & AI
     <br />
     <a href="https://github.com/AVP-Dev">GitHub</a> &bull; <a href="https://t.me/AVP_Dev">Telegram</a>
   </sub>
