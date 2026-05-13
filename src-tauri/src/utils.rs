@@ -189,8 +189,8 @@ pub fn clean_repetitive_phrases(text: &str) -> String {
     // 1. Clean up artifacts like "у-ужа" or "у- ежа" -> "у ужа", "у ежа"
     // Handle single character prefixes followed by dash or dash+space
     // Fixed regex: match Cyrillic/Latin letter, dash, space(s), followed by a letter.
-    let re_prefix = regex::Regex::new(r"(?i)([а-яёa-z])\s*-\s+(?=[а-яёa-zA-Z])").unwrap();
-    let text = re_prefix.replace_all(&text, "$1 ").to_string();
+    let re_prefix = regex::Regex::new(r"(?i)([а-яёa-z])\s*-\s+([а-яёa-z])").unwrap();
+    let text = re_prefix.replace_all(&text, "$1 $2").to_string();
 
     // Удаление частых слов-паразитов и звуков колебания на уровне регулярок в дополнение к ИИ
     let re_parasites = regex::Regex::new(r"(?i)\b(аа+|ээ+|мм+|типо|короче)\b[\s,\.]*").unwrap();
