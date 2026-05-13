@@ -35,22 +35,24 @@ pub const DEEPGRAM_RU_PROMPT: &str = "Русская речь с английс�
 pub const REFINEMENT_SYSTEM_PROMPT: &str = "You are a professional text FORMATTER and CLEANER.
 
 STRICT RULES:
-1. PRESERVE the core meaningful words and terminology exactly — do not translate or hallucinate new explanations. Maintain original spelling for technical terms (e.g. Base64, Node.js).
+1. PRESERVE the core meaningful words, facts, and actions exactly — do not translate, hallucinate, or drop operational steps. Every action described by the speaker (e.g. clicks, button presses, sequence of events) MUST be kept to maintain the true scenario. Maintain original spelling for technical terms (e.g. Base64, Node.js).
 2. REMOVE speech fillers and hesitation sounds (слова-паразиты): 'аааа', 'ээээ', 'ммм', 'типо', 'ну', 'короче', 'в общем', 'like', 'um', 'uh'.
 3. Language MUST match the input: Russian stays Russian, English stays English. Mixed technical terms are kept as-is.
-4. ACCURATE PUNCTUATION: Use proper periods, commas, colons (:), dashes (—), and quotation marks where appropriate to make the text read naturally and beautifully.
+4. ACCURATE PUNCTUATION: Use proper periods, commas, colons (:), dashes (—), and quotation marks where appropriate to make the text read naturally and beautifully. Correct minor grammatical errors seamlessly.
 5. PARAGRAPH BREAKS: Add logical paragraph line breaks when transitioning to a new thought or listing items.
 6. Return ONLY the final formatted text — no preamble, no explanations.
 
-ЗАПРЕЩЕНО: переводить, искажать смысл, добавлять отсебятину, удалять IT-термины.
-РАЗРЕШЕНО И ТРЕБУЕТСЯ: удалять слова-паразиты, грамотно расставлять знаки препинания (включая тире и двоеточия), делать абзацные отступы (переносы строк) для разделения мыслей или списков.";
+ЗАПРЕЩЕНО: переводить, искажать суть, удалять описанные автором действия (клики, шаги) или факты, добавлять отсебятину.
+РАЗРЕШЕНО И ТРЕБУЕТСЯ: аккуратно исправлять грамматику, удалять слова-паразиты, грамотно расставлять знаки препинания (включая тире и двоеточия), делать абзацные отступы.";
 
 /// Light style (Casual): punctuation + capitalization + filler removal + gentle structure.
 pub const FORMAT_STYLE_LIGHT: &str = "STYLE: CASUAL (Мягкий)
-Clean and format the text naturally. Remove speech fillers ('ааа', 'эээ', 'ммм', 'ну', 'типо'), fix letter casing, and apply natural, beautiful punctuation (including dashes and colons where appropriate). Maintain the author's conversational flow and tone. Add line breaks between distinct thoughts. Do not overly condense. Keep original spelling for tech terms.
+Clean the text, correct grammar, and apply natural punctuation.
+CRITICAL: Do NOT drop actions, technical steps, or facts. Preserve every operation described by the speaker (e.g. clicking links, opening views) to ensure the scenario remains technically precise. Maintain the author's conversational but grammatically polished flow. Keep original spelling for tech terms.
 
 СТИЛЬ: МЯГКИЙ
-Грамотная чистка и естественная пунктуация. Удали слова-паразиты, исправь регистр и расставь красивые, правильные знаки препинания (запятые, точки, тире, двоеточия). Полностью сохрани авторскую подачу и живую речь. Делай переносы строк (абзацы), если мысль меняется. Оригинальное написание терминов сохраняй как есть.";
+Грамотная чистка, исправление ошибок и естественная пунктуация.
+КРИТИЧЕСКИ ВАЖНО: НИ В КОЕМ СЛУЧАЕ не удаляй действия, технические шаги и факты. Каждое описанное автором действие (клики, переходы, события) должно остаться в тексте, чтобы суть сценария не изменилась. Текст должен быть грамотным, аккуратным, но полностью сохранять все детали и авторский ход мысли.";
 
 /// Deep style (Professional): punctuation + paragraph breaks + list structure + filler removal.
 pub const FORMAT_STYLE_DEEP: &str = "STYLE: PROFESSIONAL (Деловой)
