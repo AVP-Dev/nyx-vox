@@ -312,14 +312,14 @@ fn run_whisper(samples: &[f32], _beam_size: i32, language: &str, model_type: Whi
     params.set_split_on_word(false);
     params.set_n_threads(4);
 
-    // Neutral English initial_prompt with tech vocabulary.
-    // Using English regardless of target language — prevents Whisper from
-    // language-drifting based on the prompt's own language.
+    // Системный контекст (initial_prompt) с базовым IT-словарем.
+    // Промпт для русского языка пишется на русском, чтобы исключить
+    // смещение внимания (bias) декодера Whisper в сторону английских галлюцинаций.
     let vocab_hint = "GitHub, GitLab, Node, Node.js, Bun, npm, API, CLI, JSON, TypeScript, JavaScript, React, Next.js, Docker, Linux, macOS, Tauri, DeepSeek, Groq, Whisper, Antigravity";
     let initial_prompt = match language {
         "en" => format!("Transcribe all speech accurately. Tech terms: {}", vocab_hint),
-        "auto" => format!("Transcribe speech in Russian or English. Preserve mixed-language tech terms. Tech vocabulary: {}", vocab_hint),
-        _ => format!("Transcribe Russian speech accurately. Preserve English tech terms as-is. Tech vocabulary: {}", vocab_hint),
+        "auto" => format!("Точная транскрипция речи на русском или английском языке. Термины: {}", vocab_hint),
+        _ => format!("Точная транскрипция русской речи. Сохраняйте английские технические термины. Словарь: {}", vocab_hint),
     };
     params.set_initial_prompt(&initial_prompt);
 
