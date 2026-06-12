@@ -187,10 +187,8 @@ pub async fn stop_recording(
     whisper_model: State<'_, WhisperModel>,
     groq_lang: State<'_, GroqLanguage>,
 ) -> Result<String, String> {
-    if !recording_flag.0.load(Ordering::SeqCst) {
-        return Err("ALREADY_IDLE".to_string());
-    }
-    recording_flag.0.store(false, Ordering::SeqCst);
+    recording_flag.0.compare_exchange(true, false, Ordering::SeqCst, Ordering::SeqCst)
+        .map_err(|_| "ALREADY_IDLE".to_string())?;
 
     let configured_mode = stt_mode.0.lock().map_err(|e| e.to_string())?.clone();
     let mode = active_stt_mode
@@ -210,7 +208,10 @@ pub async fn stop_recording(
     };
 
     if ap && did_pause_media.0.load(Ordering::SeqCst) {
-        system_media_control(0); 
+        if !is_media_playing() && !is_music_app_running() {
+            tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+            system_media_control(0);
+        }
         did_pause_media.0.store(false, Ordering::SeqCst);
     }
     

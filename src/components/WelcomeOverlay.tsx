@@ -46,8 +46,16 @@ export function WelcomeOverlay({ onClose, appLanguage, onLanguageToggle }: Welco
         };
 
         checkPerms();
-        const interval = setInterval(checkPerms, 2000);
-        return () => clearInterval(interval);
+        const onFocus = async () => {
+            if (typeof window !== 'undefined' && window.__TAURI_INTERNALS__) {
+                const { listen } = await import('@tauri-apps/api/event');
+                const unlisten = await listen('tauri://focus', () => checkPerms());
+                return unlisten;
+            }
+        };
+        let unlistenFn: (() => void) | null = null;
+        onFocus().then(fn => { if (fn) unlistenFn = fn; });
+        return () => { if (unlistenFn) unlistenFn(); };
     }, []);
 
     const C = CONTENT[appLanguage];

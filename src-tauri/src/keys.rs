@@ -104,22 +104,7 @@ impl ApiKeys {
             return String::from_utf8(decrypted_data).map_err(|e| e.to_string());
         }
 
-        Self::decrypt_legacy_key(cipher_text)
-    }
-
-    fn decrypt_legacy_key(cipher_text: &str) -> Result<String, String> {
-        let key_bytes = Self::get_master_key();
-        let cipher = Aes256Gcm::new_from_slice(&key_bytes).map_err(|e| e.to_string())?;
-        let nonce = Nonce::from_slice(b"NYXVOX_NONCE");
-
-        let data = general_purpose::STANDARD
-            .decode(cipher_text)
-            .map_err(|e| e.to_string())?;
-        let decrypted_data = cipher
-            .decrypt(nonce, data.as_slice())
-            .map_err(|e| e.to_string())?;
-
-        String::from_utf8(decrypted_data).map_err(|e| e.to_string())
+        Err("Unsupported key format. Please re-save your API key.".to_string())
     }
 
     pub fn load_from_store<R: tauri::Runtime>(

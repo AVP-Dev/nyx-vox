@@ -90,10 +90,6 @@ pub fn run() {
             }
             #[cfg(target_os = "macos")]
             {
-                // Manage a dummy state to prevent panic on macOS when commands access it
-                if let Ok(enigo) = enigo::Enigo::new(&enigo::Settings::default()) {
-                    app.manage(EnigoState(Arc::new(Mutex::new(EnigoWrapper(enigo)))));
-                }
             }
 
             let _ = app.global_shortcut().register(ctrl_space);
@@ -267,7 +263,7 @@ pub fn run() {
                     } else {
                         last_name = String::new();
                     }
-                    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+                    tokio::time::sleep(std::time::Duration::from_millis(2000)).await;
                 }
             });
 
@@ -281,6 +277,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            commands::get_all_settings,
             commands::paste_text,
             commands::dismiss_overlay,
             commands::start_recording,

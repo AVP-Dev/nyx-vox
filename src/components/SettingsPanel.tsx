@@ -17,7 +17,7 @@ import { KeysTab } from './settings/KeysTab';
 import { HistoryTab } from './settings/HistoryTab';
 import { InfoTab } from './settings/InfoTab';
 
-export const APP_VERSION = '1.1.0';
+export const APP_VERSION = '1.2.0';
 
 interface EngineHelpItem {
     title: string;
@@ -126,8 +126,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 const acc = await invoke<boolean>('check_accessibility');
                 const mic = await invoke<boolean>('check_microphone_permission');
                 
-                // If permission was just granted (transition to true)
-                // we automatically bring the window back to front
                 const accJustGranted = acc && (accGranted === false || accGranted === null);
                 const micJustGranted = mic && (micGranted === false || micGranted === null);
 
@@ -151,8 +149,13 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         };
 
         checkPerms();
-        const interval = setInterval(checkPerms, 2000);
-        return () => clearInterval(interval);
+        let unlistenFn: (() => void) | null = null;
+        if (typeof window !== 'undefined' && window.__TAURI_INTERNALS__) {
+            import('@tauri-apps/api/event').then(({ listen }) => {
+                listen('tauri://focus', () => checkPerms()).then(fn => { unlistenFn = fn; });
+            });
+        }
+        return () => { if (unlistenFn) unlistenFn(); };
     }, [accGranted, micGranted, alwaysOnTop]);
 
     useEffect(() => {

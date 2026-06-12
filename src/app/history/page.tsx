@@ -34,7 +34,7 @@ export default function HistoryPage() {
         const loadHistory = async () => {
             try {
                 const history = await invoke<HistoryEntry[]>('get_history');
-                setEntries(history.reverse());
+                setEntries([...history].reverse());
             } catch (e) {
                 console.error('Failed to refresh history:', e);
             }

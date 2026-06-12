@@ -148,22 +148,21 @@ pub fn start_recording<R: Runtime>(
     let flag_cpal = Arc::clone(&recording_flag);
     let app_stream = app.clone();
 
-    // ── Pre-init whisper in background to avoid blocking the mic start ───────
-    let m_type = model_type;
-    std::thread::spawn(move || {
-        let mutex = match m_type {
+    // ── Pre-init whisper synchronously to ensure model is ready before mic starts ─
+    {
+        let mutex = match model_type {
             WhisperModelType::Small => &WHISPER_CONTEXT_SMALL,
             WhisperModelType::Medium => &WHISPER_CONTEXT_MEDIUM,
             WhisperModelType::Turbo => &WHISPER_CONTEXT_TURBO,
         };
         if let Ok(mut lock) = mutex.lock() {
             if lock.is_none() {
-                if let Ok(ctx) = init_whisper_context(m_type) {
+                if let Ok(ctx) = init_whisper_context(model_type) {
                     *lock = Some(ctx);
                 }
             }
         }
-    });
+    }
 
     // ── cpal mic capture thread ───────────────────────────────────────────────
     std::thread::spawn(move || {

@@ -79,8 +79,6 @@ pub struct FormattingStyleState(pub Mutex<FormattingStyle>);
 // Enigo instance (cached to avoid IOHID initialization delay on every call)
 #[allow(dead_code)]
 pub struct EnigoWrapper(pub enigo::Enigo);
-unsafe impl Send for EnigoWrapper {}
-unsafe impl Sync for EnigoWrapper {}
 
 #[allow(dead_code)]
 pub struct EnigoState(pub Arc<Mutex<EnigoWrapper>>);

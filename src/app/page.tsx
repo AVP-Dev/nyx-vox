@@ -133,71 +133,15 @@ export default function Home() {
     const isIdle = phase === 'idle';
 
     const cleanHallucinations = useCallback((t: string | undefined | null): string => {
-        if (!t) {
-            console.log('>>> [CLEAN] Input is empty, returning empty');
-            return '';
-        }
+        if (!t) return '';
         let text = t.trim();
-        console.log('>>> [CLEAN] Input text:', text.substring(0, 50));
         
-        // Capitalize first letter
         if (text.length > 0) {
             text = text.charAt(0).toUpperCase() + text.slice(1);
         }
         
-        // Remove common Whisper hallucinations and junk phrases
-        const junkPhrases = [
-            // Music/sound markers
-            '[music]', '[silence]', '[noise]',
-            '♪', '♫', '♬', '♭', '♮',
-            '(музыка)', '(тишина)', '(шум)', '(аплодисменты)',
-            '(Music)', '(Silence)', '(Laughter)', '(Applause)',
-            
-            // Subtitle credits
-            'subtitles by', 'transcribed by', 'copyright', 'subtitles',
-            'редактор субтитров', 'субтитры', 'перевод', 'translated by', 'translation',
-            'автор субтитров', 'специально для', 'благодарим за', 'для сайта',
-            
-            // Common hallucinations
-            'DimaTorzok', 'Dima Torzok', 'Hoje pursui', 'pursui', 'uvoir', 'Não mais', 'Today pursui',
-            'продолжение следует', 'to be continued', 'continued',
-            'amara.org', 'amara', 'www.', 'http', '.com', '.ru', 'https://',
-            'тебя отдаю code', 'увидеть şunu с',
-            
-            // YouTube/video endings
-            'подпишитесь на канал', 'спасибо за просмотр', 'с вами был',
-            'диктор', 'диктовка', 'диктовка.', 'в выпуске', 'следующий выпуск',
-            'смотрите далее', 'реклама', 'спонсор', 'партнёр', 'sponsor', 'отредактировано', 'транскрибация',
-            
-            // Technical markers
-            'end of transcript', 'transcript end', 'конец записи',
-            'тишина', 'пауза', 'pause', 'silence',
-            'неразборчиво', 'не разборчиво', 'inaudible', 'unclear',
-            'аплодисменты', 'смех', 'laughter', 'applause',
-            'music fades', 'music plays', 'играет музыка',
-            
-            // Random junk
-            'игорь негода', 'игорь не года', 'а. кулаков', 'а. кулакова', 'кулакова'
-        ];
-        
-        const lowerText = text.toLowerCase();
-        let foundJunk = false;
-        for (const phrase of junkPhrases) {
-            const lowerPhrase = phrase.toLowerCase();
-            if (lowerText.includes(lowerPhrase)) {
-                foundJunk = true;
-                console.log('>>> [CLEAN] Found junk phrase:', phrase);
-                text = text.replace(new RegExp(phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), '');
-            }
-        }
-        if (foundJunk) {
-            console.log('>>> [CLEAN] Text after junk removal:', text.substring(0, 50));
-        }
-        
-        // Clean up multiple spaces and trim
         text = text.replace(/\s+/g, ' ').trim();
         
-        // Remove trailing incomplete sentences (common Whisper artifact)
         const trailingJunk = ['...', '—', '–', '…'];
         for (const junk of trailingJunk) {
             if (text.endsWith(junk)) {
@@ -205,14 +149,8 @@ export default function Home() {
             }
         }
         
-        // If text is too short (less than 2 characters), return empty
-        // DON'T check for punctuation-only as regex breaks with Cyrillic
-        if (text.length < 2) {
-            console.log('>>> [CLEAN] Text too short (< 2 chars), returning empty');
-            return '';
-        }
+        if (text.length < 2) return '';
         
-        console.log('>>> [CLEAN] Final cleaned text:', text.substring(0, 50));
         return text;
     }, []);
 
@@ -391,50 +329,31 @@ export default function Home() {
     useEffect(() => {
         const load = async () => {
             try {
-                // 1. Check welcome first as it's critical for the initial screen state
                 const seen = await invoke<boolean>('get_welcome_seen', { version: APP_VERSION }).catch(() => true);
                 if (!seen) setShowWelcome(true);
                 
-                // 2. Show the window content immediately so there is no blank delay
                 setIsVisible(true);
 
-                // 3. Load the rest of settings in background
-                const results = await Promise.all([
-                    invoke<string>('get_stt_mode'),
-                    invoke<'auto'|'ru'|'en'>('get_deepgram_language'),
-                    invoke<'auto'|'ru'|'en'>('get_whisper_language'),
-                    invoke<'auto'|'ru'|'en'>('get_groq_language'),
-                    invoke<boolean>('get_auto_paste'),
-                    invoke<boolean>('get_clear_on_paste'),
-                    invoke<boolean>('get_start_minimized'),
-                    invoke<boolean>('check_model_available'),
-                    invoke<boolean>('get_always_on_top'),
-                    invoke<string>('get_formatting_mode').catch(() => 'none'),
-                    invoke<string>('get_formatting_style').catch(() => 'casual'),
-                    invoke<boolean>('get_auto_pause').catch(() => false)
-                ]);
+                const s = await invoke<Record<string, unknown>>('get_all_settings');
 
-                setSttMode(results[0] as 'deepgram' | 'whisper' | 'groq' | 'gemini');
-                setDgLanguage(results[1]);
-                setWhisperLanguage(results[2]);
-                setGroqLanguage(results[3]);
-                setAutoPaste(results[4]);
-                setClearOnPaste(results[5]);
-                setStartMinimized(results[6]);
-                setAlwaysOnTop(results[8] ?? true);
+                setSttMode((s.sttMode as 'deepgram' | 'whisper' | 'groq' | 'gemini') || 'deepgram');
+                setDgLanguage((s.deepgramLanguage as 'auto' | 'ru' | 'en') || 'auto');
+                setWhisperLanguage((s.whisperLanguage as 'auto' | 'ru' | 'en') || 'ru');
+                setGroqLanguage((s.groqLanguage as 'auto' | 'ru' | 'en') || 'auto');
+                setAutoPaste(s.autoPaste !== false);
+                setClearOnPaste(s.clearOnPaste === true);
+                setStartMinimized(s.startMinimized === true);
+                setAlwaysOnTop(s.alwaysOnTop !== false);
+                setAutoPauseMedia(s.autoPause === true);
 
-                const fMode = results[9] as FormattingMode;
-                setFormattingMode(fMode || 'none');
+                const fMode = (s.formattingMode as FormattingMode) || 'none';
+                setFormattingMode(fMode);
                 if (fMode && fMode !== 'none') setLastActiveFormatting(fMode);
+                setFormattingStyle((s.formattingStyle as 'casual' | 'professional') || 'casual');
 
-                const fStyle = results[10] as 'casual' | 'professional';
-                setFormattingStyle(fStyle || 'casual');
-
-                setAutoPauseMedia(results[11] ?? false);
-                
-                const savedAppLang = await invoke<'ru' | 'en'>('get_app_language').catch(() => 'ru' as const);
-                setAppLanguageState(savedAppLang || 'ru');
-                setTimeout(() => checkUpdates(savedAppLang || 'ru'), 5000);
+                const lang = (s.appLanguage as 'ru' | 'en') || 'ru';
+                setAppLanguageState(lang);
+                setTimeout(() => checkUpdates(lang), 5000);
             } catch (err) {
                 console.error('Initial settings load error:', err);
                 setIsVisible(true);
@@ -442,10 +361,9 @@ export default function Home() {
         };
         load();
         
-        // Self-diagnosis on start
         invoke('run_self_diagnosis').then(res => {
-            console.log('🛡️ NYX Vox Self-Diagnosis:', res);
-        }).catch(err => console.error('🚫 Diagnosis failed:', err));
+            console.log('NYX Vox Self-Diagnosis:', res);
+        }).catch(err => console.error('Diagnosis failed:', err));
     }, [checkUpdates]);
 
 // Deleted redundant useEffect for reloading settings as it is now handled via shared props
@@ -583,7 +501,7 @@ export default function Home() {
                 if (cleanedText) {
                     setTranscript(cleanedText);
                     if (autoPaste) {
-                        handlePaste(cleanedText);
+                        await handlePaste(cleanedText);
                         return;
                     }
                     setPhase('result');

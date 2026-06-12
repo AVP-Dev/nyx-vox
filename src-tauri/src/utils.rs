@@ -2,8 +2,7 @@ pub fn is_media_playing() -> bool {
     #[cfg(target_os = "macos")]
     {
         use std::process::Command;
-        
-        // 1. Check Music app specifically
+
         let music_playing = Command::new("osascript")
             .arg("-e")
             .arg("if application \"Music\" is running then tell application \"Music\" to get player state is playing")
@@ -12,7 +11,6 @@ pub fn is_media_playing() -> bool {
             .unwrap_or(false);
         if music_playing { return true; }
 
-        // 2. Check Spotify
         let spotify_playing = Command::new("osascript")
             .arg("-e")
             .arg("if application \"Spotify\" is running then tell application \"Spotify\" to get player state is playing")
@@ -21,15 +19,13 @@ pub fn is_media_playing() -> bool {
             .unwrap_or(false);
         if spotify_playing { return true; }
 
-        // 3. Check global audio output via pmset assertions (Chrome, Youtube, VLC, etc.)
         let pmset_output = Command::new("pmset")
             .arg("-g")
             .arg("assertions")
             .output();
-            
+
         if let Ok(output) = pmset_output {
             let s = String::from_utf8_lossy(&output.stdout);
-            // Look for apps currently holding "Playing audio" or coreaudiod holding "audio-out"
             if s.contains("Playing audio") { return true; }
             if s.contains("audio-out") && s.contains("coreaudiod") {
                 return true;
@@ -37,6 +33,22 @@ pub fn is_media_playing() -> bool {
         }
 
         false
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        false
+    }
+}
+
+pub fn is_music_app_running() -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("osascript")
+            .arg("-e")
+            .arg("application \"Music\" is running")
+            .output()
+            .map(|o| String::from_utf8_lossy(&o.stdout).trim() == "true")
+            .unwrap_or(false)
     }
     #[cfg(not(target_os = "macos"))]
     {
@@ -71,12 +83,19 @@ pub fn resample_to_16k(samples: &[f32], from_rate: u32, to_rate: u32) -> Vec<f32
     if from_rate == to_rate {
         return samples.to_vec();
     }
-    let mut result = Vec::new();
-    let step = from_rate as f32 / to_rate as f32;
-    let mut i = 0.0;
-    while i < samples.len() as f32 {
-        result.push(samples[i as usize]);
-        i += step;
+    let ratio = from_rate as f64 / to_rate as f64;
+    let out_len = (samples.len() as f64 / ratio) as usize;
+    let mut result = Vec::with_capacity(out_len);
+    for i in 0..out_len {
+        let src_pos = i as f64 * ratio;
+        let idx = src_pos as usize;
+        let frac = src_pos - idx as f64;
+        if idx + 1 < samples.len() {
+            let s = samples[idx] as f64 + (samples[idx + 1] as f64 - samples[idx] as f64) * frac;
+            result.push(s as f32);
+        } else if idx < samples.len() {
+            result.push(samples[idx]);
+        }
     }
     result
 }
@@ -156,6 +175,12 @@ pub fn get_frontmost_app_info() -> (String, String) {
 }
 
 pub fn remove_hallucinations(text: &str) -> String {
+    use std::sync::OnceLock;
+    use regex::Regex;
+
+    static RE_SPACES: OnceLock<Regex> = OnceLock::new();
+    let re_spaces = RE_SPACES.get_or_init(|| Regex::new(r"\s+").unwrap());
+
     let patterns = [
         "DimaTorzok", "Dima Torzok", "Субтитры", "Отредактировано", "Перевод", "Транскрибация",
         "Подпишитесь", "продолжение следует", "Hoje pursui", "Não mais", "uvoir", "pursui",
@@ -173,27 +198,33 @@ pub fn remove_hallucinations(text: &str) -> String {
         "аплодисменты", "смех", "laughter", "applause",
         "music fades", "music plays", "играет музыка",
     ];
+
+    static HALLUCINATION_RES: OnceLock<Vec<Regex>> = OnceLock::new();
+    let res = HALLUCINATION_RES.get_or_init(|| {
+        patterns.iter().filter_map(|p| {
+            Regex::new(&format!(r"(?i)\b?{}\b?", regex::escape(p))).ok()
+        }).collect()
+    });
+
     let mut cleaned = text.to_string();
-    for pattern in patterns {
-        if let Ok(re) = regex::Regex::new(&format!(r"(?i)\b?{}\b?", regex::escape(pattern))) {
-            cleaned = re.replace_all(&cleaned, "").to_string();
-        }
+    for re in res {
+        cleaned = re.replace_all(&cleaned, "").to_string();
     }
-    let re_spaces = regex::Regex::new(r"\s+").unwrap();
     re_spaces.replace_all(cleaned.trim(), " ").to_string()
 }
 
 pub fn clean_repetitive_phrases(text: &str) -> String {
-    let text = remove_hallucinations(text);
-    
-    // 1. Clean up artifacts like "у-ужа" or "у- ежа" -> "у ужа", "у ежа"
-    // Handle single character prefixes followed by dash or dash+space
-    // Fixed regex: match Cyrillic/Latin letter, dash, space(s), followed by a letter.
-    let re_prefix = regex::Regex::new(r"(?i)([а-яёa-z])\s*-\s+([а-яёa-z])").unwrap();
-    let text = re_prefix.replace_all(&text, "$1 $2").to_string();
+    use std::sync::OnceLock;
+    use regex::Regex;
 
-    // Удаление частых слов-паразитов и звуков колебания на уровне регулярок в дополнение к ИИ
-    let re_parasites = regex::Regex::new(r"(?i)\b(аа+|ээ+|мм+|типо|короче)\b[\s,\.]*").unwrap();
+    static RE_PREFIX: OnceLock<Regex> = OnceLock::new();
+    static RE_PARASITES: OnceLock<Regex> = OnceLock::new();
+
+    let re_prefix = RE_PREFIX.get_or_init(|| Regex::new(r"(?i)([а-яёa-z])\s*-\s+([а-яёa-z])").unwrap());
+    let re_parasites = RE_PARASITES.get_or_init(|| Regex::new(r"(?i)\b(аа+|ээ+|мм+|типо|короче)\b[\s,\.]*").unwrap());
+
+    let text = remove_hallucinations(text);
+    let text = re_prefix.replace_all(&text, "$1 $2").to_string();
     let text = re_parasites.replace_all(&text, " ").to_string();
 
     let words: Vec<&str> = text.split_whitespace().collect();
@@ -217,6 +248,11 @@ pub fn clean_repetitive_phrases(text: &str) -> String {
 }
 
 pub fn strip_filler_phrases(text: &str) -> String {
+    use std::sync::OnceLock;
+    use regex::Regex;
+
+    static PREAMBLE_RES: OnceLock<Vec<Regex>> = OnceLock::new();
+
     let fillers = [
         "Вот исправленный текст:", "Конечно,", "Конечно, вот", "Вот ваш исправленный текст:",
         "Here's the cleaned text:", "Here you go:", "Sure,", "Sure, here's",
@@ -231,15 +267,17 @@ pub fn strip_filler_phrases(text: &str) -> String {
         }
     }
     
-    // Remove common AI preamble patterns
     let preamble_patterns = [
         r"^Here is", r"^Here's", r"^I have", r"^I've",
         r"^Вот", r"^Я ", r"^Как просили",
     ];
-    for pattern in preamble_patterns {
-        if let Ok(re) = regex::Regex::new(&format!(r"(?i){}", pattern)) {
-            cleaned = re.replace(&cleaned, "").to_string();
-        }
+    let res = PREAMBLE_RES.get_or_init(|| {
+        preamble_patterns.iter().filter_map(|p| {
+            Regex::new(&format!(r"(?i){}", p)).ok()
+        }).collect()
+    });
+    for re in res {
+        cleaned = re.replace(&cleaned, "").to_string();
     }
     
     // If text is only punctuation or very short noise, return empty

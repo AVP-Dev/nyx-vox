@@ -43,8 +43,13 @@ export default function WelcomePage() {
         };
 
         checkPerms();
-        const interval = setInterval(checkPerms, 2000);
-        return () => clearInterval(interval);
+        let unlistenFn: (() => void) | null = null;
+        if (typeof window !== 'undefined' && window.__TAURI_INTERNALS__) {
+            import('@tauri-apps/api/event').then(({ listen }) => {
+                listen('tauri://focus', () => checkPerms()).then(fn => { unlistenFn = fn; });
+            });
+        }
+        return () => { if (unlistenFn) unlistenFn(); };
     }, []);
 
     const C = CONTENT[language];

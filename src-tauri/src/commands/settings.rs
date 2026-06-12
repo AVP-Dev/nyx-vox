@@ -6,6 +6,55 @@ use crate::state::*;
 use crate::{keys, whisper, tray};
 
 #[tauri::command]
+pub async fn get_all_settings(
+    app: AppHandle,
+    stt_mode: State<'_, SttMode>,
+    dg_lang: State<'_, DeepgramLanguage>,
+    whisper_lang: State<'_, WhisperLanguage>,
+    groq_lang: State<'_, GroqLanguage>,
+    auto_paste: State<'_, AutoPaste>,
+    always_on_top: State<'_, AlwaysOnTop>,
+    formatting_mode: State<'_, FormattingMode>,
+    formatting_style: State<'_, FormattingStyleState>,
+    auto_pause: State<'_, AutoPause>,
+    whisper_model: State<'_, WhisperModel>,
+) -> Result<serde_json::Value, String> {
+    let stt = stt_mode.0.lock().map_err(|e| e.to_string())?.clone();
+    let dg = dg_lang.0.lock().map_err(|e| e.to_string())?.clone();
+    let wl = whisper_lang.0.lock().map_err(|e| e.to_string())?.clone();
+    let gl = groq_lang.0.lock().map_err(|e| e.to_string())?.clone();
+    let ap = *auto_paste.0.lock().map_err(|e| e.to_string())?;
+    let aot = *always_on_top.0.lock().map_err(|e| e.to_string())?;
+    let fm = formatting_mode.0.lock().map_err(|e| e.to_string())?.clone();
+    let fs = *formatting_style.0.lock().map_err(|e| e.to_string())?;
+    let auto_p = *auto_pause.0.lock().map_err(|e| e.to_string())?;
+    let wm = *whisper_model.0.lock().map_err(|e| e.to_string())?;
+
+    let store = app.store("settings.json").map_err(|e: tauri_plugin_store::Error| e.to_string())?;
+    let clear_on_paste = store.get("clear_on_paste").and_then(|v| v.as_bool()).unwrap_or(false);
+    let start_minimized = store.get("start_minimized").and_then(|v| v.as_bool()).unwrap_or(false);
+    let app_lang = store.get("app_language").and_then(|v| v.as_str().map(|s| s.to_string())).unwrap_or_else(|| "ru".to_string());
+    let model_available = whisper::is_model_available(wm);
+
+    Ok(serde_json::json!({
+        "sttMode": stt,
+        "deepgramLanguage": dg,
+        "whisperLanguage": wl,
+        "groqLanguage": gl,
+        "autoPaste": ap,
+        "clearOnPaste": clear_on_paste,
+        "startMinimized": start_minimized,
+        "alwaysOnTop": aot,
+        "autoPause": auto_p,
+        "formattingMode": fm,
+        "formattingStyle": fs,
+        "appLanguage": app_lang,
+        "whisperModel": wm,
+        "modelAvailable": model_available,
+    }))
+}
+
+#[tauri::command]
 pub async fn set_app_language(app: AppHandle, lang: String, state: State<'_, AppLanguage>) -> Result<(), String> {
     let store = app.store("settings.json").map_err(|e: tauri_plugin_store::Error| e.to_string())?;
     store.set("app_language", serde_json::json!(lang));
