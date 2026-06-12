@@ -80,3 +80,118 @@ body {
     background: rgba(255, 255, 255, 0.1);
     border-radius: 10px;
 }
+
+/* Markdown rendering for update notes */
+.prose-update {
+    font-size: 11px;
+    line-height: 1.6;
+    color: rgba(255, 255, 255, 0.7);
+    user-select: text;
+    -webkit-user-select: text;
+}
+
+.prose-update h1 {
+    font-size: 14px;
+    font-weight: 900;
+    color: white;
+    margin: 0 0 8px 0;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.prose-update h2 {
+    font-size: 12px;
+    font-weight: 800;
+    color: rgba(255, 255, 255, 0.9);
+    margin: 12px 0 6px 0;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.prose-update h3 {
+    font-size: 11px;
+    font-weight: 800;
+    color: rgba(255, 255, 255, 0.8);
+    margin: 10px 0 4px 0;
+}
+
+.prose-update p {
+    margin: 4px 0;
+}
+
+.prose-update strong {
+    color: rgba(255, 255, 255, 0.95);
+    font-weight: 800;
+}
+
+.prose-update em {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.prose-update ul {
+    list-style: none;
+    padding: 0;
+    margin: 4px 0;
+}
+
+.prose-update li {
+    padding: 2px 0 2px 12px;
+    position: relative;
+}
+
+.prose-update li::before {
+    content: '*';
+    position: absolute;
+    left: 0;
+    color: #F97316;
+    font-weight: 900;
+}
+
+.prose-update code {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 4px;
+    padding: 1px 4px;
+    font-size: 10px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.prose-update pre {
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 8px;
+    padding: 8px;
+    margin: 6px 0;
+    overflow-x: auto;
+}
+
+.prose-update pre code {
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: 10px;
+}
+
+.prose-update a {
+    color: #F97316;
+    text-decoration: none;
+}
+
+.prose-update a:hover {
+    text-decoration: underline;
+}
+
+.prose-update hr {
+    border: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    margin: 12px 0;
+}
+
+.prose-update blockquote {
+    border-left: 2px solid #F97316;
+    padding-left: 10px;
+    margin: 6px 0;
+    color: rgba(255, 255, 255, 0.5);
+    font-style: italic;
+}

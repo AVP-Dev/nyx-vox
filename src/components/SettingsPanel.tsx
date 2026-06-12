@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
     X, Globe, Cpu, Key, History as HistoryIcon, Info,
     Settings as SettingsIcon,
@@ -6,6 +6,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
+import Markdown from 'react-markdown';
 
 // Internal Components
 import { DICTIONARY } from './settings/translations';
@@ -117,6 +118,14 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     const [updateStatus, setUpdateStatus] = useState('idle');
     const [showUpdatePopup, setShowUpdatePopup] = useState(false);
     const [releaseData, setReleaseData] = useState<{ version: string; url: string; notes: string } | null>(null);
+    const [notesLang, setNotesLang] = useState<'ru' | 'en'>('ru');
+
+    const parsedNotes = useMemo(() => {
+        if (!releaseData?.notes) return { en: '', ru: '' };
+        const parts = releaseData.notes.split(/\n---\n/);
+        if (parts.length < 2) return { en: releaseData.notes, ru: releaseData.notes };
+        return { en: parts[0].trim(), ru: parts.slice(1).join('\n---\n').trim() };
+    }, [releaseData?.notes]);
 
     const c = DICTIONARY[lang as keyof typeof DICTIONARY] || DICTIONARY.en;
 
@@ -498,11 +507,20 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
                                 {releaseData.notes && (
                                     <div className="mb-5 flex-1 overflow-y-auto custom-scrollbar bg-black/30 rounded-xl p-3 border border-white/5">
-                                        <div className="text-[10px] font-bold text-white/30 uppercase tracking-wider mb-1">
-                                            {c.update?.notes || 'Release Notes:'}
+                                        <div className="flex items-center justify-between mb-2">
+                                            <div className="text-[10px] font-bold text-white/30 uppercase tracking-wider">
+                                                {c.update?.notes || 'Release Notes:'}
+                                            </div>
+                                            <button
+                                                onClick={() => setNotesLang(l => l === 'ru' ? 'en' : 'ru')}
+                                                className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-white/5 border border-white/10 hover:bg-white/10 transition-all"
+                                            >
+                                                <Globe size={10} className="text-white/30" />
+                                                <span className="text-[9px] font-black text-white/40 uppercase tracking-wider">{notesLang.toUpperCase()}</span>
+                                            </button>
                                         </div>
-                                        <div className="text-[11px] text-white/80 font-sans whitespace-pre-wrap leading-relaxed">
-                                            {releaseData.notes}
+                                        <div className="prose-update">
+                                            <Markdown>{notesLang === 'ru' ? parsedNotes.ru : parsedNotes.en}</Markdown>
                                         </div>
                                     </div>
                                 )}
