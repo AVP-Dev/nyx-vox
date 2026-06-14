@@ -71,6 +71,8 @@ interface SettingsPanelProps {
     onSetGroqLanguage: (l: 'auto' | 'ru' | 'en') => void;
     formattingMode: 'none' | 'gemini' | 'deepseek' | 'qwen' | 'groq';
     onSetFormattingMode: (m: 'none' | 'gemini' | 'deepseek' | 'qwen' | 'groq') => void;
+    noiseGate: number;
+    onSetNoiseGate: (v: number) => void;
 }
 
 export const SettingsPanel: React.FC<SettingsPanelProps> = ({ 
@@ -84,7 +86,8 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     dgLanguage, onSetDgLanguage,
     whisperLanguage, onSetWhisperLanguage,
     groqLanguage, onSetGroqLanguage,
-    formattingMode, onSetFormattingMode
+    formattingMode, onSetFormattingMode,
+    noiseGate, onSetNoiseGate
 }) => {
     const [tab, setTab] = useState('general');
     const [showHelp, setShowHelp] = useState<string | null>(null);
@@ -344,34 +347,32 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 setUpdateStatus('idle');
                 alert(lang === 'ru' ? 'Не удалось проверить обновления.' : 'Failed to check for updates.');
             }
-        } catch (err) {
+        } catch {
             setUpdateStatus('idle');
             alert(lang === 'ru' ? 'Ошибка при проверке обновлений.' : 'Error checking for updates.');
         }
     };
 
     return (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center p-6">
-            <div className="absolute inset-0 bg-black/70 backdrop-blur-md" onClick={onClose} />
-            
-            <motion.div 
-                initial={{ scale: 0.95, y: 30, opacity: 0 }} 
-                animate={{ scale: 1, y: 0, opacity: 1 }} 
-                className="w-full h-full bg-[#18181B] border border-white/10 rounded-[32px] shadow-[0_20px_40px_rgba(0,0,0,0.4)] overflow-hidden flex flex-col relative z-10"
-            >
+        <motion.div 
+            initial={{ opacity: 0 }} 
+            animate={{ opacity: 1, transition: { duration: 0.3 } }} 
+            exit={{ opacity: 0, transition: { duration: 0.2 } }}
+            className="w-full h-full bg-panel border border-subtle rounded-[32px] overflow-hidden flex flex-col relative z-10"
+        >
                 {/* Header Section */}
                 <div className="shrink-0 pt-5 pb-3 px-5 flex flex-col gap-4 bg-gradient-to-b from-white/[0.02] to-transparent border-b border-white/[0.03]">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-2xl bg-white/5 flex items-center justify-center border border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]">
+                            <div className="w-10 h-10 rounded-2xl bg-surface flex items-center justify-center border border-subtle shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]">
                                 <SettingsIcon className="w-5 h-5 text-white/70" />
                             </div>
                             <div>
                                 <h2 className="text-[17px] font-black text-white tracking-tight leading-none">{c.ui.settings}</h2>
                                 <div className="flex items-center gap-2 mt-2">
-                                    <span className="text-[10px] font-bold text-white/30 uppercase tracking-[0.15em] bg-white/5 px-2 py-0.5 rounded-md border border-white/5">{sttMode}</span>
-                                    <span className="w-1 h-1 rounded-full bg-white/10" />
-                                    <span className="text-[10px] font-bold text-white/30 uppercase tracking-[0.15em] bg-white/5 px-2 py-0.5 rounded-md border border-white/5">{formattingMode}</span>
+                                    <span className="text-[10px] font-bold text-white/30 uppercase tracking-[0.15em] bg-surface px-2 py-0.5 rounded-md border border-subtle">{sttMode}</span>
+                                    <span className="w-1 h-1 rounded-full bg-surface-hover" />
+                                    <span className="text-[10px] font-bold text-white/30 uppercase tracking-[0.15em] bg-surface px-2 py-0.5 rounded-md border border-subtle">{formattingMode}</span>
                                 </div>
                             </div>
                         </div>
@@ -379,14 +380,14 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                         <div className="flex items-center gap-2.5">
                              <button 
                                 onClick={() => setLang(lang === 'ru' ? 'en' : 'ru')} 
-                                className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-white/5 border border-white/10 text-white/40 hover:text-white/80 hover:bg-white/10 transition-all text-xs font-bold"
+                                className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-surface border border-subtle text-muted hover:text-primary hover:bg-surface-hover transition-all text-xs font-bold"
                             >
                                 <Globe className="w-4 h-4" />
                                 {lang.toUpperCase()}
                             </button>
                             <button 
                                 onClick={onClose} 
-                                className="w-10 h-10 flex items-center justify-center rounded-2xl bg-white/5 border border-white/10 hover:bg-red-500/20 hover:border-red-500/30 text-white/30 hover:text-red-400 transition-all group"
+                                className="w-10 h-10 flex items-center justify-center rounded-2xl bg-surface border border-subtle hover:bg-red-500/20 hover:border-red-500/30 text-white/30 hover:text-red-400 transition-all group"
                             >
                                 <X className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" />
                             </button>
@@ -394,7 +395,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                     </div>
 
                     {/* Navigation Tabs */}
-                    <nav className="p-1 bg-white/2 border border-white/5 rounded-[22px] grid grid-cols-5 gap-1">
+                    <nav className="p-1 bg-white/2 border border-subtle rounded-[22px] grid grid-cols-5 gap-1">
                         <SidebarItem id="general" active={tab === 'general'} icon={SettingsIcon} label={c.settings.behavior} onClick={setTab} />
                         <SidebarItem id="engines" active={tab === 'engines'} icon={Cpu} label={c.ui.engine} onClick={setTab} color="text-amber-400" />
                         <SidebarItem id="keys" active={tab === 'keys'} icon={Key} label={c.settings.apiKeysTitle} onClick={setTab} color="text-sky-400" />
@@ -424,6 +425,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                                             autoPauseMedia={autoPauseMedia} handleToggleAutoPauseMedia={handleToggleAutoPauseMedia}
                                             alwaysOnTop={alwaysOnTop} onToggleAlwaysOnTop={onToggleAlwaysOnTop}
                                             formattingStyle={formattingStyle} onSetFormattingStyle={onSetFormattingStyle}
+                                            noiseGate={noiseGate} onSetNoiseGate={onSetNoiseGate}
                                             micGranted={micGranted}
                                             accGranted={accGranted}
                                         />
@@ -482,11 +484,11 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                                 initial={{ scale: 0.9, y: 20 }} 
                                 animate={{ scale: 1, y: 0 }} 
                                 exit={{ scale: 0.9, y: 20 }}
-                                className="w-full max-w-md bg-[#27272A] border border-emerald-500/30 rounded-3xl p-6 shadow-2xl flex flex-col relative max-h-[90%]"
+                                className="w-full max-w-md bg-panel border border-emerald-500/30 rounded-3xl p-6 shadow-2xl flex flex-col relative max-h-[90%]"
                             >
                                 <button 
                                     onClick={() => setShowUpdatePopup(false)}
-                                    className="absolute top-4 right-4 w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 transition-all"
+                                    className="absolute top-4 right-4 w-8 h-8 rounded-full bg-surface flex items-center justify-center text-muted hover:text-white hover:bg-surface-hover transition-all"
                                 >
                                     <X className="w-4 h-4" />
                                 </button>
@@ -506,17 +508,17 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                                 </p>
 
                                 {releaseData.notes && (
-                                    <div className="mb-5 flex-1 overflow-y-auto custom-scrollbar bg-black/30 rounded-xl p-3 border border-white/5">
+                                    <div className="mb-5 flex-1 overflow-y-auto custom-scrollbar bg-black/30 rounded-xl p-3 border border-subtle">
                                         <div className="flex items-center justify-between mb-2">
                                             <div className="text-[10px] font-bold text-white/30 uppercase tracking-wider">
                                                 {c.update?.notes || 'Release Notes:'}
                                             </div>
                                             <button
                                                 onClick={() => setNotesLang(l => l === 'ru' ? 'en' : 'ru')}
-                                                className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-white/5 border border-white/10 hover:bg-white/10 transition-all"
+                                                className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-surface border border-subtle hover:bg-surface-hover transition-all"
                                             >
                                                 <Globe size={10} className="text-white/30" />
-                                                <span className="text-[9px] font-black text-white/40 uppercase tracking-wider">{notesLang.toUpperCase()}</span>
+                                                <span className="text-[9px] font-black text-muted uppercase tracking-wider">{notesLang.toUpperCase()}</span>
                                             </button>
                                         </div>
                                         <div className="prose-update">
@@ -525,10 +527,10 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                                     </div>
                                 )}
 
-                                <div className="flex items-center gap-3 pt-2 border-t border-white/5 shrink-0">
+                                <div className="flex items-center gap-3 pt-2 border-t border-subtle shrink-0">
                                     <button 
                                         onClick={() => setShowUpdatePopup(false)}
-                                        className="flex-1 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white/60 hover:text-white font-bold text-xs transition-all"
+                                        className="flex-1 py-2.5 rounded-xl bg-surface hover:bg-surface-hover text-muted hover:text-white font-bold text-xs transition-all"
                                     >
                                         {c.update?.later || 'Later'}
                                     </button>
@@ -546,7 +548,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                         </motion.div>
                     )}
                 </AnimatePresence>
-            </motion.div>
         </motion.div>
     );
 };
