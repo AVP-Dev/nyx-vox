@@ -4,7 +4,7 @@ This directory contains detailed release notes for every version of NYX Vox.
 
 ## 🏷️ Versions
 
-- [v1.2.0](v1.2.0/release.md) - **Security Hardening & Architecture Overhaul** 🚀
+- [v1.2.0](v1.2.0/release.md) - **Security Hardening, Voice Frontend & Architecture Overhaul** 🚀
 - [v1.1.0](v1.1.0/release.md) - **Transcription Reliability & Tech-Vocab Update** 🚀
 - [v1.0.0](v1.0.0/release.md) - **Official Release (Code Cleanup, Text Selection & AI Fixes)** 🚀
 - [v0.1.3-beta](v0.1.3-beta/release.md) - Maintenance & UI Polish
@@ -20,7 +20,7 @@ This directory contains detailed release notes for every version of NYX Vox.
 
 ## 🏷️ Версии
 
-- [v1.2.0](v1.2.0/release.md) — **Усиление безопасности и перестройка архитектуры** 🚀
+- [v1.2.0](v1.2.0/release.md) — **Усиление безопасности, голосовой фронтенд и перестройка архитектуры** 🚀
 - [v1.1.0](v1.1.0/release.md) — **Надёжность транскрибации и IT-словарь** 🚀
 - [v1.0.0](v1.0.0/release.md) — **Официальный релиз (Очистка кода, Выделение текста и Исправление AI)** 🚀
 - [v0.1.3-beta](v0.1.3-beta/release.md) — Техническое обслуживание и улучшение UI

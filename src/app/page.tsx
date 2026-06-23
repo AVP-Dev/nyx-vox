@@ -19,6 +19,7 @@ import { Settings2, Mic, Check, Copy, Send, Pencil, X, Zap, History } from 'luci
 type Phase = 'idle' | 'recording' | 'processing' | 'result' | 'editing';
 
 type FormattingMode = 'none' | 'gemini' | 'deepseek' | 'qwen' | 'groq';
+type SttLanguage = 'auto' | 'mixed' | 'ru' | 'en';
 
 interface QuickMenuProps {
     isOpen: boolean;
@@ -168,9 +169,9 @@ export default function Home() {
     }, []);
 
     const [sttMode, setSttMode] = useState<'deepgram' | 'whisper' | 'groq' | 'gemini'>('deepgram');
-    const [dgLanguage, setDgLanguage] = useState<'auto'|'ru'|'en'>('auto');
-    const [whisperLanguage, setWhisperLanguage] = useState<'auto'|'ru'|'en'>('ru');
-    const [groqLanguage, setGroqLanguage] = useState<'auto'|'ru'|'en'>('auto');
+    const [dgLanguage, setDgLanguage] = useState<SttLanguage>('mixed');
+    const [whisperLanguage, setWhisperLanguage] = useState<SttLanguage>('mixed');
+    const [groqLanguage, setGroqLanguage] = useState<SttLanguage>('mixed');
 
     const isResizing = useRef(false);
     const lastResizeTime = useRef<number>(0);
@@ -432,9 +433,9 @@ export default function Home() {
                 const s = await invoke<Record<string, unknown>>('get_all_settings');
 
                 setSttMode((s.sttMode as 'deepgram' | 'whisper' | 'groq' | 'gemini') || 'deepgram');
-                setDgLanguage((s.deepgramLanguage as 'auto' | 'ru' | 'en') || 'auto');
-                setWhisperLanguage((s.whisperLanguage as 'auto' | 'ru' | 'en') || 'ru');
-                setGroqLanguage((s.groqLanguage as 'auto' | 'ru' | 'en') || 'auto');
+                setDgLanguage((s.deepgramLanguage as SttLanguage) || 'mixed');
+                setWhisperLanguage((s.whisperLanguage as SttLanguage) || 'mixed');
+                setGroqLanguage((s.groqLanguage as SttLanguage) || 'mixed');
                 setAutoPaste(s.autoPaste !== false);
                 setClearOnPaste(s.clearOnPaste === true);
                 setStartMinimized(s.startMinimized === true);
@@ -620,12 +621,15 @@ export default function Home() {
                 setPhase('idle');
             }
         } catch (err) {
-            if (err === 'ALREADY_IDLE') {
-                return;
-            }
-            const msg = appLanguageRef.current === 'ru' ? 'Ошибка записи' : 'Recording error';
-            setTranscript(msg);
-            setPhase('result');
+                if (err === 'ALREADY_IDLE') {
+                    return;
+                }
+                console.error('[stop_recording error]', err);
+                const msg = appLanguageRef.current === 'ru'
+                    ? `Ошибка: ${err}`
+                    : `Error: ${err}`;
+                setTranscript(msg);
+                setPhase('result');
         } finally {
             setProcessing(false);
         }
@@ -692,8 +696,11 @@ export default function Home() {
                     setTranscript(msg);
                     setPhase('result');
                 }),
-                listen<string>('recording-error', () => {
-                    const msg = appLanguageRef.current === 'ru' ? 'Ошибка записи' : 'Recording error';
+                listen<string>('recording-error', (e) => {
+                    console.error('[recording-error]', e.payload);
+                    const msg = appLanguageRef.current === 'ru'
+                        ? `Ошибка: ${e.payload}`
+                        : `Error: ${e.payload}`;
                     setTranscript(msg);
                     setPhase('result');
                 }),
@@ -960,7 +967,7 @@ export default function Home() {
                                                                  </motion.span>
                                                              ) : (
                                                                  <motion.div key="idle-dots" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex gap-1.5 items-center">
-                                                                     <div className={`w-1.5 h-1.5 rounded-full ${(() => { const cur = sttMode === 'deepgram' ? dgLanguage : (sttMode === 'whisper' ? whisperLanguage : groqLanguage); return cur === 'ru' ? 'bg-blue-400' : (cur === 'en' ? 'bg-slate-200' : 'bg-white/20'); })()}`} />
+                                                                     <div className={`w-1.5 h-1.5 rounded-full ${(() => { const cur = sttMode === 'deepgram' ? dgLanguage : (sttMode === 'whisper' ? whisperLanguage : groqLanguage); return cur === 'mixed' ? 'bg-violet-400' : (cur === 'ru' ? 'bg-blue-400' : (cur === 'en' ? 'bg-slate-200' : 'bg-white/20')); })()}`} />
                                                                      <div className={`w-1.5 h-1.5 rounded-full ${sttMode === 'whisper' ? 'bg-emerald-400' : 'bg-orange-400'}`} />
                                                                      <div className={`w-1.5 h-1.5 rounded-full ${formattingMode !== 'none' ? 'bg-cyan-400' : 'bg-surface'}`} />
                                                                  </motion.div>

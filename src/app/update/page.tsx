@@ -105,7 +105,7 @@ export default function UpdatePage() {
             <motion.div
                 initial={{ opacity: 0, scale: 0.98 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="w-full h-full bg-[#0F0F11] border border-white/10 flex flex-col pointer-events-auto relative overflow-hidden rounded-[32px]"
+                className="w-full h-full bg-panel border border-subtle flex flex-col pointer-events-auto relative overflow-hidden rounded-[32px]"
             >
                 <div data-tauri-drag-region className="absolute inset-x-0 top-0 h-16 cursor-grab active:cursor-grabbing z-0" />
 
@@ -118,20 +118,20 @@ export default function UpdatePage() {
                             </div>
                             <div>
                                 <div className="text-[14px] font-black text-white uppercase tracking-wider leading-none">{t.title}</div>
-                                <div className="text-[10px] text-white/40 font-bold italic tracking-tight mt-0.5">{t.ver}</div>
+                                <div className="text-[10px] text-muted font-bold italic tracking-tight mt-0.5">{t.ver}</div>
                             </div>
                         </div>
                         <button
                             onClick={() => setLanguage(l => l === 'ru' ? 'en' : 'ru')}
-                            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-all"
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-surface border border-subtle hover:bg-surface-hover transition-all"
                         >
-                            <Globe size={12} className="text-white/40" />
-                            <span className="text-[10px] font-black text-white/50 uppercase tracking-wider">{language.toUpperCase()}</span>
+                            <Globe size={12} className="text-muted" />
+                            <span className="text-[10px] font-black text-muted uppercase tracking-wider">{language.toUpperCase()}</span>
                         </button>
                     </div>
 
                     {/* Release Notes */}
-                    <div className="flex-1 overflow-y-auto custom-scrollbar bg-white/[0.02] rounded-xl border border-white/5 p-3 min-h-0 mb-3">
+                    <div className="flex-1 overflow-y-auto custom-scrollbar bg-white/[0.02] rounded-xl border border-subtle p-3 min-h-0 mb-3">
                         {loading ? (
                             <div className="flex items-center justify-center h-full text-white/20 text-[11px] font-bold">{t.loading}</div>
                         ) : currentNotes ? (
@@ -155,7 +155,7 @@ export default function UpdatePage() {
 
                         <button
                             onClick={handleLater}
-                            className="w-full h-10 bg-white/[0.03] hover:bg-white/[0.08] text-white/70 hover:text-white text-[10px] font-black uppercase tracking-widest rounded-[14px] flex items-center justify-center gap-2 transition-all border border-white/[0.05]"
+                            className="w-full h-10 bg-surface hover:bg-white/[0.08] text-white/70 hover:text-white text-[10px] font-black uppercase tracking-widest rounded-[14px] flex items-center justify-center gap-2 transition-all border border-white/[0.05]"
                         >
                             <Clock size={13} className="opacity-40" />
                             <span>{t.later}</span>
@@ -171,16 +171,16 @@ export default function UpdatePage() {
                                 checked={dontShowAgain}
                                 onChange={(e) => setDontShowAgain(e.target.checked)}
                             />
-                            <div className={`w-3.5 h-3.5 border rounded transition-all flex items-center justify-center ${dontShowAgain ? 'bg-orange-600 border-orange-600' : 'bg-white/5 border-white/20'}`}>
+                            <div className={`w-3.5 h-3.5 border rounded transition-all flex items-center justify-center ${dontShowAgain ? 'bg-orange-600 border-orange-600' : 'bg-surface border-strong'}`}>
                                 {dontShowAgain && <Check className="w-2.5 h-2.5 text-white" strokeWidth={5} />}
                             </div>
-                            <span className="text-[9px] text-white/20 group-hover:text-white/40 transition-colors font-bold uppercase tracking-[0.15em]">
+                            <span className="text-[9px] text-white/20 group-hover:text-muted transition-colors font-bold uppercase tracking-[0.15em]">
                                 {t.dontShow}
                             </span>
                         </label>
                         <button
                             onClick={handleCancel}
-                            className="text-[9px] font-black text-white/10 hover:text-white/40 uppercase tracking-[0.25em] transition-colors"
+                            className="text-[9px] font-black text-white/10 hover:text-muted uppercase tracking-[0.25em] transition-colors"
                         >
                             {t.cancel}
                         </button>

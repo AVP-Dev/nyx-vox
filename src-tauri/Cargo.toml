@@ -31,7 +31,8 @@ tauri-plugin-store = "2"
 tokio = { version = "1.43", features = ["full"] }
 cpal = "0.15"
 hound = "3.5"
-whisper-rs = { version = "0.16", features = ["metal"] }
+zip = "2.2"
+whisper-rs = { version = "0.16", features = ["metal", "coreml"] }
 window-vibrancy = "0.7.1"
 tungstenite = "0.24"
 tokio-tungstenite = { version = "0.24", features = ["native-tls"] }

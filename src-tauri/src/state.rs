@@ -56,6 +56,9 @@ pub struct AutoPause(pub Mutex<bool>);
 // Auto-Paste flag
 pub struct AutoPaste(pub Mutex<bool>);
 
+// Noise Gate Threshold
+pub struct NoiseGateThreshold(pub Mutex<f32>);
+
 // Always-on-top flag
 pub struct AlwaysOnTop(pub Mutex<bool>);
 

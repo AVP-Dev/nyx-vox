@@ -18,6 +18,8 @@ import { KeysTab } from './settings/KeysTab';
 import { HistoryTab } from './settings/HistoryTab';
 import { InfoTab } from './settings/InfoTab';
 
+type SttLanguage = 'auto' | 'mixed' | 'ru' | 'en';
+
 export const APP_VERSION = '1.2.0';
 
 interface EngineHelpItem {
@@ -63,12 +65,12 @@ interface SettingsPanelProps {
     // Shared settings
     sttMode: 'deepgram' | 'whisper' | 'groq' | 'gemini';
     onSetSttMode: (m: 'deepgram' | 'whisper' | 'groq' | 'gemini') => void;
-    dgLanguage: 'auto' | 'ru' | 'en';
-    onSetDgLanguage: (l: 'auto' | 'ru' | 'en') => void;
-    whisperLanguage: 'auto' | 'ru' | 'en';
-    onSetWhisperLanguage: (l: 'auto' | 'ru' | 'en') => void;
-    groqLanguage: 'auto' | 'ru' | 'en';
-    onSetGroqLanguage: (l: 'auto' | 'ru' | 'en') => void;
+    dgLanguage: SttLanguage;
+    onSetDgLanguage: (l: SttLanguage) => void;
+    whisperLanguage: SttLanguage;
+    onSetWhisperLanguage: (l: SttLanguage) => void;
+    groqLanguage: SttLanguage;
+    onSetGroqLanguage: (l: SttLanguage) => void;
     formattingMode: 'none' | 'gemini' | 'deepseek' | 'qwen' | 'groq';
     onSetFormattingMode: (m: 'none' | 'gemini' | 'deepseek' | 'qwen' | 'groq') => void;
     noiseGate: number;
@@ -228,7 +230,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         await invoke('set_stt_mode', { mode: m });
     };
 
-    const handleLanguageChange = async (l: 'auto' | 'ru' | 'en') => {
+    const handleLanguageChange = async (l: SttLanguage) => {
         if (sttMode === 'deepgram') { onSetDgLanguage(l); await invoke('set_deepgram_language', { lang: l }); }
         else if (sttMode === 'whisper') { onSetWhisperLanguage(l); await invoke('set_whisper_language', { lang: l }); }
         else if (sttMode === 'groq') { onSetGroqLanguage(l); await invoke('set_groq_language', { lang: l }); }

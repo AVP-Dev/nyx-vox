@@ -47,10 +47,10 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
 
             <button
                 onClick={handleOpenHistory}
-                className="w-full flex items-center justify-between p-4 rounded-xl bg-white/3 border border-white/8 hover:bg-white/5 hover:border-white/15 transition-all group"
+                className="w-full flex items-center justify-between p-4 rounded-xl bg-white/3 border border-white/8 hover:bg-surface hover:border-white/15 transition-all group"
             >
                 <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-white/40 group-hover:text-white/60 transition-colors">
+                    <div className="w-8 h-8 rounded-lg bg-surface flex items-center justify-center text-muted group-hover:text-muted transition-colors">
                         <History className="w-4 h-4" />
                     </div>
                     <div className="text-left">
@@ -58,7 +58,7 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
                         <div className="text-[11px] text-white/30">{c.history.search}</div>
                     </div>
                 </div>
-                <ChevronRight className="w-4 h-4 text-white/20 group-hover:text-white/40 transition-all" />
+                <ChevronRight className="w-4 h-4 text-white/20 group-hover:text-muted transition-all" />
             </button>
 
             <div className="p-4 rounded-xl bg-white/3 border border-white/8 space-y-4">
@@ -69,14 +69,14 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
                     </div>
                     <button
                         onClick={() => handleHistorySettingsChange(!historySmartCleanup, historyRetentionPeriod)}
-                        className={`w-10 h-6 rounded-full transition-all relative ${historySmartCleanup ? 'bg-emerald-500' : 'bg-white/10'}`}
+                        className={`w-10 h-6 rounded-full transition-all relative ${historySmartCleanup ? 'bg-emerald-500' : 'bg-surface-hover'}`}
                     >
                         <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${historySmartCleanup ? 'left-5' : 'left-1'}`} />
                     </button>
                 </div>
 
                 {historySmartCleanup && (
-                    <div className="space-y-2 pt-2 border-t border-white/5">
+                    <div className="space-y-2 pt-2 border-t border-subtle">
                         <SectionTitle>{c.history.retention}</SectionTitle>
                         <div className="grid grid-cols-4 gap-2">
                             {Object.entries(c.history.periods).map(([key, label]) => (
@@ -84,8 +84,8 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
                                     key={key}
                                     onClick={() => handleHistorySettingsChange(historySmartCleanup, key as string)}
                                     className={`py-1.5 rounded-lg border text-[10px] font-medium transition-all ${historyRetentionPeriod === key
-                                        ? 'bg-white/10 border-white/20 text-white'
-                                        : 'bg-white/3 border-white/8 text-white/40 hover:border-white/15'
+                                        ? 'bg-surface-hover border-strong text-white'
+                                        : 'bg-white/3 border-white/8 text-muted hover:border-white/15'
                                         }`}
                                 >
                                     {label as string}

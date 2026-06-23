@@ -12,7 +12,7 @@ use crate::state::{AiSemaphore, FormattingStyle, FormattingStyleState};
 // ── Models ───────────────────────────────────────────────────────────────────
 const GROQ_STT_MODEL: &str = "whisper-large-v3-turbo";
 const GROQ_REFINEMENT_MODEL: &str = "llama-3.3-70b-versatile";
-const GEMINI_MODEL: &str = "gemini-3.1-flash-lite";
+const GEMINI_MODEL: &str = "gemini-2.5-flash";
 
 // ── Shared recording state ────────────────────────────────────────────────────
 #[derive(Default)]
@@ -201,12 +201,13 @@ pub fn start_recording<R: Runtime>(
 pub async fn stop_recording<R: Runtime>(
     app: tauri::AppHandle<R>,
     state: SharedAiState,
-    _recording_flag: Arc<AtomicBool>,
+    recording_flag: Arc<AtomicBool>,
     api_key: String,
     language: &str,
     threshold: f32,
 ) -> Result<String, String> {
-    tokio::time::sleep(std::time::Duration::from_millis(150)).await;
+    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+    recording_flag.store(false, Ordering::SeqCst);
 
     // 1. Acquisition of Semaphore
     let semaphore = app.state::<AiSemaphore>();
@@ -254,12 +255,22 @@ pub async fn stop_recording<R: Runtime>(
         .mime_str("audio/wav")
         .map_err(|e| e.to_string())?;
 
+    let stt_prompt = if language == "auto" || language == "mixed" {
+        format!("{}\n\nVocabulary: {}", crate::prompts::MIXED_RU_EN_STT_PROMPT, crate::prompts::GROQ_STT_PROMPT)
+    } else {
+        crate::prompts::GROQ_STT_PROMPT.to_string()
+    };
+    let stt_prompt = if stt_prompt.len() > 896 {
+        stt_prompt[..896].to_string()
+    } else {
+        stt_prompt
+    };
     let mut form = reqwest::multipart::Form::new()
         .part("file", part)
         .text("model", GROQ_STT_MODEL)
-        .text("prompt", crate::prompts::GROQ_STT_PROMPT);
+        .text("prompt", stt_prompt);
 
-    if language != "auto" {
+    if language != "auto" && language != "mixed" {
         form = form.text("language", language.to_string());
     }
 
@@ -295,12 +306,13 @@ pub async fn stop_recording<R: Runtime>(
 pub async fn gemini_stop_recording<R: Runtime>(
     app: tauri::AppHandle<R>,
     state: SharedAiState,
-    _recording_flag: Arc<AtomicBool>,
+    recording_flag: Arc<AtomicBool>,
     api_key: String,
     _language: &str,
     threshold: f32,
 ) -> Result<String, String> {
-    tokio::time::sleep(std::time::Duration::from_millis(150)).await;
+    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+    recording_flag.store(false, Ordering::SeqCst);
 
     let semaphore = app.state::<AiSemaphore>();
     let _permit = semaphore
@@ -354,7 +366,7 @@ pub async fn gemini_stop_recording<R: Runtime>(
         "contents": [{
             "role": "user",
             "parts": [
-                { "text": "Transcribe this audio. Return only the transcript text." },
+                { "text": if _language == "mixed" { crate::prompts::MIXED_RU_EN_STT_PROMPT } else { "Transcribe this audio. Return only the transcript text." } },
                 { "inlineData": { "mimeType": "audio/wav", "data": audio_b64 } }
             ]
         }],

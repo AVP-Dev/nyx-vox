@@ -3,12 +3,19 @@ use std::sync::{
     Arc, Mutex,
 };
 use tauri::{AppHandle, Emitter, Runtime};
-use whisper_rs::{FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters};
+use whisper_rs::{FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters, WhisperState};
 
 // ── Globals ───────────────────────────────────────────────────────────────────
-static WHISPER_CONTEXT_SMALL: Mutex<Option<WhisperContext>> = Mutex::new(None);
-static WHISPER_CONTEXT_MEDIUM: Mutex<Option<WhisperContext>> = Mutex::new(None);
-static WHISPER_CONTEXT_TURBO: Mutex<Option<WhisperContext>> = Mutex::new(None);
+// Cache both context AND state to keep Metal/GPU initialized across transcriptions.
+// Recreating WhisperState triggers full Metal backend reinit (~47s on first call).
+struct WhisperModel {
+    #[allow(dead_code)] // kept alive: WhisperState references this
+    ctx: WhisperContext,
+    state: WhisperState,
+}
+static WHISPER_MODEL_SMALL: Mutex<Option<WhisperModel>> = Mutex::new(None);
+static WHISPER_MODEL_MEDIUM: Mutex<Option<WhisperModel>> = Mutex::new(None);
+static WHISPER_MODEL_TURBO: Mutex<Option<WhisperModel>> = Mutex::new(None);
 
 use crate::state::WhisperModelType;
 
@@ -93,19 +100,57 @@ pub fn is_model_available(model_type: WhisperModelType) -> bool {
     get_model_path(model_type, false).is_ok()
 }
 
-fn init_whisper_context(model_type: WhisperModelType) -> Result<WhisperContext, String> {
+fn init_whisper_model(model_type: WhisperModelType) -> Result<WhisperModel, String> {
+    let t0 = std::time::Instant::now();
     println!("NYX Vox: Loading Whisper model {:?}...", model_type);
     let model_path = get_model_path(model_type, true)?;
-    WhisperContext::new_with_params(&model_path, WhisperContextParameters::default())
-        .map_err(|e| format!("Whisper context creation failed: {}. Попробуйте перекачать модель в настройках.", e))
+    println!("NYX Vox: Model path: {}", model_path);
+    let mut ctx_params = WhisperContextParameters::default();
+    ctx_params.use_gpu(true);
+    let ctx = WhisperContext::new_with_params(&model_path, ctx_params)
+        .map_err(|e| format!("Whisper context creation failed: {}. Попробуйте перекачать модель в настройках.", e))?;
+    println!("NYX Vox: Whisper model {:?} loaded in {:?} (GPU: enabled)", model_type, t0.elapsed());
+
+    // Create state and pre-warm Metal to compile all GPU shaders once
+    println!("NYX Vox: Pre-warming Metal shaders...");
+    let t_warmup = std::time::Instant::now();
+    let mut state = ctx.create_state()
+        .map_err(|e| format!("Failed to create WhisperState: {:?}", e))?;
+    let params = FullParams::new(SamplingStrategy::Greedy { best_of: 1 });
+    let silence = vec![0.0f32; 16000]; // 1 second of silence
+    let _ = state.full(params, &silence);
+    println!("NYX Vox: Metal pre-warmed in {:?}", t_warmup.elapsed());
+
+    Ok(WhisperModel { ctx, state })
+}
+
+pub fn preload_model(model_type: WhisperModelType) {
+    let mutex = match model_type {
+        WhisperModelType::Small => &WHISPER_MODEL_SMALL,
+        WhisperModelType::Medium => &WHISPER_MODEL_MEDIUM,
+        WhisperModelType::Turbo => &WHISPER_MODEL_TURBO,
+    };
+    if let Ok(mut lock) = mutex.lock() {
+        if lock.is_none() {
+            match init_whisper_model(model_type) {
+                Ok(model) => {
+                    *lock = Some(model);
+                    println!(">>> NYX Vox: Model {:?} preloaded successfully.", model_type);
+                }
+                Err(e) => {
+                    eprintln!(">>> NYX Vox: Model preload failed for {:?}: {}", model_type, e);
+                }
+            }
+        }
+    }
 }
 
 pub fn unload_model(model_type: WhisperModelType) {
     println!(">>> NYX Vox: Attempting to unload model {:?}", model_type);
     let mutex = match model_type {
-        WhisperModelType::Small => &WHISPER_CONTEXT_SMALL,
-        WhisperModelType::Medium => &WHISPER_CONTEXT_MEDIUM,
-        WhisperModelType::Turbo => &WHISPER_CONTEXT_TURBO,
+        WhisperModelType::Small => &WHISPER_MODEL_SMALL,
+        WhisperModelType::Medium => &WHISPER_MODEL_MEDIUM,
+        WhisperModelType::Turbo => &WHISPER_MODEL_TURBO,
     };
     match mutex.lock() {
         Ok(mut lock) => {
@@ -122,6 +167,12 @@ pub fn unload_model(model_type: WhisperModelType) {
     }
 }
 
+pub fn unload_all_models() {
+    unload_model(WhisperModelType::Small);
+    unload_model(WhisperModelType::Medium);
+    unload_model(WhisperModelType::Turbo);
+}
+
 // ── Start Whisper recording ──────────────────────────────────────────────────
 pub fn start_recording<R: Runtime>(
     app: AppHandle<R>,
@@ -129,7 +180,7 @@ pub fn start_recording<R: Runtime>(
     recording_flag: Arc<AtomicBool>,
     processing_flag: Arc<AtomicBool>,
     language: &str,
-    model_type: WhisperModelType,
+    _model_type: WhisperModelType,
 ) -> Result<(), String> {
     use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 
@@ -148,21 +199,11 @@ pub fn start_recording<R: Runtime>(
     let flag_cpal = Arc::clone(&recording_flag);
     let app_stream = app.clone();
 
-    // ── Pre-init whisper synchronously to ensure model is ready before mic starts ─
-    {
-        let mutex = match model_type {
-            WhisperModelType::Small => &WHISPER_CONTEXT_SMALL,
-            WhisperModelType::Medium => &WHISPER_CONTEXT_MEDIUM,
-            WhisperModelType::Turbo => &WHISPER_CONTEXT_TURBO,
-        };
-        if let Ok(mut lock) = mutex.lock() {
-            if lock.is_none() {
-                if let Ok(ctx) = init_whisper_context(model_type) {
-                    *lock = Some(ctx);
-                }
-            }
-        }
-    }
+    // IMPORTANT: start the microphone first. Local Whisper/Metal/Core ML model
+    // initialization can take seconds on cold start; doing it before cpal meant
+    // the UI looked like recording while the mic was not yet capturing audio.
+    // We capture immediately and warm the model in parallel because inference is
+    // only needed after stop.
 
     // ── cpal mic capture thread ───────────────────────────────────────────────
     std::thread::spawn(move || {
@@ -231,6 +272,11 @@ pub fn start_recording<R: Runtime>(
     let _app_streamer = app.clone();
     let _lang_str = language.to_string();
 
+    // Do not warm the model here. On 8GB Macs, loading a large local model while
+    // recording can cause memory pressure and even process termination. The mic
+    // must start immediately; model loading happens after stop if it is not
+    // already cached from a previous transcription.
+
     // The sliding window has been removed for performance reasons. Offline Whisper is too heavy
     // to run continuously every 800ms on most Macs. We will process once at the very end.
 
@@ -243,11 +289,12 @@ pub async fn stop_recording(
     recording_flag: Arc<AtomicBool>,
     language: &str,
     model_type: WhisperModelType,
+    threshold: f32,
 ) -> Result<String, String> {
     // VAD FIX: Wait 700ms (Audio-tail padding) before killing the microphone 
     // to capture the trailing audio of the last word, preventing the model 
     // from hallucinating a cutoff word.
-    tokio::time::sleep(std::time::Duration::from_millis(700)).await;
+    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
     recording_flag.store(false, Ordering::SeqCst);
 
     let (samples, src_rate) = {
@@ -261,55 +308,78 @@ pub async fn stop_recording(
 
     if samples.is_empty() { return Ok(String::new()); }
 
-    // Lowered RMS threshold from 0.0004 to 0.0001 to capture quieter speech
+    // Minimum duration: ~0.8s
+    let min_samples = (src_rate as f64 * 0.8) as usize;
+    if samples.len() < min_samples { return Ok(String::new()); }
+
+    // Noise gate
     let rms = (samples.iter().map(|s| s * s).sum::<f32>() / samples.len() as f32).sqrt();
-    if rms < 0.0001 { 
+    if rms < threshold { 
         println!(">>> [WHISPER] Audio too quiet (RMS: {}), skipping", rms);
         return Ok(String::new()); 
     }
 
     let whisper_samples = crate::utils::resample_to_16k(&samples, src_rate, 16000);
     let lang_str = language.to_string();
-    println!(">>> [WHISPER] Processing {} samples (RMS: {}, lang: {})", whisper_samples.len(), rms, lang_str);
-    tokio::task::spawn_blocking(move || run_whisper(&whisper_samples, 2, &lang_str, model_type))
+    println!(">>> [WHISPER] Processing {} samples (RMS: {}, lang: {}, src_rate: {})", whisper_samples.len(), rms, lang_str, src_rate);
+    let t_total = std::time::Instant::now();
+    let result = tokio::task::spawn_blocking(move || run_whisper(&whisper_samples, 2, &lang_str, model_type))
         .await
-        .map_err(|e| format!("Thread error: {}", e))?
+        .map_err(|e| format!("Thread error: {}", e))?;
+    println!(">>> [WHISPER] Total stop_recording time: {:?}", t_total.elapsed());
+    result
 }
 
 fn run_whisper(samples: &[f32], _beam_size: i32, language: &str, model_type: WhisperModelType) -> Result<String, String> {
+    let t0 = std::time::Instant::now();
     println!(">>> [WHISPER] Using model: {:?}", model_type);
     
     let mutex = match model_type {
-        WhisperModelType::Small => &WHISPER_CONTEXT_SMALL,
-        WhisperModelType::Medium => &WHISPER_CONTEXT_MEDIUM,
-        WhisperModelType::Turbo => &WHISPER_CONTEXT_TURBO,
+        WhisperModelType::Small => &WHISPER_MODEL_SMALL,
+        WhisperModelType::Medium => &WHISPER_MODEL_MEDIUM,
+        WhisperModelType::Turbo => &WHISPER_MODEL_TURBO,
     };
 
     let mut lock = mutex.lock().map_err(|e| format!("Lock failed: {}", e))?;
     if lock.is_none() {
-        *lock = Some(init_whisper_context(model_type)?);
+        println!(">>> [WHISPER] Model not cached, loading from disk...");
+        *lock = Some(init_whisper_model(model_type)?);
+        println!(">>> [WHISPER] Model loaded in {:?}", t0.elapsed());
+    } else {
+        println!(">>> [WHISPER] Model already cached (load took 0ms)");
     }
-    let ctx = lock.as_ref().ok_or("Failed to initialize Whisper context")?;
+    let model = lock.as_mut().ok_or("Failed to initialize Whisper model")?;
 
-    // Beam size: 5 for large models, 3 for small (better than 2 for long audio)
-    let effective_beam = match model_type {
-        WhisperModelType::Medium | WhisperModelType::Turbo => 5,
-        WhisperModelType::Small => 3,
+    // Local dictation is latency-sensitive. Greedy decoding is much faster than
+    // beam search and is accurate enough for short command/dictation snippets,
+    // especially with the mixed RU+EN prompt and technical vocabulary hints.
+    let mut params = FullParams::new(SamplingStrategy::Greedy { best_of: 1 });
+    let lang_code = match language {
+        "auto" => None,
+        // Mixed mode: use auto-detection so Whisper doesn't force Russian
+        // and transliterate English tech terms. The initial_prompt below
+        // guides the decoder toward preserving English IT vocabulary.
+        "mixed" => None,
+        _ => Some(language),
     };
-    let mut params = FullParams::new(SamplingStrategy::BeamSearch {
-        beam_size: effective_beam,
-        patience: 1.0,
-    });
-    let lang_code = if language == "auto" { None } else { Some(language) };
     params.set_language(lang_code);
     params.set_print_progress(false);
     params.set_print_realtime(false);
     params.set_print_timestamps(false);
-    params.set_suppress_blank(false); // Keep false: prevents cutting quiet words at start
+    params.set_suppress_blank(true);  // Enable: prevents blank/non-speech token output
     params.set_suppress_nst(true);    // Enable: suppresses [music], [noise], ♪ hallucinations
-    params.set_single_segment(false);
+    params.set_single_segment(true);
     params.set_split_on_word(false);
-    params.set_n_threads(4);
+    params.set_no_context(true);
+    params.set_translate(false);
+    params.set_temperature(0.0);
+    params.set_temperature_inc(0.2);
+    params.set_entropy_thold(2.4);
+    params.set_logprob_thold(-1.0);
+    params.set_max_initial_ts(1.0);
+    let n_threads = std::thread::available_parallelism().map(|n| n.get() as i32).unwrap_or(4);
+    params.set_n_threads(n_threads);
+    println!(">>> [WHISPER] Using {} threads, {} samples ({:.1}s audio)", n_threads, samples.len(), samples.len() as f64 / 16000.0);
 
     // Системный контекст (initial_prompt) с базовым IT-словарем.
     // Промпт для русского языка пишется на русском, чтобы исключить
@@ -317,22 +387,24 @@ fn run_whisper(samples: &[f32], _beam_size: i32, language: &str, model_type: Whi
     let vocab_hint = "GitHub, GitLab, Node, Node.js, Bun, npm, API, CLI, JSON, TypeScript, JavaScript, React, Next.js, Docker, Linux, macOS, Tauri, DeepSeek, Groq, Whisper, Antigravity";
     let initial_prompt = match language {
         "en" => format!("Transcribe all speech accurately. Tech terms: {}", vocab_hint),
+        "mixed" => format!("{}. Extra vocabulary: {}", crate::prompts::MIXED_RU_EN_STT_PROMPT, vocab_hint),
         "auto" => format!("Точная транскрипция речи на русском или английском языке. Термины: {}", vocab_hint),
         _ => format!("Точная транскрипция русской речи. Сохраняйте английские технические термины. Словарь: {}", vocab_hint),
     };
     params.set_initial_prompt(&initial_prompt);
 
-    let mut wstate = ctx.create_state().map_err(|e| format!("{:?}", e))?;
-    wstate.full(params, samples).map_err(|e| format!("{:?}", e))?;
+    let t_infer = std::time::Instant::now();
+    model.state.full(params, samples).map_err(|e| format!("{:?}", e))?;
+    println!(">>> [WHISPER] Inference completed in {:?}", t_infer.elapsed());
 
-    let lang_id = wstate.full_lang_id_from_state();
+    let lang_id = model.state.full_lang_id_from_state();
     println!(">>> [WHISPER] Detected language ID: {}", lang_id);
 
-    let n = wstate.full_n_segments();
+    let n = model.state.full_n_segments();
     let mut result = String::new();
 
     for i in 0..n {
-        if let Some(seg) = wstate.get_segment(i) {
+        if let Some(seg) = model.state.get_segment(i) {
             if let Ok(text) = seg.to_str() {
                 let text = text.trim();
                 if is_hallucination(text) { continue; }
@@ -506,6 +578,98 @@ pub async fn download_model(
     std::fs::rename(&tmp_path, &model_path)
         .map_err(|e| format!("Rename error: {}. Возможно, файл занят другим процессом.", e))?;
 
+    // --- Core ML download start (macOS only) ---
+    #[cfg(target_os = "macos")]
+    {
+        let mlmodelc_name = match model_type {
+            WhisperModelType::Small => "ggml-small-encoder.mlmodelc",
+            WhisperModelType::Medium => "ggml-medium-encoder.mlmodelc",
+            WhisperModelType::Turbo => "ggml-large-v3-turbo-encoder.mlmodelc",
+        };
+        let mlmodelc_path = model_dir.join(mlmodelc_name);
+
+        if !mlmodelc_path.exists() {
+            let coreml_url = match model_type {
+                WhisperModelType::Small => "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small-encoder.mlmodelc.zip",
+                WhisperModelType::Medium => "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium-encoder.mlmodelc.zip",
+                WhisperModelType::Turbo => "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-encoder.mlmodelc.zip",
+            };
+
+            let _ = app.emit("download-progress", "Загрузка Core ML ускорителя...");
+            
+            let zip_tmp_path = model_dir.join(format!("{}.zip.tmp", mlmodelc_name));
+            
+            // Nested logic to catch errors without failing the main model download
+            let coreml_res: Result<(), String> = async {
+                let response = client.get(coreml_url).send().await.map_err(|e| e.to_string())?;
+                if !response.status().is_success() {
+                    return Err(format!("Server error: {}", response.status()));
+                }
+                
+                let total = response.content_length().unwrap_or(0);
+                let mut downloaded_coreml = 0u64;
+                let mut zip_file = std::fs::File::create(&zip_tmp_path).map_err(|e| e.to_string())?;
+                let mut stream = response.bytes_stream();
+
+                use futures_util::StreamExt;
+                while let Some(chunk) = stream.next().await {
+                    if cancelled.load(Ordering::SeqCst) {
+                        return Err("Cancelled".to_string());
+                    }
+                    let chunk = chunk.map_err(|e| e.to_string())?;
+                    std::io::Write::write_all(&mut zip_file, &chunk).map_err(|e| e.to_string())?;
+                    downloaded_coreml += chunk.len() as u64;
+                    
+                    if total > 0 {
+                        let pct = (downloaded_coreml as f64 / total as f64 * 100.0) as u32;
+                        // Use string to distinguish from main download percentage
+                        let _ = app.emit("download-progress", format!("Core ML: {}%", pct));
+                    }
+                }
+                drop(zip_file);
+
+                // Extraction using zip crate
+                println!(">>> [WHISPER] Extracting Core ML bundle: {:?}", zip_tmp_path);
+                let zip_file_to_extract = std::fs::File::open(&zip_tmp_path).map_err(|e| format!("Failed to open zip: {}", e))?;
+                let mut archive = zip::ZipArchive::new(zip_file_to_extract).map_err(|e| format!("Failed to read zip archive: {}", e))?;
+                
+                for i in 0..archive.len() {
+                    let mut file = archive.by_index(i).map_err(|e| format!("Failed to get zip entry {}: {}", i, e))?;
+                    let outpath = match file.enclosed_name() {
+                        Some(path) => model_dir.join(path),
+                        None => continue,
+                    };
+
+                    if file.is_dir() {
+                        println!(">>> [WHISPER] Creating directory: {:?}", outpath);
+                        std::fs::create_dir_all(&outpath).map_err(|e| format!("Failed to create dir {:?}: {}", outpath, e))?;
+                    } else {
+                        if let Some(p) = outpath.parent() {
+                            if !p.exists() {
+                                std::fs::create_dir_all(p).map_err(|e| format!("Failed to create parent dir {:?}: {}", p, e))?;
+                            }
+                        }
+                        println!(">>> [WHISPER] Extracting file: {:?}", outpath);
+                        let mut outfile = std::fs::File::create(&outpath).map_err(|e| format!("Failed to create file {:?}: {}", outpath, e))?;
+                        std::io::copy(&mut file, &mut outfile).map_err(|e| format!("Failed to copy file {:?}: {}", outpath, e))?;
+                    }
+                }
+                println!(">>> [WHISPER] Core ML bundle extracted successfully");
+                Ok(())
+            }.await;
+
+            if let Err(e) = coreml_res {
+                eprintln!(">>> [WHISPER] Core ML download/extract warning: {}", e);
+                let _ = app.emit("download-progress", "Внимание: Core ML не загружен (будет CPU fallback)");
+            }
+            
+            if zip_tmp_path.exists() {
+                let _ = std::fs::remove_file(&zip_tmp_path).ok();
+            }
+        }
+    }
+    // --- Core ML download end ---
+
     let _ = app.emit("download-progress", "Готово!");
     Ok(())
 }
@@ -548,5 +712,26 @@ pub fn delete_model(model_type: WhisperModelType) -> Result<(), String> {
     if tmp_path.exists() {
         let _ = std::fs::remove_file(tmp_path);
     }
+
+    // --- Core ML cleanup (macOS only) ---
+    #[cfg(target_os = "macos")]
+    {
+        let mlmodelc_name = match model_type {
+            WhisperModelType::Small => "ggml-small-encoder.mlmodelc",
+            WhisperModelType::Medium => "ggml-medium-encoder.mlmodelc",
+            WhisperModelType::Turbo => "ggml-large-v3-turbo-encoder.mlmodelc",
+        };
+        let mlmodelc_path = model_dir.join(mlmodelc_name);
+        let mlmodelc_tmp_zip = model_dir.join(format!("{}.zip.tmp", mlmodelc_name));
+
+        if mlmodelc_path.exists() {
+            println!(">>> NYX Vox: Deleting Core ML bundle: {:?}", mlmodelc_path);
+            let _ = std::fs::remove_dir_all(mlmodelc_path);
+        }
+        if mlmodelc_tmp_zip.exists() {
+            let _ = std::fs::remove_file(mlmodelc_tmp_zip);
+        }
+    }
+
     Ok(())
 }

@@ -146,3 +146,14 @@ pub async fn set_welcome_seen(app: AppHandle, version: String, seen: bool) -> Re
     store.save().map_err(|e| e.to_string())?;
     Ok(())
 }
+
+#[tauri::command]
+pub fn debug_log(msg: String) {
+    let mut file = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open("/Users/AVP-Dev/Downloads/Github/nyx-vox/window_debug.log")
+        .unwrap();
+    use std::io::Write;
+    let _ = writeln!(file, "{}", msg);
+}

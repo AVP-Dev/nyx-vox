@@ -96,6 +96,7 @@ pub async fn stop_recording(
     recording_flag: Arc<AtomicBool>,
     api_key: String,
     language: &str,
+    threshold: f32,
 ) -> Result<String, String> {
     // Small sleep to catch the last buffer segments
     tokio::time::sleep(std::time::Duration::from_millis(400)).await;
@@ -111,9 +112,13 @@ pub async fn stop_recording(
 
     if samples.is_empty() { return Ok(String::new()); }
 
+    // Minimum duration: ~0.8s of audio at given sample rate
+    let min_samples = (src_rate as f64 * 0.8) as usize;
+    if samples.len() < min_samples { return Ok(String::new()); }
+
     // Noise gate check
     let rms = (samples.iter().map(|s| s * s).sum::<f32>() / samples.len() as f32).sqrt();
-    if rms < 0.0004 { return Ok(String::new()); }
+    if rms < threshold { return Ok(String::new()); }
 
     // Resample to 16k (Deepgram standard)
     let processed_samples = crate::utils::resample_to_16k(&samples, src_rate, 16000);
@@ -148,15 +153,18 @@ pub async fn stop_recording(
         .map_err(|e| format!("Deepgram client init failed: {}", e))?;
     
     // Build query params
-    let mut query_params = vec![
-        ("model", "nova-2"),
+    let mut query_params: Vec<(&str, &str)> = vec![
+        ("model", "nova-3-general"),
         ("smart_format", "true"),
         ("punctuate", "true"),
     ];
     
-    if language == "auto" {
+    if language == "mixed" {
+        // Nova-3 native code-switching via language=multi
+        query_params.push(("language", "multi"));
+        query_params.push(("prompt", crate::prompts::MIXED_RU_EN_STT_PROMPT));
+    } else if language == "auto" {
         query_params.push(("detect_language", "true"));
-        // Deepgram sometimes struggles with short segments; a Russian-heavy prompt helps guide detection.
         query_params.push(("prompt", crate::prompts::DEEPGRAM_AUTO_PROMPT));
     } else {
         query_params.push(("language", language));
@@ -193,5 +201,5 @@ pub async fn stop_recording(
         .trim()
         .to_string();
 
-    Ok(text)
+    Ok(crate::utils::strip_filler_phrases(&crate::utils::clean_repetitive_phrases(&text)))
 }

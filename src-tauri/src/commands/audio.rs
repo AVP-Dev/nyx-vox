@@ -1,9 +1,9 @@
+use crate::state::*;
+use crate::utils::*;
+use crate::{ai_provider, deepgram, keys, whisper};
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter, Manager, State};
-use crate::state::*;
-use crate::utils::*;
-use crate::{whisper, deepgram, ai_provider, keys};
 
 #[cfg(target_os = "macos")]
 use macos_accessibility_client::accessibility::application_is_trusted_with_prompt;
@@ -11,26 +11,24 @@ use macos_accessibility_client::accessibility::application_is_trusted_with_promp
 #[tauri::command]
 pub async fn check_microphone_permission() -> Result<bool, String> {
     tokio::task::spawn_blocking(|| {
-        use cpal::traits::{HostTrait, DeviceTrait};
+        use cpal::traits::{DeviceTrait, HostTrait};
         let host = cpal::default_host();
         match host.default_input_device() {
-            Some(device) => {
-                match device.supported_input_configs() {
-                    Ok(mut configs) => {
-                        configs.next().is_some()
-                    },
-                    Err(_) => false
-                }
+            Some(device) => match device.supported_input_configs() {
+                Ok(mut configs) => configs.next().is_some(),
+                Err(_) => false,
             },
-            None => false
+            None => false,
         }
-    }).await.map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub async fn request_microphone_permission() -> Result<bool, String> {
     tokio::task::spawn_blocking(|| {
-        use cpal::traits::{HostTrait, DeviceTrait, StreamTrait};
+        use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
         let host = cpal::default_host();
         match host.default_input_device() {
             Some(device) => {
@@ -49,10 +47,12 @@ pub async fn request_microphone_permission() -> Result<bool, String> {
                     }
                 }
                 false
-            },
-            None => false
+            }
+            None => false,
         }
-    }).await.map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -79,7 +79,7 @@ pub async fn start_recording(
 
     if ap {
         if is_media_playing() {
-            system_media_control(1); 
+            system_media_control(1);
             did_pause_media.0.store(true, Ordering::SeqCst);
         } else {
             did_pause_media.0.store(false, Ordering::SeqCst);
@@ -93,12 +93,18 @@ pub async fn start_recording(
         let is_online = std::net::TcpStream::connect_timeout(
             &"8.8.8.8:53".parse().unwrap(),
             std::time::Duration::from_millis(1500),
-        ).is_ok();
+        )
+        .is_ok();
 
         if !is_online {
             if whisper::is_model_available(model_type) {
-                let _ = app.emit("stt-fallback", "Нет сети. Авто-переключение на офлайн режим (Whisper).");
-                if let Ok(mut lock) = stt_mode.0.lock() { *lock = "whisper".to_string(); }
+                let _ = app.emit(
+                    "stt-fallback",
+                    "Нет сети. Авто-переключение на офлайн режим (Whisper).",
+                );
+                if let Ok(mut lock) = stt_mode.0.lock() {
+                    *lock = "whisper".to_string();
+                }
                 use tauri_plugin_store::StoreExt;
                 if let Ok(store) = app.store("settings.json") {
                     store.set("stt_mode", serde_json::json!("whisper"));
@@ -107,7 +113,9 @@ pub async fn start_recording(
                 let _ = app.emit("mode-changed", "whisper");
                 final_mode = "whisper".to_string();
             } else {
-                return Err("Нет подключения к интернету, а офлайн модель не установлена.".to_string());
+                return Err(
+                    "Нет подключения к интернету, а офлайн модель не установлена.".to_string(),
+                );
             }
         }
     }
@@ -120,7 +128,13 @@ pub async fn start_recording(
     };
 
     if final_mode == "deepgram" {
-        let key = api_keys.0.lock().map_err(|e| e.to_string())?.get(&keys::Service::Deepgram).cloned().flatten();
+        let key = api_keys
+            .0
+            .lock()
+            .map_err(|e| e.to_string())?
+            .get(&keys::Service::Deepgram)
+            .cloned()
+            .flatten();
         match key {
             Some(k) if !k.is_empty() => {
                 let flag = Arc::clone(&recording_flag.0);
@@ -128,7 +142,10 @@ pub async fn start_recording(
             }
             _ => {
                 if whisper::is_model_available(model_type) {
-                    let _ = app.emit("stt-fallback", "Deepgram ключ не найден. Используем офлайн режим.");
+                    let _ = app.emit(
+                        "stt-fallback",
+                        "Deepgram ключ не найден. Используем офлайн режим.",
+                    );
                     final_mode = "whisper".to_string();
                     let whisper_lang = whisper_lang.0.lock().map_err(|e| e.to_string())?.clone();
                     whisper::start_recording(
@@ -148,16 +165,42 @@ pub async fn start_recording(
         if !whisper::is_model_available(model_type) {
             return Err("Модель не найдена. Скачайте модель в Настройках.".to_string());
         }
-        whisper::start_recording(app, Arc::clone(&state), Arc::clone(&recording_flag.0), Arc::clone(&processing_flag.0), &lang, model_type)?;
+        whisper::start_recording(
+            app,
+            Arc::clone(&state),
+            Arc::clone(&recording_flag.0),
+            Arc::clone(&processing_flag.0),
+            &lang,
+            model_type,
+        )?;
     } else if final_mode == "groq" || final_mode == "gemini" {
-        let service = if final_mode == "groq" { keys::Service::Groq } else { keys::Service::Gemini };
-        let key = api_keys.0.lock().map_err(|e| e.to_string())?.get(&service).cloned().flatten();
+        let service = if final_mode == "groq" {
+            keys::Service::Groq
+        } else {
+            keys::Service::Gemini
+        };
+        let key = api_keys
+            .0
+            .lock()
+            .map_err(|e| e.to_string())?
+            .get(&service)
+            .cloned()
+            .flatten();
         match key {
             Some(k) if !k.is_empty() => {
                 let flag = Arc::clone(&recording_flag.0);
                 ai_provider::start_recording(app, Arc::clone(&ai_state), flag)?;
             }
-            _ => { return Err(format!("Добавьте ключ {} в настройках.", if final_mode == "groq" { "Groq" } else { "Gemini" })); }
+            _ => {
+                return Err(format!(
+                    "Добавьте ключ {} в настройках.",
+                    if final_mode == "groq" {
+                        "Groq"
+                    } else {
+                        "Gemini"
+                    }
+                ));
+            }
         }
     }
 
@@ -176,9 +219,9 @@ pub async fn stop_recording(
     ai_state: State<'_, ai_provider::SharedAiState>,
     dg_state: State<'_, deepgram::SharedDeepgramState>,
     recording_flag: State<'_, RecordingFlag>,
+    processing_flag: State<'_, ProcessingFlag>,
     stt_mode: State<'_, SttMode>,
     active_stt_mode: State<'_, ActiveSttMode>,
-    auto_pause: State<'_, AutoPause>,
     did_pause_media: State<'_, DidPauseMedia>,
     api_keys: State<'_, keys::ApiKeys>,
     formatting_mode: State<'_, FormattingMode>,
@@ -186,18 +229,32 @@ pub async fn stop_recording(
     whisper_lang: State<'_, WhisperLanguage>,
     whisper_model: State<'_, WhisperModel>,
     groq_lang: State<'_, GroqLanguage>,
+    noise_gate: State<'_, NoiseGateThreshold>,
 ) -> Result<String, String> {
-    recording_flag.0.compare_exchange(true, false, Ordering::SeqCst, Ordering::SeqCst)
-        .map_err(|_| "ALREADY_IDLE".to_string())?;
+    processing_flag
+        .0
+        .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+        .map_err(|_| "ALREADY_PROCESSING".to_string())?;
+
+    struct ProcessingReset(Arc<std::sync::atomic::AtomicBool>);
+    impl Drop for ProcessingReset {
+        fn drop(&mut self) {
+            self.0.store(false, Ordering::SeqCst);
+        }
+    }
+    let _processing_reset = ProcessingReset(Arc::clone(&processing_flag.0));
+
+    if !recording_flag.0.load(Ordering::SeqCst) {
+        return Err("ALREADY_IDLE".to_string());
+    }
 
     let configured_mode = stt_mode.0.lock().map_err(|e| e.to_string())?.clone();
-    let mode = active_stt_mode
-        .0
-        .lock()
-        .map_err(|e| e.to_string())?
-        .clone();
-    let mode = if mode.is_empty() { configured_mode } else { mode };
-    let ap = *auto_pause.0.lock().map_err(|e| e.to_string())?;
+    let mode = active_stt_mode.0.lock().map_err(|e| e.to_string())?.clone();
+    let mode = if mode.is_empty() {
+        configured_mode
+    } else {
+        mode
+    };
     let model_type = *whisper_model.0.lock().map_err(|e| e.to_string())?;
 
     let lang = match mode.as_str() {
@@ -207,21 +264,42 @@ pub async fn stop_recording(
         _ => "auto".to_string(),
     };
 
-    if ap && did_pause_media.0.load(Ordering::SeqCst) {
-        if !is_media_playing() && !is_music_app_running() {
-            tokio::time::sleep(std::time::Duration::from_millis(300)).await;
-            system_media_control(0);
-        }
-        did_pause_media.0.store(false, Ordering::SeqCst);
-    }
-    
+    let threshold = *noise_gate.0.lock().map_err(|e| e.to_string())?;
+
+    did_pause_media.0.store(false, Ordering::SeqCst);
+
     let result = if mode == "deepgram" {
-        let api_key = api_keys.0.lock().map_err(|e| e.to_string())?.get(&keys::Service::Deepgram).cloned().flatten().unwrap_or_default();
-        deepgram::stop_recording(Arc::clone(&dg_state), Arc::clone(&recording_flag.0), api_key, &lang).await
+        let api_key = api_keys
+            .0
+            .lock()
+            .map_err(|e| e.to_string())?
+            .get(&keys::Service::Deepgram)
+            .cloned()
+            .flatten()
+            .unwrap_or_default();
+        deepgram::stop_recording(
+            Arc::clone(&dg_state),
+            Arc::clone(&recording_flag.0),
+            api_key,
+            &lang,
+            threshold,
+        )
+        .await
     } else if mode == "whisper" {
-        whisper::stop_recording(Arc::clone(&state), Arc::clone(&recording_flag.0), &lang, model_type).await
+        whisper::stop_recording(
+            Arc::clone(&state),
+            Arc::clone(&recording_flag.0),
+            &lang,
+            model_type,
+            threshold,
+        )
+        .await
     } else if mode == "groq" || mode == "gemini" {
-        let service = if mode == "groq" { keys::Service::Groq } else { keys::Service::Gemini };
+        let service = if mode == "groq" {
+            keys::Service::Groq
+        } else {
+            keys::Service::Gemini
+        };
         let api_key = api_keys
             .0
             .lock()
@@ -230,7 +308,27 @@ pub async fn stop_recording(
             .cloned()
             .flatten()
             .unwrap_or_default();
-        ai_provider::stop_recording(app.clone(), Arc::clone(&ai_state), Arc::clone(&recording_flag.0), api_key, &lang).await
+        if mode == "gemini" {
+            ai_provider::gemini_stop_recording(
+                app.clone(),
+                Arc::clone(&ai_state),
+                Arc::clone(&recording_flag.0),
+                api_key,
+                &lang,
+                threshold,
+            )
+            .await
+        } else {
+            ai_provider::stop_recording(
+                app.clone(),
+                Arc::clone(&ai_state),
+                Arc::clone(&recording_flag.0),
+                api_key,
+                &lang,
+                threshold,
+            )
+            .await
+        }
     } else {
         Ok(String::new())
     }?;
@@ -248,18 +346,27 @@ pub async fn stop_recording(
         }
     }
 
+    final_text = crate::utils::strip_filler_phrases(&crate::utils::clean_repetitive_phrases(&final_text));
+    final_text = crate::transliteration::fix_transliterations(&final_text);
+
     if !final_text.is_empty() {
         let f_mode = formatting_mode.0.lock().map_err(|e| e.to_string())?.clone();
         if f_mode != "none" {
             let service = match f_mode.as_str() {
                 "gemini" => keys::Service::Gemini,
-                "qwen"   => keys::Service::Qwen,
+                "qwen" => keys::Service::Qwen,
                 "deepseek" => keys::Service::Deepseek,
-                "groq"   => keys::Service::Groq,
+                "groq" => keys::Service::Groq,
                 _ => keys::Service::Gemini,
             };
 
-            let key = api_keys.0.lock().map_err(|e| e.to_string())?.get(&service).cloned().flatten();
+            let key = api_keys
+                .0
+                .lock()
+                .map_err(|e| e.to_string())?
+                .get(&service)
+                .cloned()
+                .flatten();
             if let Some(k) = key {
                 if !k.is_empty() {
                     let lang = app
@@ -269,12 +376,35 @@ pub async fn stop_recording(
                         .map(|l| l.clone())
                         .unwrap_or_else(|_| "ru".to_string());
                     let _ = app.emit("formatting-status", format!("{:?}", service));
-                    let _ = app.emit("ai-status", if lang == "ru" { "✨ Форматирую..." } else { "✨ Formatting..." });
+                    let _ = app.emit(
+                        "ai-status",
+                        if lang == "ru" {
+                            "✨ Форматирую..."
+                        } else {
+                            "✨ Formatting..."
+                        },
+                    );
                     let refined = match service {
-                        keys::Service::Gemini => ai_provider::gemini_refine_text(app.clone(), final_text.clone(), k, None).await,
-                        keys::Service::Qwen => crate::qwen::refine_text(app.clone(), final_text.clone(), k, None).await,
-                        keys::Service::Deepseek => crate::deepseek::refine_text(app.clone(), final_text.clone(), k, None).await,
-                        keys::Service::Groq => ai_provider::groq_refine_text(app.clone(), final_text.clone(), k, None).await,
+                        keys::Service::Gemini => {
+                            ai_provider::gemini_refine_text(
+                                app.clone(),
+                                final_text.clone(),
+                                k,
+                                None,
+                            )
+                            .await
+                        }
+                        keys::Service::Qwen => {
+                            crate::qwen::refine_text(app.clone(), final_text.clone(), k, None).await
+                        }
+                        keys::Service::Deepseek => {
+                            crate::deepseek::refine_text(app.clone(), final_text.clone(), k, None)
+                                .await
+                        }
+                        keys::Service::Groq => {
+                            ai_provider::groq_refine_text(app.clone(), final_text.clone(), k, None)
+                                .await
+                        }
                         _ => Ok(final_text.clone()),
                     };
                     match refined {
@@ -284,59 +414,82 @@ pub async fn stop_recording(
                         }
                         Err(e) => {
                             let err_str = e.to_string();
-                            let code = if err_str.contains("429") { "429" } else if err_str.contains("403") { "403" } else if err_str.contains("401") { "401" } else if err_str.contains("503") { "503" } else { "Err" };
+                            let code = if err_str.contains("429") {
+                                "429"
+                            } else if err_str.contains("403") {
+                                "403"
+                            } else if err_str.contains("401") {
+                                "401"
+                            } else if err_str.contains("503") {
+                                "503"
+                            } else {
+                                "Err"
+                            };
                             let _ = app.emit("formatting-status", format!("error:{}", code));
-                        } 
+                        }
                     }
-                } else { let _ = app.emit("formatting-status", "error:key"); }
-            } else { let _ = app.emit("formatting-status", "error:key"); }
+                } else {
+                    let _ = app.emit("formatting-status", "error:key");
+                }
+            } else {
+                let _ = app.emit("formatting-status", "error:key");
+            }
         }
     }
 
     let _ = app.emit("ai-status", "");
-    
+
     let raw_text = result.clone();
     let target_app = app
         .try_state::<crate::state::TargetApp>()
         .and_then(|s| s.0.lock().ok().map(|l| l.0.clone()))
         .unwrap_or_else(|| "Unknown".to_string());
-        
+
     let _ = crate::history::add_history_entry(
         app.clone(),
         final_text.clone(),
         raw_text,
         mode,
-        target_app
-    ).await;
-    
+        target_app,
+    )
+    .await;
+
     Ok(final_text)
 }
 
 #[tauri::command]
 pub fn paste_text(app: AppHandle, text: String) -> Result<(), String> {
     use tauri_plugin_clipboard_manager::ClipboardExt;
-    app.clipboard().write_text(text).map_err(|e| format!("ERR_CLIPBOARD: {}", e))?;
+    app.clipboard()
+        .write_text(text)
+        .map_err(|e| format!("ERR_CLIPBOARD: {}", e))?;
 
     let (target_name, target_id) = crate::utils::get_frontmost_app_info();
-    
+
     if let Some(state) = app.try_state::<TargetApp>() {
-        if let Ok(mut lock) = state.0.lock() { *lock = (target_name.clone(), target_id.clone()); }
+        if let Ok(mut lock) = state.0.lock() {
+            *lock = (target_name.clone(), target_id.clone());
+        }
     }
 
     #[cfg(target_os = "macos")]
     {
         if target_name == "NYX Vox" || target_name == "app" {
-             if let Some(w) = app.get_webview_window("main") { let _ = w.hide(); }
-        } else { let _ = app.hide(); }
+            if let Some(w) = app.get_webview_window("main") {
+                let _ = w.hide();
+            }
+        } else {
+            let _ = app.hide();
+        }
     }
-    
+
     let app_handle = app.clone();
     tauri::async_runtime::spawn(async move {
         tokio::time::sleep(std::time::Duration::from_millis(250)).await;
         let _ = app_handle.run_on_main_thread(move || {
             #[cfg(target_os = "macos")]
             {
-                use core_graphics::event::{CGEvent, CGEventTapLocation, CGEventFlags, CGKeyCode};
+                use core_graphics::event::{CGEvent, CGEventFlags, CGEventTapLocation, CGKeyCode};
                 use core_graphics::event_source::{CGEventSource, CGEventSourceStateID};
                 if let Ok(source) = CGEventSource::new(CGEventSourceStateID::HIDSystemState) {
                     let k_cmd: CGKeyCode = 55;
@@ -363,7 +516,7 @@ pub fn paste_text(app: AppHandle, text: String) -> Result<(), String> {
             {
                 if let Some(enigo_state) = app_handle.try_state::<EnigoState>() {
                     if let Ok(mut enigo) = enigo_state.0.lock() {
-                        use enigo::{Keyboard, Key, Direction};
+                        use enigo::{Direction, Key, Keyboard};
                         let _ = enigo.0.key(Key::Control, Direction::Press);
                         let _ = enigo.0.key(Key::Unicode('v'), Direction::Click);
                         let _ = enigo.0.key(Key::Control, Direction::Release);
@@ -384,7 +537,9 @@ pub fn get_target_app(state: State<'_, TargetApp>) -> String {
 pub fn update_target_app(app: AppHandle) {
     let info = get_frontmost_app_info();
     if let Some(state) = app.try_state::<TargetApp>() {
-        if let Ok(mut lock) = state.0.lock() { *lock = info; }
+        if let Ok(mut lock) = state.0.lock() {
+            *lock = info;
+        }
     }
 }
 
@@ -404,29 +559,29 @@ pub async fn check_accessibility() -> Result<bool, String> {
     #[cfg(target_os = "macos")]
     {
         use core_foundation::base::TCFType;
-        use core_foundation::dictionary::CFDictionary;
         use core_foundation::boolean::CFBoolean;
+        use core_foundation::dictionary::CFDictionary;
         use core_foundation::string::CFString;
-        
+
         let trusted = unsafe {
             // Try explicit check with no prompt
             let key_ref = macos_ext::kAXTrustedCheckOptionPrompt;
             let key = CFString::wrap_under_get_rule(key_ref);
             let value = CFBoolean::false_value();
-            let options = CFDictionary::from_CFType_pairs(&[
-                (key.as_CFType(), value.as_CFType())
-            ]);
+            let options = CFDictionary::from_CFType_pairs(&[(key.as_CFType(), value.as_CFType())]);
             macos_ext::AXIsProcessTrustedWithOptions(options.as_concrete_TypeRef())
         };
-        
+
         if !trusted {
             // Also fall back to the basic check just in case
             let basic = macos_accessibility_client::accessibility::application_is_trusted();
-            if basic { return Ok(true); }
-            
+            if basic {
+                return Ok(true);
+            }
+
             println!("[Accessibility] Status: NOT TRUSTED. If granted in settings, please remove and re-add NYX Vox to the list.");
         }
-        
+
         Ok(trusted)
     }
     #[cfg(not(target_os = "macos"))]
@@ -436,13 +591,41 @@ pub async fn check_accessibility() -> Result<bool, String> {
 }
 
 #[tauri::command]
+pub async fn request_permissions_auto() -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        // 1. Accessibility Prompt (pops up System Preferences if missing)
+        let _ = macos_accessibility_client::accessibility::application_is_trusted_with_prompt();
+    }
+    
+    // 2. Microphone Prompt (pops up the macOS dialog if missing)
+    use cpal::traits::{DeviceTrait, HostTrait};
+    let host = cpal::default_host();
+    if let Some(device) = host.default_input_device() {
+            if let Ok(config) = device.default_input_config() {
+                let _ = device.build_input_stream(
+                    &config.into(),
+                    move |_data: &[f32], _: &_| {},
+                    move |_err| {},
+                    None,
+                );
+            }
+    }
+    
+    Ok(())
+}
+
+#[tauri::command]
 pub async fn open_microphone_settings(app: AppHandle) -> Result<(), String> {
     if let Some(w) = app.get_webview_window("main") {
         let _ = w.set_always_on_top(false);
         let _ = w.hide();
     }
     let script = "tell application \"System Events\" to open location \"x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone\"";
-    let _ = std::process::Command::new("osascript").arg("-e").arg(script).spawn();
+    let _ = std::process::Command::new("osascript")
+        .arg("-e")
+        .arg(script)
+        .spawn();
     Ok(())
 }
 
@@ -455,7 +638,9 @@ pub async fn open_accessibility_settings(app: AppHandle) -> Result<(), String> {
             let _ = w.hide();
         }
         let _ = application_is_trusted_with_prompt();
-        let _ = std::process::Command::new("open").arg("x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility").spawn();
+        let _ = std::process::Command::new("open")
+            .arg("x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
+            .spawn();
     }
     Ok(())
 }
@@ -468,16 +653,16 @@ pub async fn reset_accessibility_permissions(app: AppHandle) -> Result<(), Strin
             let _ = w.set_always_on_top(false);
             let _ = w.hide();
         }
-        
+
         let identifier = app.config().identifier.clone();
-        
+
         // 1. Reset TCC database for this app
         let status = std::process::Command::new("tccutil")
             .arg("reset")
             .arg("Accessibility")
             .arg(&identifier)
             .status();
-            
+
         match status {
             Ok(s) if s.success() => {
                 // 2. Trigger the OS prompt again by checking with prompt

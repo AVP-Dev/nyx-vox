@@ -43,7 +43,7 @@ pub async fn refine_text<R: Runtime>(
     );
 
     let body = json!({
-        "model": "qwen-plus", 
+        "model": "qwen3.7-plus", 
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_content}

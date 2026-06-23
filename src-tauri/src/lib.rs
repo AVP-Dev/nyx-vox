@@ -6,6 +6,7 @@ mod qwen;
 mod keys;
 mod prompts;
 mod state;
+mod transliteration;
 mod utils;
 mod window;
 mod tray;
@@ -21,6 +22,30 @@ use tauri_plugin_store::StoreExt;
 use crate::state::*;
 use crate::window::*;
 use crate::tray::*;
+
+fn quit_app_safely(app_handle: &tauri::AppHandle) {
+    if let Some(recording) = app_handle.try_state::<RecordingFlag>() {
+        recording.0.store(false, std::sync::atomic::Ordering::SeqCst);
+    }
+    if let Some(processing) = app_handle.try_state::<ProcessingFlag>() {
+        processing.0.store(false, std::sync::atomic::Ordering::SeqCst);
+    }
+
+    whisper::unload_all_models();
+
+    #[cfg(target_os = "macos")]
+    {
+        // whisper.cpp/ggml Metal owns process-global resources. On some macOS
+        // builds, regular process teardown can run C++ destructors while Metal
+        // resource-set initialization is still unwinding, which triggers
+        // ggml_abort() and shows a crash dialog on quit. We unload our contexts
+        // first, then terminate without running those fragile global destructors.
+        unsafe { libc::_exit(0) };
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    app_handle.exit(0);
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -70,12 +95,13 @@ pub fn run() {
             app.manage(SttMode(Mutex::new("deepgram".to_string())));
             app.manage(FormattingMode(Mutex::new("none".to_string())));
             app.manage(FormattingStyleState(Mutex::new(FormattingStyle::default())));
-            app.manage(DeepgramLanguage(Mutex::new("ru".to_string())));
-            app.manage(WhisperLanguage(Mutex::new("ru".to_string())));
+            app.manage(DeepgramLanguage(Mutex::new("mixed".to_string())));
+            app.manage(WhisperLanguage(Mutex::new("mixed".to_string())));
             app.manage(WhisperModel(Mutex::new(WhisperModelType::default())));
-            app.manage(GroqLanguage(Mutex::new("ru".to_string())));
+            app.manage(GroqLanguage(Mutex::new("mixed".to_string())));
             app.manage(AutoPause(Mutex::new(false)));
             app.manage(AutoPaste(Mutex::new(true)));
+            app.manage(NoiseGateThreshold(Mutex::new(0.004)));
             app.manage(AlwaysOnTop(Mutex::new(true)));
             app.manage(TargetApp(Mutex::new(("Unknown".to_string(), "Unknown".to_string()))));
             app.manage(AppLanguage(Mutex::new(sys_lang.to_string())));
@@ -160,6 +186,12 @@ pub fn run() {
                     load_bool_setting!("auto_paste", AutoPaste);
                     load_bool_setting!("always_on_top", AlwaysOnTop);
 
+                    if let Some(val) = store.get("noise_gate").and_then(|v: serde_json::Value| v.as_f64()) {
+                        if let Some(state) = app.try_state::<NoiseGateThreshold>() {
+                            if let Ok(mut lock) = state.0.lock() { *lock = val as f32; }
+                        }
+                    }
+
                     if let Some(aot) = store.get("always_on_top").and_then(|v: serde_json::Value| v.as_bool()) {
                         if let Some(w) = app.get_webview_window("main") {
                             let _ = w.set_always_on_top(aot);
@@ -206,7 +238,7 @@ pub fn run() {
                 .tooltip("NYX Vox — Option+Space")
                 .on_menu_event(|app_handle, event| {
                     match event.id.as_ref() {
-                        "quit" => app_handle.exit(0),
+                        "quit" => quit_app_safely(app_handle),
                         "show" => toggle_window(app_handle),
                         "welcome_win" => {
                             let _ = app_handle.emit("open-welcome", ());
@@ -274,6 +306,18 @@ pub fn run() {
 
             let _ = history::perform_smart_cleanup(app.handle());
 
+            // Preload whisper model in background to avoid cold-start delay
+            {
+                let model_type = if let Some(state) = app.try_state::<WhisperModel>() {
+                    state.0.lock().map(|l| *l).unwrap_or_default()
+                } else {
+                    WhisperModelType::default()
+                };
+                std::thread::spawn(move || {
+                    whisper::preload_model(model_type);
+                });
+            }
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -296,6 +340,7 @@ pub fn run() {
             commands::set_welcome_seen,
             commands::check_accessibility,
             commands::open_accessibility_settings,
+            commands::request_permissions_auto,
             commands::reset_accessibility_permissions,
             commands::open_microphone_settings,
             commands::show_welcome_window,
@@ -337,9 +382,13 @@ pub fn run() {
             commands::set_update_dismissed_at,
             commands::get_ignored_update,
             commands::set_ignored_update,
+            commands::save_window_position,
+            commands::get_window_position,
+            commands::set_noise_gate,
             commands::open_url,
             commands::show_update_window,
             commands::resize_window,
+            commands::debug_log,
             diag::run_self_diagnosis,
             history::get_history,
             history::add_history_entry,

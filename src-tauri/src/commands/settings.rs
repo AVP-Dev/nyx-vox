@@ -18,6 +18,7 @@ pub async fn get_all_settings(
     formatting_style: State<'_, FormattingStyleState>,
     auto_pause: State<'_, AutoPause>,
     whisper_model: State<'_, WhisperModel>,
+    noise_gate: State<'_, NoiseGateThreshold>,
 ) -> Result<serde_json::Value, String> {
     let stt = stt_mode.0.lock().map_err(|e| e.to_string())?.clone();
     let dg = dg_lang.0.lock().map_err(|e| e.to_string())?.clone();
@@ -29,6 +30,7 @@ pub async fn get_all_settings(
     let fs = *formatting_style.0.lock().map_err(|e| e.to_string())?;
     let auto_p = *auto_pause.0.lock().map_err(|e| e.to_string())?;
     let wm = *whisper_model.0.lock().map_err(|e| e.to_string())?;
+    let ng = *noise_gate.0.lock().map_err(|e| e.to_string())?;
 
     let store = app.store("settings.json").map_err(|e: tauri_plugin_store::Error| e.to_string())?;
     let clear_on_paste = store.get("clear_on_paste").and_then(|v| v.as_bool()).unwrap_or(false);
@@ -51,7 +53,17 @@ pub async fn get_all_settings(
         "appLanguage": app_lang,
         "whisperModel": wm,
         "modelAvailable": model_available,
+        "noiseGate": ng,
     }))
+}
+
+#[tauri::command]
+pub async fn set_noise_gate(app: AppHandle, state: State<'_, NoiseGateThreshold>, threshold: f32) -> Result<(), String> {
+    let store = app.store("settings.json").map_err(|e: tauri_plugin_store::Error| e.to_string())?;
+    store.set("noise_gate", serde_json::json!(threshold));
+    store.save().map_err(|e: tauri_plugin_store::Error| e.to_string())?;
+    if let Ok(mut lock) = state.0.lock() { *lock = threshold; }
+    Ok(())
 }
 
 #[tauri::command]
@@ -363,4 +375,21 @@ pub async fn open_history_window(app: AppHandle) -> Result<(), String> {
         .always_on_top(true)
         .build();
     Ok(())
+}
+
+#[tauri::command]
+pub async fn save_window_position(app: AppHandle, x: f64, y: f64) -> Result<(), String> {
+    let store = app.store("settings.json").map_err(|e: tauri_plugin_store::Error| e.to_string())?;
+    store.set("window_x", serde_json::json!(x));
+    store.set("window_y", serde_json::json!(y));
+    store.save().map_err(|e: tauri_plugin_store::Error| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn get_window_position(app: AppHandle) -> Result<serde_json::Value, String> {
+    let store = app.store("settings.json").map_err(|e: tauri_plugin_store::Error| e.to_string())?;
+    let x = store.get("window_x").and_then(|v| v.as_f64());
+    let y = store.get("window_y").and_then(|v| v.as_f64());
+    Ok(serde_json::json!({ "x": x, "y": y }))
 }
