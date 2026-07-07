@@ -6,13 +6,13 @@
 
 ## Последнее обновление
 Дата: 2026-07-08
-Кто/что обновило: Claude Code (P1 phase complete)
+Кто/что обновило: Claude Code (session complete)
 
 ## Что сейчас в работе
-- P1 phase завершена — ESLint, Gain, E2E, Enter bug investigation
+- P1 phase завершена и закоммичена
 - Готово к тестированию: `bun run tauri dev`
-- Ветка `dev`: изменения не закоммичены (17 файлов, +131/-26 строк)
-- Следующий шаг: `git add . && git commit` или запуск P2
+- Ветка `dev`: 5 коммитов впереди `origin/dev`
+- Следующий шаг: Enter paste bug fix (P1 roadmap #1) или P2
 
 ## Что стабильно работает (не трогать без причины)
 - STT pipeline (Whisper, Deepgram, Groq)
@@ -45,24 +45,27 @@
 
 ## Следующие шаги (roadmap)
 
+### 🔴 Приоритет 1 — Баги
+1. **Enter paste bug** — race condition в `paste_text` (audio.rs:508-549). Фикс: await через `oneshot::channel`, `app.hide()` вместо `w.hide()`, убрать redundant `win.hide()` из фронтенда. Root cause найден, требуется реализация.
+
 ### 🟡 Приоритет 2 — Производительность
-4. **Whisper State кэширование** — `create_state()` на каждый вызов, кэшировать как контекст
-5. **Прогресс инференса** — Whisper callback для прогресс-бара
-6. **Streaming для Deepgram** — WebSocket вместо batch REST API
+2. **Whisper State кэширование** — `create_state()` на каждый вызов, кэшировать как контекст
+3. **Прогресс инференса** — Whisper callback для прогресс-бара
+4. **Streaming для Deepgram** — WebSocket вместо batch REST API
 
 ### 🟢 Приоритет 3 — Фичи
-7. **Экспорт истории** (TXT/MD/JSON)
-8. **Поиск по истории**
-9. **Кастомный словарь** — технические термины, имена
-10. **Настраиваемые горячие клавиши**
+5. **Экспорт истории** (TXT/MD/JSON)
+6. **Поиск по истории**
+7. **Кастомный словарь** — технические термины, имена
+8. **Настраиваемые горячие клавиши**
 
 ### 🔵 Приоритет 4 — Архитектура
-11. **Error boundary** (frontend) — fallback UI при React crash
-12. **Structured logging** (frontend) — tauri-plugin-log
-13. **CI/CD pipeline** — GitHub Actions: clippy + test + build при PR
+9. **Error boundary** (frontend) — fallback UI при React crash
+10. **Structured logging** (frontend) — tauri-plugin-log
+11. **CI/CD pipeline** — GitHub Actions: clippy + test + build при PR
 
 ## Журнал сессий (кратко, последние 5-10 записей, старое можно удалять)
-- [2026-07-08] **P1 Phase Complete**: (1) ESLint верифицирован — 0 ошибок, "219 ошибок" было устаревшим заявлением. (2) Audio Gain вынесен в настройки — AudioGain state, set_audio_gain command, слайдер 1.0-5.0 в GeneralTab, переводы en/ru, все 3 движка используют параметр. (3) Playwright E2E настроен — 3 smoke-теста проходят, конфиг для Chromium + auto-start dev server. (4) Enter paste bug расследован — root cause: race condition в paste_text (fire-and-forget Cmd+V), w.hide() вместо app.hide(), silent errors. Фиксы предложены, требуют реализации. cargo check, clippy, bun build, cargo test 74, bun test 60, e2e 3/3 — всё проходит.
+- [2026-07-08] **Сессия P1 завершена**: 4 задачи решены параллельно через субагентов. ESLint чист (0 ошибок), Audio Gain вынесен в настройки (слайдер 1.0-5.0), Playwright E2E настроен (3 теста), Enter paste bug расследован (root cause найден, фикс в roadmap). Документация обновлена: state.md, tags/v1.2.0/release.md, tags/history.md. Коммит `7e3a607`. Следующий шаг: Enter paste bug fix (P1 #1) или P2.
 - [2026-07-08] Audio Gain настройка: Вынесен захардкоженный AUDIO_GAIN (2.0) в конфигурируемую настройку. Backend: AudioGain state (Mutex<f32>), set_audio_gain command (clamp 1.0-5.0), загрузка из store при старте. Все три движка (whisper/recording.rs, deepgram.rs, ai_provider.rs) теперь принимают gain параметр вместо константы. Frontend: слайдер в GeneralTab (range 1.0-5.0, step 0.5, default 2.0), переводы en/ru. cargo check, cargo clippy, bun build — всё проходит.
 - [2026-07-08] ESLint верификация: `npx eslint src/` — 0 ошибок, exit code 0. state.md обновлён: удалены упоминания "219 ESLint ошибок" из known problems, tech debt и roadmap. Предыдущее заявление в state.md о 219 ошибках было устаревшим — кодовая база чистая. bun build success.
 - [2026-07-07] Сессия 6 (Audio + Roadmap): Исправлена чувствительность микрофона — добавлен software gain 2x во все три движка (Whisper, Deepgram, Groq/Gemini). Deepgram/Groq min duration 0.8s→0.3s (Whisper уже был 0.3s). Добавлен debug-логинг RMS/сэмплов/причины отбрасывания во все движки. Обновлён .gitignore (добавлен .claude/, агентские шаблоны, docs/_reports/). Задокументирован roadmap развития проекта. clippy 0 warnings, 74 Rust теста, 60 frontend тестов.
