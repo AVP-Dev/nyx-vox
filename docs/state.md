@@ -6,12 +6,12 @@
 
 ## Последнее обновление
 Дата: 2026-07-07
-Кто/что обновило: Claude Code (session 5, final verification + docs)
+Кто/что обновило: Claude Code (session 6, audio fixes + roadmap)
 
 ## Что сейчас в работе
-- Сессия 5 ЗАВЕРШЕНА — финальная верификация + обновление CHANGELOG
-- Все сессии плана завершены (1-5)
-- Незакоммиченные изменения: множество файлов (frontend + backend)
+- Сессия 6 ЗАВЕРШЕНА — исправлена чувствительность микрофона, задокументирован roadmap
+- Все сессии рефакторинг-плана завершены (1-5)
+- Незакоммиченные изменения: audio gain, min duration, debug logging
 
 ## Что стабильно работает (не трогать без причины)
 - STT pipeline (Whisper, Deepgram, Groq)
@@ -25,12 +25,14 @@
 
 ## Известные проблемы / баги
 - Lint: 219 ошибок ESLint (pre-existing, в старых файлах — не от рефакторинга)
-- ~40 code smells задокументированы в `docs/_reports/audit-session-2026-07-07.md`
-- P2 проблемы SettingsPanel + GeneralTab — ИСПРАВЛЕНЫ (Сессия 3)
+- Whisper turbo: обработка ~60s на некоторых фразах (требует расследования — возможно memory pressure)
+- Gain захардкожен (2x) — у разных микрофонов разная чувствительность, нужна настройка в UI
 
 ## Технический долг (осознанный)
 - macOS only — архитектурное решение, не баг
 - 219 ESLint ошибок — pre-existing, не от рефакторинга
+- 0% E2E покрытие
+- Gain 2x захардкожен — нужен UI-слайдер
 
 ## Что сделано
 - **Сессия 5 (Final):** Финальная верификация: clippy 0 warnings, cargo test 74 pass, bun test 60 pass, bun build success. Обновлён CHANGELOG (Unreleased section с 6 блоками улучшений).
@@ -42,14 +44,33 @@
 - P0 (Сессия 1): 6 критических багов исправлено
 - clippy 0 warnings, cargo test 74 pass, bun test 60 pass, bun build success
 
-## Следующие шаги (план)
-1. ~~**Сессия 2A:** Frontend рефакторинг — page.tsx ✅~~
-2. ~~**Сессия 2B:** Backend рефакторинг — whisper.rs ✅~~
-3. ~~**Сессия 3:** Исправить SettingsPanel.tsx + GeneralTab.tsx (P2 проблемы) ✅~~
-4. ~~**Сессия 4:** Написать тесты (frontend + backend) ✅~~
-5. ~~**Сессия 5:** Локальное тестирование + обновление документации ✅~~
+## Следующие шаги (roadmap)
+
+### 🔴 Приоритет 1 — Качество
+1. **219 ESLint ошибок** — pre-existing tech debt, мешает линтеру ловить реальные баги
+2. **E2E тесты** (Playwright) — критические пути: запись → транскрипция → вставка
+3. **Конфигурируемый gain** — вынести AUDIO_GAIN в настройки (UI-слайдер)
+
+### 🟡 Приоритет 2 — Производительность
+4. **Whisper State кэширование** — `create_state()` на каждый вызов, кэшировать как контекст
+5. **Прогресс инференса** — Whisper callback для прогресс-бара
+6. **Streaming для Deepgram** — WebSocket вместо batch REST API
+
+### 🟢 Приоритет 3 — Фичи
+7. **Экспорт истории** (TXT/MD/JSON)
+8. **Поиск по истории**
+9. **Кастомный словарь** — технические термины, имена
+10. **Настраиваемые горячие клавиши**
+
+### 🔵 Приоритет 4 — Архитектура
+11. **Error boundary** (frontend) — fallback UI при React crash
+12. **Structured logging** (frontend) — tauri-plugin-log
+13. **CI/CD pipeline** — GitHub Actions: clippy + test + build при PR
 
 ## Журнал сессий (кратко, последние 5-10 записей, старое можно удалять)
+- [2026-07-07] Сессия 6 (Audio + Roadmap): Исправлена чувствительность микрофона — добавлен software gain 2x во все три движка (Whisper, Deepgram, Groq/Gemini). Deepgram/Groq min duration 0.8s→0.3s (Whisper уже был 0.3s). Добавлен debug-логинг RMS/сэмплов/причины отбрасывания во все движки. Обновлён .gitignore (добавлен .claude/, агентские шаблоны, docs/_reports/). Задокументирован roadmap развития проекта. clippy 0 warnings, 74 Rust теста, 60 frontend тестов.
+- [2026-07-07] Сессия 5 (Final): Финальная верификация: clippy 0 warnings, cargo test 74 pass, bun test 60 pass, bun build success. Обновлён CHANGELOG (Unreleased section с 6 блоками улучшений).
+- [2026-07-07] Сессия 4 (Tests): Frontend: установлен vitest, создано 3 тест-файла (60 тестов). Backend: добавлены тесты в ai_provider.rs (4), keys.rs (9), history.rs (11). Итого: 74 Rust тестов (было 51), 60 frontend тестов (было 0). clippy 0 warnings.
 - [2026-07-07] Сессия 3 (SettingsPanel + GeneralTab): Созданы `src/components/ui/Toast.tsx` (toast уведомления с success/error/info, auto-dismiss 3с, framer-motion) и `src/components/ui/ConfirmDialog.tsx` (модалка подтверждения с destructive-стилем). SettingsPanel.tsx: заменены 8× alert() → Toast, 1× confirm() → ConfirmDialog, исправлен stale closure в setSavedStatus (functional update), sequential invoke в цикле → Promise.all, useEffect deps: убраны accGranted/micGranted (обновляются внутри эффекта), удалены 2× console.error. GeneralTab.tsx: заменены 2× alert() → Toast (addToast передаётся через props). bun build success, cargo check OK.
 - [2026-07-07] Сессия 2A+2B (рефакторинг): Параллельный запуск 2 агентов в worktree. **2A:** page.tsx 1065→297 строк (−72%), создано 8 хуков (useSettings, useRecording, useWindowManager, useInitialSettings, useTargetApp, useTauriEvents, useKeyboardShortcuts, useTrayLanguage), 4 компонента (QuickMenu, HeaderBar, ResultPane, ActionBar), 4 utility модуля (types, text, windowSizes, animations). Lazy loading для SettingsPanel/WelcomeOverlay. **2B:** whisper.rs 846→6 модулей (paths, model_cache, recording, transcribe, download, mod). Дедупликация filename/URL mapping, model_mutex, spawn_capture_thread, hallucination filtering. Исправлены типовые конфликты после мержа (Language→SttLanguage, noiseGate/streamingEnabled пропсы). cargo test 51 pass, clippy 0 warnings, bun build success.
 - [2026-07-07] Сессия 1 (P0 баги): Исправлены 6 критических багов — B6 (multi-char uppercase), B7 (hallucination substring), B1 (animation target), B3 (JSON parsing), P2 (stale closure). B4 оказался уже консистентным. Добавлены 6 тестов (42→48). Параллельная работа через 2 sub-agents. cargo test 48 pass, clippy 0 warnings, build OK.

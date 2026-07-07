@@ -45,18 +45,25 @@ fn take_recording_wav(state: &SharedAiState, threshold: f32) -> Result<Option<Ve
     };
 
     if samples.is_empty() {
+        log::debug!("Groq/Gemini: no audio samples captured");
         return Ok(None);
     }
 
-    let min_samples = (src_rate as f64 * 0.8) as usize;
+    let min_samples = (src_rate as f64 * 0.3) as usize;
     if samples.len() < min_samples {
+        log::debug!("Groq/Gemini: audio too short: {} samples (need {}), src_rate={}", samples.len(), min_samples, src_rate);
         return Ok(None);
     }
+
+    // Apply software gain to boost quiet microphone signals
+    let samples: Vec<f32> = samples.iter().map(|s| (s * 2.0).clamp(-1.0, 1.0)).collect();
 
     let rms = (samples.iter().map(|s| s * s).sum::<f32>() / samples.len() as f32).sqrt();
     if rms < threshold {
+        log::debug!("Groq/Gemini: audio too quiet (RMS: {:.6} < threshold: {:.6}), skipping", rms, threshold);
         return Ok(None);
     }
+    log::debug!("Groq/Gemini: processing {} samples (RMS: {:.6}, src_rate: {})", samples.len(), rms, src_rate);
 
     let processed_samples = crate::utils::resample_to_16k(&samples, src_rate, 16000);
     let mut wav_cursor = Cursor::new(Vec::new());

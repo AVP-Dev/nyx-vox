@@ -110,15 +110,28 @@ pub async fn stop_recording(
         (data, rate)
     };
 
-    if samples.is_empty() { return Ok(String::new()); }
+    if samples.is_empty() {
+        log::debug!("Deepgram: no audio samples captured");
+        return Ok(String::new());
+    }
 
-    // Minimum duration: ~0.8s of audio at given sample rate
-    let min_samples = (src_rate as f64 * 0.8) as usize;
-    if samples.len() < min_samples { return Ok(String::new()); }
+    // Minimum duration: ~0.3s of audio at given sample rate
+    let min_samples = (src_rate as f64 * 0.3) as usize;
+    if samples.len() < min_samples {
+        log::debug!("Deepgram: audio too short: {} samples (need {}), src_rate={}", samples.len(), min_samples, src_rate);
+        return Ok(String::new());
+    }
+
+    // Apply software gain to boost quiet microphone signals
+    let samples: Vec<f32> = samples.iter().map(|s| (s * 2.0).clamp(-1.0, 1.0)).collect();
 
     // Noise gate check
     let rms = (samples.iter().map(|s| s * s).sum::<f32>() / samples.len() as f32).sqrt();
-    if rms < threshold { return Ok(String::new()); }
+    if rms < threshold {
+        log::debug!("Deepgram: audio too quiet (RMS: {:.6} < threshold: {:.6}), skipping", rms, threshold);
+        return Ok(String::new());
+    }
+    log::debug!("Deepgram: processing {} samples (RMS: {:.6}, lang: {}, src_rate: {})", samples.len(), rms, language, src_rate);
 
     // Resample to 16k (Deepgram standard)
     let processed_samples = crate::utils::resample_to_16k(&samples, src_rate, 16000);

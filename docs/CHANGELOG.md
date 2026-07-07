@@ -6,6 +6,24 @@
 
 ## 📅 Unreleased (Post-1.2.0 Quality Improvements)
 
+### 🎤 Audio Sensitivity & Processing Fixes
+
+#### 1. **Software Gain Amplification** ✅
+- Added 2x audio gain before noise gate in all 3 STT engines (Whisper, Deepgram, Groq/Gemini)
+- Quiet microphone signals at arm's length now pass the RMS threshold
+- Clamped to ±1.0 to prevent clipping
+
+#### 2. **Minimum Duration Normalization** ✅
+- Deepgram: 0.8s → 0.3s (was silently dropping short phrases)
+- Groq/Gemini: 0.8s → 0.3s (same issue)
+- Whisper was already 0.3s
+
+#### 3. **Debug Logging** ✅
+- Added RMS, sample count, and rejection reason logging to all 3 engines
+- Enables diagnosing audio issues from console output
+
+---
+
 ### 🧹 Architecture & Code Quality Overhaul
 
 #### 1. **Frontend Refactoring** ✅

@@ -32,6 +32,9 @@ const MIN_DURATION_SECS: f64 = 0.3;
 const LEVEL_EMIT_INTERVAL_MS: u64 = 50;
 /// Mic polling interval while recording (ms).
 const MIC_POLL_INTERVAL_MS: u64 = 50;
+/// Software gain multiplier applied before noise gate. Boosts quiet microphone
+/// signals so speech at arm's length passes the RMS threshold.
+const AUDIO_GAIN: f32 = 2.0;
 
 // ── Start recording ─────────────────────────────────────────────────────────
 
@@ -176,7 +179,7 @@ pub async fn stop_recording(
     tokio::time::sleep(std::time::Duration::from_millis(AUDIO_TAIL_PADDING_MS)).await;
     recording_flag.store(false, Ordering::SeqCst);
 
-    let (samples, src_rate) = {
+    let (raw_samples, src_rate) = {
         let mut lock = state.lock().map_err(|e| e.to_string())?;
         let tail = lock.samples.clone();
         let rate = lock.sample_rate;
@@ -185,22 +188,26 @@ pub async fn stop_recording(
         (tail, rate)
     };
 
-    if samples.is_empty() {
+    if raw_samples.is_empty() {
         log::debug!("No audio samples captured");
         return Ok(String::new());
     }
 
     // Minimum duration check
     let min_samples = (src_rate as f64 * MIN_DURATION_SECS) as usize;
-    if samples.len() < min_samples {
+    if raw_samples.len() < min_samples {
         log::debug!(
             "Audio too short: {} samples (need {}), src_rate={}",
-            samples.len(),
+            raw_samples.len(),
             min_samples,
             src_rate
         );
         return Ok(String::new());
     }
+
+    // Apply software gain to boost quiet microphone signals.
+    // This helps speech at arm's distance pass the noise gate threshold.
+    let samples: Vec<f32> = raw_samples.iter().map(|s| (s * AUDIO_GAIN).clamp(-1.0, 1.0)).collect();
 
     // Noise gate
     let rms = (samples.iter().map(|s| s * s).sum::<f32>() / samples.len() as f32).sqrt();
