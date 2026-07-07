@@ -475,7 +475,7 @@ pub async fn stop_recording(
 }
 
 #[tauri::command]
-pub fn paste_text(app: AppHandle, text: String) -> Result<(), String> {
+pub async fn paste_text(app: AppHandle, text: String) -> Result<(), String> {
     use tauri_plugin_clipboard_manager::ClipboardExt;
     app.clipboard()
         .write_text(text)
@@ -489,6 +489,7 @@ pub fn paste_text(app: AppHandle, text: String) -> Result<(), String> {
         }
     }
 
+    // Hide window FIRST so focus transfers to the target app before Cmd+V
     #[cfg(target_os = "macos")]
     {
         if target_name == "NYX Vox" || target_name == "app" {
@@ -500,9 +501,12 @@ pub fn paste_text(app: AppHandle, text: String) -> Result<(), String> {
         }
     }
 
+    // Delay to let macOS WindowServer fully transfer focus to the target app.
+    // Without this delay, Cmd+V can land in NYX Vox instead of the target.
+    tokio::time::sleep(std::time::Duration::from_millis(400)).await;
+
     let app_handle = app.clone();
     tauri::async_runtime::spawn(async move {
-        tokio::time::sleep(std::time::Duration::from_millis(250)).await;
         let _ = app_handle.run_on_main_thread(move || {
             #[cfg(target_os = "macos")]
             {

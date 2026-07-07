@@ -93,3 +93,38 @@ This release represents a comprehensive audit-driven overhaul of NYX Vox. We've 
    ```
 
 **Built with ❤️ for macOS by AVP-Dev.**
+
+---
+
+## 📋 Post-Release Updates (2026-07-07)
+
+> Изменения, внесённые после релиза v1.2.0 в рамках работы над качеством кодовой базы.
+
+### 🧹 Рефакторинг архитектуры
+- **Frontend:** `page.tsx` 1065 → 297 строк (−72%). Извлечено 8 хуков, 4 компонента, 4 utility-модуля. Lazy loading для SettingsPanel/WelcomeOverlay.
+- **Backend:** `whisper.rs` 846 → 6 модулей (`whisper/`). Дедупликация 4 паттернов.
+- **UI-компоненты:** Созданы `Toast` и `ConfirmDialog` вместо 10× `alert()`/`confirm()`.
+- **Логирование:** ~50 `println!`/`eprintln!` заменены на `log::debug!/info!/warn!/error!` в 9 файлах. Все `unwrap()` заменены на безопасные альтернативы.
+
+### 🐛 Исправлено 6 критических багов (P0)
+- **B6:** Обработка многосимвольных заглавных букв (ß → SS)
+- **B7:** Ложные срабатывания при substring-совпадении галлюцинаций
+- **B1:** Неверная анимация при auto-paste
+- **B3:** Падение JSON-парсинга при тексте начинающемся с `{`
+- **P2:** Stale closure в `setSavedStatus` SettingsPanel
+- Все clippy warnings устранены (было 8)
+
+### 🎤 Улучшена чувствительность микрофона
+- **Software gain 2x** — добавлено усиление сигнала перед noise gate во всех 3 движках (Whisper, Deepgram, Groq/Gemini). Речь на расстоянии вытянутой руки теперь распознается.
+- **Min duration 0.8s → 0.3s** для Deepgram и Groq/Gemini — короткие фразы ("да", "привет") больше не теряются.
+- **Debug-логирование** — RMS, количество сэмплов и причина отбрасывания теперь видны в консоли.
+
+### 🧪 Тесты
+- **Frontend:** 60 тестов через vitest (было 0) — `cleanHallucinations`, `windowSizes`, `useStore`
+- **Backend:** 74 Rust теста (было 51) — `ai_provider`, `keys`, `history`
+- **Верификация:** clippy 0 warnings, cargo test 74 pass, bun test 60 pass, bun build success
+
+### 📄 Документация
+- Созданы: `docs/architecture.md`, `docs/decisions.md`, `docs/glossary.md`, `docs/overview.md`, `docs/state.md`
+- Обновлён CHANGELOG (Unreleased section)
+- Добавлены ADR: Toast/ConfirmDialog, software gain, min duration
