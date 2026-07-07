@@ -5,13 +5,14 @@
 > Держи компактно: не история навсегда, а срез "что сейчас".
 
 ## Последнее обновление
-Дата: 2026-07-07
-Кто/что обновило: Claude Code (session 6, audio fixes + roadmap)
+Дата: 2026-07-08
+Кто/что обновило: Claude Code (P1 phase complete)
 
 ## Что сейчас в работе
-- Сессия 6 ЗАВЕРШЕНА — исправлена чувствительность микрофона, задокументирован roadmap
-- Все сессии рефакторинг-плана завершены (1-5)
-- Незакоммиченные изменения: audio gain, min duration, debug logging
+- P1 phase завершена — ESLint, Gain, E2E, Enter bug investigation
+- Готово к тестированию: `bun run tauri dev`
+- Ветка `dev`: изменения не закоммичены (17 файлов, +131/-26 строк)
+- Следующий шаг: `git add . && git commit` или запуск P2
 
 ## Что стабильно работает (не трогать без причины)
 - STT pipeline (Whisper, Deepgram, Groq)
@@ -19,20 +20,18 @@
 - Автопаста через enigo
 - Шифрование API-ключей (AES-256-GCM)
 - Noise Gate
+- Audio Gain (configurable, 1.0-5.0, default 2.0)
 - Автопауза медиа
 - История записей
 - Системный трей
+- Playwright E2E (3 smoke-теста)
 
 ## Известные проблемы / баги
-- Lint: 219 ошибок ESLint (pre-existing, в старых файлах — не от рефакторинга)
 - Whisper turbo: обработка ~60s на некоторых фразах (требует расследования — возможно memory pressure)
-- Gain захардкожен (2x) — у разных микрофонов разная чувствительность, нужна настройка в UI
+- Enter paste bug: race condition — paste_text не ждёт выполнения Cmd+V (root cause найден, фиксы предложены)
 
 ## Технический долг (осознанный)
 - macOS only — архитектурное решение, не баг
-- 219 ESLint ошибок — pre-existing, не от рефакторинга
-- 0% E2E покрытие
-- Gain 2x захардкожен — нужен UI-слайдер
 
 ## Что сделано
 - **Сессия 5 (Final):** Финальная верификация: clippy 0 warnings, cargo test 74 pass, bun test 60 pass, bun build success. Обновлён CHANGELOG (Unreleased section с 6 блоками улучшений).
@@ -45,11 +44,6 @@
 - clippy 0 warnings, cargo test 74 pass, bun test 60 pass, bun build success
 
 ## Следующие шаги (roadmap)
-
-### 🔴 Приоритет 1 — Качество
-1. **219 ESLint ошибок** — pre-existing tech debt, мешает линтеру ловить реальные баги
-2. **E2E тесты** (Playwright) — критические пути: запись → транскрипция → вставка
-3. **Конфигурируемый gain** — вынести AUDIO_GAIN в настройки (UI-слайдер)
 
 ### 🟡 Приоритет 2 — Производительность
 4. **Whisper State кэширование** — `create_state()` на каждый вызов, кэшировать как контекст
@@ -68,6 +62,9 @@
 13. **CI/CD pipeline** — GitHub Actions: clippy + test + build при PR
 
 ## Журнал сессий (кратко, последние 5-10 записей, старое можно удалять)
+- [2026-07-08] **P1 Phase Complete**: (1) ESLint верифицирован — 0 ошибок, "219 ошибок" было устаревшим заявлением. (2) Audio Gain вынесен в настройки — AudioGain state, set_audio_gain command, слайдер 1.0-5.0 в GeneralTab, переводы en/ru, все 3 движка используют параметр. (3) Playwright E2E настроен — 3 smoke-теста проходят, конфиг для Chromium + auto-start dev server. (4) Enter paste bug расследован — root cause: race condition в paste_text (fire-and-forget Cmd+V), w.hide() вместо app.hide(), silent errors. Фиксы предложены, требуют реализации. cargo check, clippy, bun build, cargo test 74, bun test 60, e2e 3/3 — всё проходит.
+- [2026-07-08] Audio Gain настройка: Вынесен захардкоженный AUDIO_GAIN (2.0) в конфигурируемую настройку. Backend: AudioGain state (Mutex<f32>), set_audio_gain command (clamp 1.0-5.0), загрузка из store при старте. Все три движка (whisper/recording.rs, deepgram.rs, ai_provider.rs) теперь принимают gain параметр вместо константы. Frontend: слайдер в GeneralTab (range 1.0-5.0, step 0.5, default 2.0), переводы en/ru. cargo check, cargo clippy, bun build — всё проходит.
+- [2026-07-08] ESLint верификация: `npx eslint src/` — 0 ошибок, exit code 0. state.md обновлён: удалены упоминания "219 ESLint ошибок" из known problems, tech debt и roadmap. Предыдущее заявление в state.md о 219 ошибках было устаревшим — кодовая база чистая. bun build success.
 - [2026-07-07] Сессия 6 (Audio + Roadmap): Исправлена чувствительность микрофона — добавлен software gain 2x во все три движка (Whisper, Deepgram, Groq/Gemini). Deepgram/Groq min duration 0.8s→0.3s (Whisper уже был 0.3s). Добавлен debug-логинг RMS/сэмплов/причины отбрасывания во все движки. Обновлён .gitignore (добавлен .claude/, агентские шаблоны, docs/_reports/). Задокументирован roadmap развития проекта. clippy 0 warnings, 74 Rust теста, 60 frontend тестов.
 - [2026-07-07] Сессия 5 (Final): Финальная верификация: clippy 0 warnings, cargo test 74 pass, bun test 60 pass, bun build success. Обновлён CHANGELOG (Unreleased section с 6 блоками улучшений).
 - [2026-07-07] Сессия 4 (Tests): Frontend: установлен vitest, создано 3 тест-файла (60 тестов). Backend: добавлены тесты в ai_provider.rs (4), keys.rs (9), history.rs (11). Итого: 74 Rust тестов (было 51), 60 frontend тестов (было 0). clippy 0 warnings.

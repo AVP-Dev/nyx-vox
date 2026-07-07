@@ -18,6 +18,7 @@ interface Setters {
     setStartMinimized: SettingsActions['setStartMinimized'];
     setAlwaysOnTop: SettingsActions['setAlwaysOnTop'];
     setAutoPauseMedia: SettingsActions['setAutoPauseMedia'];
+    setAudioGain: SettingsActions['setAudioGain'];
     setFormattingMode: SettingsActions['setFormattingMode'];
     setLastActiveFormatting: SettingsActions['setLastActiveFormatting'];
     setFormattingStyle: SettingsActions['setFormattingStyle'];
@@ -82,6 +83,14 @@ export function useInitialSettings(setters: Setters) {
                 const fStyle = results[10] as FormattingStyle;
                 setters.setFormattingStyle(fStyle || 'casual');
                 setters.setAutoPauseMedia(results[11] ?? false);
+
+                // Load audio gain from get_all_settings (no individual getter exists)
+                try {
+                    const allSettings = await invoke<Record<string, unknown>>('get_all_settings');
+                    if (allSettings && typeof allSettings.audioGain === 'number') {
+                        setters.setAudioGain(allSettings.audioGain);
+                    }
+                } catch { /* non-critical */ }
 
                 const savedLang = await invoke<AppLanguage>('get_app_language').catch(() => 'ru' as const);
                 setters.setAppLanguage(savedLang || 'ru');

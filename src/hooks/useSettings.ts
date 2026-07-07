@@ -15,6 +15,7 @@ export interface SettingsState {
     alwaysOnTop: boolean;
     autoPauseMedia: boolean;
     noiseGate: number;
+    audioGain: number;
     streamingEnabled: boolean;
     formattingMode: FormattingMode;
     lastActiveFormatting: Exclude<FormattingMode, 'none'>;
@@ -35,6 +36,7 @@ export interface SettingsActions {
     setAlwaysOnTop: (v: boolean) => void;
     setAutoPauseMedia: (v: boolean) => void;
     setNoiseGate: (v: number) => void;
+    setAudioGain: (v: number) => void;
     setStreamingEnabled: (v: boolean) => void;
     setFormattingMode: (v: FormattingMode) => void;
     setLastActiveFormatting: (v: Exclude<FormattingMode, 'none'>) => void;
@@ -58,6 +60,7 @@ export function useSettings(): SettingsState & SettingsActions {
     const [alwaysOnTop, setAlwaysOnTop] = useState(true);
     const [autoPauseMedia, setAutoPauseMedia] = useState(false);
     const [noiseGate, setNoiseGate] = useState(0.002);
+    const [audioGain, setAudioGain] = useState(2.0);
     const [streamingEnabled, setStreamingEnabled] = useState(false);
     const [formattingMode, setFormattingMode] = useState<FormattingMode>('none');
     const [lastActiveFormatting, setLastActiveFormatting] = useState<Exclude<FormattingMode, 'none'>>('gemini');
@@ -91,12 +94,12 @@ export function useSettings(): SettingsState & SettingsActions {
         // State
         showSettings, sttMode, dgLanguage, whisperLanguage, groqLanguage,
         appLanguage, autoPaste, clearOnPaste, startMinimized, alwaysOnTop,
-        autoPauseMedia, noiseGate, streamingEnabled, formattingMode, lastActiveFormatting, formattingStyle,
+        autoPauseMedia, noiseGate, audioGain, streamingEnabled, formattingMode, lastActiveFormatting, formattingStyle,
         showQuickMenu,
         // Setters
         setShowSettings, setSttMode, setDgLanguage, setWhisperLanguage,
         setGroqLanguage, setAppLanguage, setAutoPaste, setClearOnPaste,
-        setStartMinimized, setAlwaysOnTop, setAutoPauseMedia, setNoiseGate, setStreamingEnabled, setFormattingMode,
+        setStartMinimized, setAlwaysOnTop, setAutoPauseMedia, setNoiseGate, setAudioGain, setStreamingEnabled, setFormattingMode,
         setLastActiveFormatting, setFormattingStyle, setShowQuickMenu,
         // Handlers
         handleFormattingModeChange, toggleSTTMode, handleLanguageToggle,

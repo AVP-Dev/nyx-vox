@@ -20,6 +20,7 @@ pub async fn get_all_settings(
     auto_pause: State<'_, AutoPause>,
     whisper_model: State<'_, WhisperModel>,
     noise_gate: State<'_, NoiseGateThreshold>,
+    audio_gain: State<'_, AudioGain>,
 ) -> Result<serde_json::Value, String> {
     let stt = stt_mode.0.lock().map_err(|e| e.to_string())?.clone();
     let dg = dg_lang.0.lock().map_err(|e| e.to_string())?.clone();
@@ -32,6 +33,7 @@ pub async fn get_all_settings(
     let auto_p = *auto_pause.0.lock().map_err(|e| e.to_string())?;
     let wm = *whisper_model.0.lock().map_err(|e| e.to_string())?;
     let ng = *noise_gate.0.lock().map_err(|e| e.to_string())?;
+    let ag = *audio_gain.0.lock().map_err(|e| e.to_string())?;
 
     let store = app.store("settings.json").map_err(|e: tauri_plugin_store::Error| e.to_string())?;
     let clear_on_paste = store.get("clear_on_paste").and_then(|v| v.as_bool()).unwrap_or(false);
@@ -55,6 +57,7 @@ pub async fn get_all_settings(
         "whisperModel": wm,
         "modelAvailable": model_available,
         "noiseGate": ng,
+        "audioGain": ag,
     }))
 }
 
@@ -64,6 +67,16 @@ pub async fn set_noise_gate(app: AppHandle, state: State<'_, NoiseGateThreshold>
     store.set("noise_gate", serde_json::json!(threshold));
     store.save().map_err(|e: tauri_plugin_store::Error| e.to_string())?;
     if let Ok(mut lock) = state.0.lock() { *lock = threshold; }
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn set_audio_gain(app: AppHandle, state: State<'_, AudioGain>, gain: f32) -> Result<(), String> {
+    let clamped = gain.clamp(1.0, 5.0);
+    let store = app.store("settings.json").map_err(|e: tauri_plugin_store::Error| e.to_string())?;
+    store.set("audio_gain", serde_json::json!(clamped));
+    store.save().map_err(|e: tauri_plugin_store::Error| e.to_string())?;
+    if let Ok(mut lock) = state.0.lock() { *lock = clamped; }
     Ok(())
 }
 

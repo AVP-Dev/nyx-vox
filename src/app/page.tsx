@@ -72,6 +72,7 @@ export default function Home() {
         setStartMinimized: settings.setStartMinimized,
         setAlwaysOnTop: settings.setAlwaysOnTop,
         setAutoPauseMedia: settings.setAutoPauseMedia,
+        setAudioGain: settings.setAudioGain,
         setFormattingMode: settings.setFormattingMode,
         setLastActiveFormatting: settings.setLastActiveFormatting,
         setFormattingStyle: settings.setFormattingStyle,
@@ -208,6 +209,8 @@ export default function Home() {
                                                 onSetFormattingMode={settings.handleFormattingModeChange}
                                                 noiseGate={settings.noiseGate}
                                                 onSetNoiseGate={(v) => { settings.setNoiseGate(v); import('@tauri-apps/api/core').then(({ invoke }) => invoke('set_noise_gate', { value: v })); }}
+                                                audioGain={settings.audioGain}
+                                                onSetAudioGain={(v) => { settings.setAudioGain(v); import('@tauri-apps/api/core').then(({ invoke }) => invoke('set_audio_gain', { gain: v })); }}
                                                 streamingEnabled={settings.streamingEnabled}
                                                 onToggleStreaming={(v) => { settings.setStreamingEnabled(v); import('@tauri-apps/api/core').then(({ invoke }) => invoke('set_streaming_enabled', { enabled: v })); }}
                                             />

@@ -77,6 +77,8 @@ interface SettingsPanelProps {
     onSetFormattingMode: (m: 'none' | 'gemini' | 'deepseek' | 'qwen' | 'groq') => void;
     noiseGate: number;
     onSetNoiseGate: (v: number) => void;
+    audioGain: number;
+    onSetAudioGain: (v: number) => void;
     streamingEnabled: boolean;
     onToggleStreaming: (v: boolean) => void;
 }
@@ -94,6 +96,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     groqLanguage, onSetGroqLanguage,
     formattingMode, onSetFormattingMode,
     noiseGate, onSetNoiseGate,
+    audioGain, onSetAudioGain,
     streamingEnabled, onToggleStreaming
 }) => {
     const [tab, setTab] = useState('general');
@@ -447,6 +450,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                                             alwaysOnTop={alwaysOnTop} onToggleAlwaysOnTop={onToggleAlwaysOnTop}
                                             formattingStyle={formattingStyle} onSetFormattingStyle={onSetFormattingStyle}
                                             noiseGate={noiseGate} onSetNoiseGate={onSetNoiseGate}
+                                            audioGain={audioGain} onSetAudioGain={onSetAudioGain}
                                             micGranted={micGranted}
                                             accGranted={accGranted}
                                             streamingEnabled={streamingEnabled}

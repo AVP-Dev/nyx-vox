@@ -32,9 +32,6 @@ const MIN_DURATION_SECS: f64 = 0.3;
 const LEVEL_EMIT_INTERVAL_MS: u64 = 50;
 /// Mic polling interval while recording (ms).
 const MIC_POLL_INTERVAL_MS: u64 = 50;
-/// Software gain multiplier applied before noise gate. Boosts quiet microphone
-/// signals so speech at arm's length passes the RMS threshold.
-const AUDIO_GAIN: f32 = 2.0;
 
 // ── Start recording ─────────────────────────────────────────────────────────
 
@@ -172,6 +169,7 @@ pub async fn stop_recording(
     language: &str,
     model_type: WhisperModelType,
     threshold: f32,
+    gain: f32,
 ) -> Result<String, String> {
     // VAD FIX: Wait for audio tail padding before killing the microphone
     // to capture the trailing audio of the last word, preventing the model
@@ -207,7 +205,7 @@ pub async fn stop_recording(
 
     // Apply software gain to boost quiet microphone signals.
     // This helps speech at arm's distance pass the noise gate threshold.
-    let samples: Vec<f32> = raw_samples.iter().map(|s| (s * AUDIO_GAIN).clamp(-1.0, 1.0)).collect();
+    let samples: Vec<f32> = raw_samples.iter().map(|s| (s * gain).clamp(-1.0, 1.0)).collect();
 
     // Noise gate
     let rms = (samples.iter().map(|s| s * s).sum::<f32>() / samples.len() as f32).sqrt();

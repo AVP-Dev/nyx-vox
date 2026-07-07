@@ -230,6 +230,7 @@ pub async fn stop_recording(
     whisper_model: State<'_, WhisperModel>,
     groq_lang: State<'_, GroqLanguage>,
     noise_gate: State<'_, NoiseGateThreshold>,
+    audio_gain: State<'_, AudioGain>,
 ) -> Result<String, String> {
     processing_flag
         .0
@@ -266,6 +267,7 @@ pub async fn stop_recording(
     };
 
     let threshold = *noise_gate.0.lock().map_err(|e| e.to_string())?;
+    let gain = *audio_gain.0.lock().map_err(|e| e.to_string())?;
 
     did_pause_media.0.store(false, Ordering::SeqCst);
 
@@ -285,6 +287,7 @@ pub async fn stop_recording(
             api_key,
             &lang,
             threshold,
+            gain,
         )
         .await
     } else if mode == "whisper" {
@@ -295,6 +298,7 @@ pub async fn stop_recording(
             &lang,
             model_type,
             threshold,
+            gain,
         )
         .await
     } else if mode == "groq" || mode == "gemini" {
@@ -320,6 +324,7 @@ pub async fn stop_recording(
                 api_key,
                 &lang,
                 threshold,
+                gain,
             )
             .await
         } else {
@@ -330,6 +335,7 @@ pub async fn stop_recording(
                 api_key,
                 &lang,
                 threshold,
+                gain,
             )
             .await
         }

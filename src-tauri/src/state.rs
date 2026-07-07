@@ -59,6 +59,9 @@ pub struct AutoPaste(pub Mutex<bool>);
 // Noise Gate Threshold
 pub struct NoiseGateThreshold(pub Mutex<f32>);
 
+// Audio Gain multiplier (1.0-5.0, default 2.0)
+pub struct AudioGain(pub Mutex<f32>);
+
 // Always-on-top flag
 pub struct AlwaysOnTop(pub Mutex<bool>);
 

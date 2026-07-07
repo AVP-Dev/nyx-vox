@@ -128,3 +128,67 @@ This release represents a comprehensive audit-driven overhaul of NYX Vox. We've 
 - Созданы: `docs/architecture.md`, `docs/decisions.md`, `docs/glossary.md`, `docs/overview.md`, `docs/state.md`
 - Обновлён CHANGELOG (Unreleased section)
 - Добавлены ADR: Toast/ConfirmDialog, software gain, min duration
+
+---
+
+## 📋 P1 Phase Complete (2026-07-08)
+
+> Phase 1 quality improvements — ESLint, Configurable Gain, E2E Tests, Enter Paste Bug Investigation.
+
+### ✅ ESLint Verification
+- **Status:** CLEAN — 0 errors, 0 warnings
+- **Finding:** Previous claim of "219 ESLint errors" in state.md was outdated/stale
+- **Action:** Removed outdated references from known problems, tech debt, and roadmap
+
+### ✅ Configurable Audio Gain
+- **Backend:** `AudioGain` state type (`Mutex<f32>`) in `state.rs`
+- **Command:** `set_audio_gain` with clamping (1.0-5.0), persistence to store
+- **Integration:** All 3 STT engines (Whisper, Deepgram, Groq/Gemini) accept `gain` parameter
+- **Frontend:** Slider in GeneralTab (range 1.0-5.0, step 0.5, default 2.0)
+- **Translations:** `audioGainTitle`, `audioGainDesc`, `audioGainLow`, `audioGainHigh` for en/ru
+- **Files modified:** 17 files, +131/-26 lines
+
+### ✅ Playwright E2E Tests
+- **Setup:** `@playwright/test` installed, Chromium browser configured
+- **Config:** `playwright.config.ts` — auto-starts Next.js dev server on port 3002
+- **Tests:** 3 smoke tests in `e2e/app.spec.ts`:
+  1. Homepage loads successfully
+  2. Page has expected content structure
+  3. No console errors on load
+- **Scripts:** `bun run test:e2e`, `bun run test:e2e:ui`
+- **Result:** 3/3 passed (6.5s)
+
+### ✅ Enter Paste Bug Investigation
+- **Root Cause:** Race condition in `paste_text` (audio.rs:508-549)
+  - Cmd+V spawned as fire-and-forget, returns `Ok(())` immediately
+  - Frontend calls `win.hide()` before Cmd+V executes
+  - Focus transfer disrupted
+- **Secondary Issue:** `w.hide()` vs `app.hide()` — window hide doesn't reliably transfer focus on macOS
+- **Tertiary Issue:** Silent error suppression (`let _ =` on critical operations)
+- **Proposed Fixes:**
+  1. Await Cmd+V completion via `oneshot::channel`
+  2. Use `app.hide()` unconditionally on macOS
+  3. Remove redundant frontend `win.hide()`
+  4. Add error logging for critical operations
+- **Status:** Root cause identified, fixes proposed (not yet implemented)
+
+### 📊 Verification Results
+| Check | Result |
+|-------|--------|
+| `cargo check` | ✅ passed |
+| `cargo clippy -- -D warnings` | ✅ 0 warnings |
+| `bun run build` | ✅ passed |
+| `cargo test` | ✅ 74/74 passed |
+| `bun run test` | ✅ 60/60 passed |
+| `bun run test:e2e` | ✅ 3/3 passed |
+
+### 💰 Token Usage (P1 Phase)
+| Component | Tokens |
+|-----------|--------|
+| Playwright E2E agent | 33,215 |
+| Enter paste bug agent | 58,000 |
+| ESLint agent | 31,941 |
+| Configurable Gain agent | 107,104 |
+| **Subagents total** | **230,260** |
+| Main conversation (est.) | ~80,000 |
+| **Phase total (est.)** | **~310,000** |

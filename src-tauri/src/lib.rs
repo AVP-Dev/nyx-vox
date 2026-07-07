@@ -106,6 +106,7 @@ pub fn run() {
             app.manage(AutoPause(Mutex::new(false)));
             app.manage(AutoPaste(Mutex::new(true)));
             app.manage(NoiseGateThreshold(Mutex::new(0.002)));
+            app.manage(AudioGain(Mutex::new(2.0)));
             app.manage(AlwaysOnTop(Mutex::new(true)));
             app.manage(TargetApp(Mutex::new(("Unknown".to_string(), "Unknown".to_string()))));
             app.manage(AppLanguage(Mutex::new(sys_lang.to_string())));
@@ -194,6 +195,12 @@ pub fn run() {
 
                     if let Some(val) = store.get("noise_gate").and_then(|v: serde_json::Value| v.as_f64()) {
                         if let Some(state) = app.try_state::<NoiseGateThreshold>() {
+                            if let Ok(mut lock) = state.0.lock() { *lock = val as f32; }
+                        }
+                    }
+
+                    if let Some(val) = store.get("audio_gain").and_then(|v: serde_json::Value| v.as_f64()) {
+                        if let Some(state) = app.try_state::<AudioGain>() {
                             if let Ok(mut lock) = state.0.lock() { *lock = val as f32; }
                         }
                     }
@@ -391,6 +398,7 @@ pub fn run() {
             commands::save_window_position,
             commands::get_window_position,
             commands::set_noise_gate,
+            commands::set_audio_gain,
             commands::open_url,
             commands::show_update_window,
             commands::resize_window,

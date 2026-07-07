@@ -35,7 +35,7 @@ fn build_refinement_user_content(instruction: Option<String>, text: &str) -> Str
     )
 }
 
-fn take_recording_wav(state: &SharedAiState, threshold: f32) -> Result<Option<Vec<u8>>, String> {
+fn take_recording_wav(state: &SharedAiState, threshold: f32, gain: f32) -> Result<Option<Vec<u8>>, String> {
     let (samples, src_rate) = {
         let mut lock = state.lock().map_err(|e| e.to_string())?;
         let tail = lock.samples.clone();
@@ -56,7 +56,7 @@ fn take_recording_wav(state: &SharedAiState, threshold: f32) -> Result<Option<Ve
     }
 
     // Apply software gain to boost quiet microphone signals
-    let samples: Vec<f32> = samples.iter().map(|s| (s * 2.0).clamp(-1.0, 1.0)).collect();
+    let samples: Vec<f32> = samples.iter().map(|s| (s * gain).clamp(-1.0, 1.0)).collect();
 
     let rms = (samples.iter().map(|s| s * s).sum::<f32>() / samples.len() as f32).sqrt();
     if rms < threshold {
@@ -212,6 +212,7 @@ pub async fn stop_recording<R: Runtime>(
     api_key: String,
     language: &str,
     threshold: f32,
+    gain: f32,
 ) -> Result<String, String> {
     tokio::time::sleep(std::time::Duration::from_millis(500)).await;
     recording_flag.store(false, Ordering::SeqCst);
@@ -238,7 +239,7 @@ pub async fn stop_recording<R: Runtime>(
         },
     );
 
-    let Some(wav_data) = take_recording_wav(&state, threshold)? else {
+    let Some(wav_data) = take_recording_wav(&state, threshold, gain)? else {
         return Ok(String::new());
     };
 
@@ -317,6 +318,7 @@ pub async fn gemini_stop_recording<R: Runtime>(
     api_key: String,
     _language: &str,
     threshold: f32,
+    gain: f32,
 ) -> Result<String, String> {
     tokio::time::sleep(std::time::Duration::from_millis(500)).await;
     recording_flag.store(false, Ordering::SeqCst);
@@ -342,7 +344,7 @@ pub async fn gemini_stop_recording<R: Runtime>(
         },
     );
 
-    let Some(wav_data) = take_recording_wav(&state, threshold)? else {
+    let Some(wav_data) = take_recording_wav(&state, threshold, gain)? else {
         return Ok(String::new());
     };
 

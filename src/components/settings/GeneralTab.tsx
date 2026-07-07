@@ -26,6 +26,8 @@ interface GeneralTabProps {
     accGranted?: boolean | null;
     noiseGate: number;
     onSetNoiseGate: (v: number) => void;
+    audioGain: number;
+    onSetAudioGain: (v: number) => void;
     streamingEnabled: boolean;
     onToggleStreaming: (v: boolean) => void;
     addToast: (message: string, type?: ToastType) => void;
@@ -36,7 +38,7 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({
     startMinimized, onToggleStartMinimized, autoPauseMedia, handleToggleAutoPauseMedia,
     alwaysOnTop, onToggleAlwaysOnTop, lang,
     formattingStyle, onSetFormattingStyle, micGranted, accGranted,
-    noiseGate, onSetNoiseGate, streamingEnabled, onToggleStreaming,
+    noiseGate, onSetNoiseGate, audioGain, onSetAudioGain, streamingEnabled, onToggleStreaming,
     addToast
 }) => {
     const [resetting, setResetting] = React.useState(false);
@@ -149,6 +151,36 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({
                                 className="flex-1 accent-orange-500 h-1.5 bg-surface-hover rounded-full appearance-none cursor-pointer hover:bg-surface-hover transition-colors"
                             />
                             <span className="text-[10px] font-bold text-white/30 uppercase tracking-wider">{c.settings.noiseGateQuiet}</span>
+                        </div>
+                    </div>
+
+                    <div className="flex flex-col p-3.5 rounded-xl bg-surface border border-subtle gap-2">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2.5">
+                                <div className="p-1.5 rounded-lg bg-surface text-muted">
+                                    <Mic2 className="w-3.5 h-3.5" />
+                                </div>
+                                <div>
+                                    <div className="text-[13px] font-bold text-white/90">{c.settings.audioGainTitle}</div>
+                                    <div className="text-[10px] text-muted leading-none mt-0.5">{c.settings.audioGainDesc}</div>
+                                </div>
+                            </div>
+                            <div className="text-[11px] font-mono text-muted bg-surface px-2 py-0.5 rounded">
+                                {audioGain.toFixed(1)}
+                            </div>
+                        </div>
+                        <div className="px-1 mt-1 flex items-center gap-3">
+                            <span className="text-[10px] font-bold text-white/30 uppercase tracking-wider">{c.settings.audioGainLow}</span>
+                            <input
+                                type="range"
+                                min="1.0"
+                                max="5.0"
+                                step="0.5"
+                                value={audioGain}
+                                onChange={(e) => onSetAudioGain(parseFloat(e.target.value))}
+                                className="flex-1 accent-orange-500 h-1.5 bg-surface-hover rounded-full appearance-none cursor-pointer hover:bg-surface-hover transition-colors"
+                            />
+                            <span className="text-[10px] font-bold text-white/30 uppercase tracking-wider">{c.settings.audioGainHigh}</span>
                         </div>
                     </div>
                 </div>

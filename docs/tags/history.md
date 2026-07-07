@@ -6,7 +6,7 @@
 
 | Version | Date | Focus | Release Notes |
 |---|---|---|---|
-| v1.2.0 | 2025-06 | Security Hardening & Architecture Overhaul | [v1.2.0](v1.2.0/release.md) |
+| v1.2.0 | 2025-06 → 2026-07-08 | Security Hardening, Architecture Overhaul, P1 Quality | [v1.2.0](v1.2.0/release.md) |
 | v1.1.0 | 2025-05 | Transcription Reliability & Tech-Vocab | [v1.1.0](v1.1.0/release.md) |
 | v1.0.0 | 2025-04 | Official Release | [v1.0.0](v1.0.0/release.md) |
 
@@ -21,3 +21,10 @@
 
 > v0.1.0–v0.1.2 release notes were not preserved in the repository.
 > If recovered from git history, place them in the corresponding `tags/` subdirectories.
+
+## Phase Completions (within v1.2.0)
+
+| Phase | Date | Focus | Details |
+|---|---|---|---|
+| P1 | 2026-07-08 | Quality (ESLint, Gain, E2E, Enter bug) | [v1.2.0/release.md §P1](v1.2.0/release.md#-p1-phase-complete-2026-07-08) |
+| P0 | 2026-07-07 | Critical Bugs (6 fixes) | [v1.2.0/release.md §P0](v1.2.0/release.md#-исправлено-6-критических-багов-p0) |

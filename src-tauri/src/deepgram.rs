@@ -97,6 +97,7 @@ pub async fn stop_recording(
     api_key: String,
     language: &str,
     threshold: f32,
+    gain: f32,
 ) -> Result<String, String> {
     // Small sleep to catch the last buffer segments
     tokio::time::sleep(std::time::Duration::from_millis(400)).await;
@@ -123,7 +124,7 @@ pub async fn stop_recording(
     }
 
     // Apply software gain to boost quiet microphone signals
-    let samples: Vec<f32> = samples.iter().map(|s| (s * 2.0).clamp(-1.0, 1.0)).collect();
+    let samples: Vec<f32> = samples.iter().map(|s| (s * gain).clamp(-1.0, 1.0)).collect();
 
     // Noise gate check
     let rms = (samples.iter().map(|s| s * s).sum::<f32>() / samples.len() as f32).sqrt();
