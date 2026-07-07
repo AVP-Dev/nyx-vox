@@ -88,3 +88,9 @@ pub struct EnigoState(pub Arc<Mutex<EnigoWrapper>>);
 
 // Semaphore to limit concurrent AI API calls
 pub struct AiSemaphore(pub tokio::sync::Semaphore);
+
+// Streaming toggle
+pub struct StreamingEnabled(#[allow(dead_code)] pub Mutex<bool>);
+
+// Final result from streaming task
+pub struct StreamingResult(#[allow(dead_code)] pub Mutex<Option<String>>);

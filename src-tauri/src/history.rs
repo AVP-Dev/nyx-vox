@@ -88,6 +88,21 @@ pub async fn delete_history_item(app: AppHandle, id: String) -> Result<(), Strin
     Ok(())
 }
 
+/// Convert a retention period string to seconds.
+/// Returns None for "never" or unknown periods.
+pub fn retention_period_to_seconds(period: &str) -> Option<u64> {
+    match period {
+        "1d" => Some(86400),
+        "1w" => Some(604800),
+        "1m" => Some(2592000),
+        "3m" => Some(7776000),
+        "6m" => Some(15552000),
+        "1y" => Some(31536000),
+        "never" => None,
+        _ => None,
+    }
+}
+
 /// "Smart Cleanup" logic
 /// periods: "1d", "1w", "1m", "3m", "6m", "1y", "never"
 pub fn perform_smart_cleanup(app: &AppHandle) -> Result<(), String> {
@@ -114,14 +129,9 @@ pub fn perform_smart_cleanup(app: &AppHandle) -> Result<(), String> {
         .map_err(|e| e.to_string())?
         .as_secs();
         
-    let seconds_to_keep = match period.as_str() {
-        "1d" => 86400,
-        "1w" => 604800,
-        "1m" => 2592000,
-        "3m" => 7776000,
-        "6m" => 15552000,
-        "1y" => 31536000,
-        _ => return Ok(()),
+    let seconds_to_keep = match retention_period_to_seconds(&period) {
+        Some(s) => s,
+        None => return Ok(()),
     };
     
     let history_store = app.store("history.json").map_err(|e| e.to_string())?;
@@ -136,8 +146,83 @@ pub fn perform_smart_cleanup(app: &AppHandle) -> Result<(), String> {
         let final_count = history.len();
         history_store.set("entries", serde_json::to_value(&history).map_err(|e| e.to_string())?);
         history_store.save().map_err(|e| e.to_string())?;
-        println!("DEBUG: Smart Cleanup removed {} old entries", initial_len - final_count);
+        log::info!("Smart Cleanup removed {} old entries", initial_len - final_count);
     }
-    
+
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn retention_1d_is_86400_seconds() {
+        assert_eq!(retention_period_to_seconds("1d"), Some(86400));
+    }
+
+    #[test]
+    fn retention_1w_is_604800_seconds() {
+        assert_eq!(retention_period_to_seconds("1w"), Some(604800));
+    }
+
+    #[test]
+    fn retention_1m_is_2592000_seconds() {
+        assert_eq!(retention_period_to_seconds("1m"), Some(2592000));
+    }
+
+    #[test]
+    fn retention_3m_is_7776000_seconds() {
+        assert_eq!(retention_period_to_seconds("3m"), Some(7776000));
+    }
+
+    #[test]
+    fn retention_6m_is_15552000_seconds() {
+        assert_eq!(retention_period_to_seconds("6m"), Some(15552000));
+    }
+
+    #[test]
+    fn retention_1y_is_31536000_seconds() {
+        assert_eq!(retention_period_to_seconds("1y"), Some(31536000));
+    }
+
+    #[test]
+    fn retention_never_returns_none() {
+        assert_eq!(retention_period_to_seconds("never"), None);
+    }
+
+    #[test]
+    fn retention_unknown_returns_none() {
+        assert_eq!(retention_period_to_seconds("2y"), None);
+        assert_eq!(retention_period_to_seconds(""), None);
+        assert_eq!(retention_period_to_seconds("invalid"), None);
+    }
+
+    #[test]
+    fn retention_periods_are_monotonically_increasing() {
+        let periods = ["1d", "1w", "1m", "3m", "6m", "1y"];
+        let values: Vec<u64> = periods.iter()
+            .map(|p| retention_period_to_seconds(p).unwrap())
+            .collect();
+        for window in values.windows(2) {
+            assert!(window[0] < window[1], "Periods must be monotonically increasing");
+        }
+    }
+
+    #[test]
+    fn history_entry_serializes_and_deserializes() {
+        let entry = HistoryEntry {
+            id: "test-id".to_string(),
+            timestamp: 1700000000,
+            final_text: "hello world".to_string(),
+            raw_text: "hello world".to_string(),
+            engine: "deepgram".to_string(),
+            target_app: "Safari".to_string(),
+        };
+        let json = serde_json::to_string(&entry).unwrap();
+        let deserialized: HistoryEntry = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.id, "test-id");
+        assert_eq!(deserialized.timestamp, 1700000000);
+        assert_eq!(deserialized.final_text, "hello world");
+    }
 }

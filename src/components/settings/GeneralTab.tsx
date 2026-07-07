@@ -5,6 +5,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { useStore } from '@/store/useStore';
 import { type DICTIONARY } from './translations';
+import type { ToastType } from '../ui/Toast';
 
 interface GeneralTabProps {
     c: typeof DICTIONARY.en;
@@ -25,6 +26,9 @@ interface GeneralTabProps {
     accGranted?: boolean | null;
     noiseGate: number;
     onSetNoiseGate: (v: number) => void;
+    streamingEnabled: boolean;
+    onToggleStreaming: (v: boolean) => void;
+    addToast: (message: string, type?: ToastType) => void;
 }
 
 export const GeneralTab: React.FC<GeneralTabProps> = ({
@@ -32,12 +36,13 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({
     startMinimized, onToggleStartMinimized, autoPauseMedia, handleToggleAutoPauseMedia,
     alwaysOnTop, onToggleAlwaysOnTop, lang,
     formattingStyle, onSetFormattingStyle, micGranted, accGranted,
-    noiseGate, onSetNoiseGate
+    noiseGate, onSetNoiseGate, streamingEnabled, onToggleStreaming,
+    addToast
 }) => {
     const [resetting, setResetting] = React.useState(false);
-    
-    const { 
-        compactResultWindow, setCompactResultWindow 
+
+    const {
+        compactResultWindow, setCompactResultWindow
     } = useStore();
 
     // Automatic focus back when settings/permissions are granted
@@ -53,12 +58,11 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({
         setResetting(true);
         try {
             await invoke('reset_accessibility_permissions');
-            alert(c.settings.accessibilityResetAlert);
+            addToast(c.settings.accessibilityResetAlert, 'success');
         } catch (e) {
-            alert(`Error: ${e}`);
+            addToast(`Error: ${e}`, 'error');
         } finally {
             setResetting(false);
-            // Permission checked via parent interval or manually if needed
         }
     };
 
@@ -99,6 +103,23 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({
                             </div>
                         </div>
                         <Toggle checked={autoPaste} onChange={onToggleAutoPaste} />
+                    </div>
+
+                    <div className="flex items-center justify-between p-3.5 rounded-xl bg-blue-500/5 border border-blue-500/10">
+                        <div className="flex items-center gap-2.5">
+                            <div className="p-1.5 rounded-lg bg-blue-500/10 border border-blue-500/10 text-blue-400">
+                                <ExternalLink className="w-3.5 h-3.5" />
+                            </div>
+                            <div>
+                                <div className="text-[13px] font-bold text-white/90">
+                                    {lang === 'ru' ? 'Стриминг' : 'Streaming'}
+                                </div>
+                                <div className="text-[10px] text-muted leading-none mt-0.5">
+                                    {lang === 'ru' ? 'Текст появляется во время записи (Groq/Deepgram)' : 'Text appears during recording (Groq/Deepgram)'}
+                                </div>
+                            </div>
+                        </div>
+                        <Toggle checked={streamingEnabled} onChange={onToggleStreaming} />
                     </div>
 
                     <div className="flex flex-col p-3.5 rounded-xl bg-surface border border-subtle gap-2">

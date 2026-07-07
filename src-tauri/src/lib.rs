@@ -13,6 +13,7 @@ mod tray;
 mod commands;
 mod diag;
 mod history;
+mod streaming;
 
 use std::sync::{Arc, Mutex};
 use tauri::{tray::TrayIconBuilder, tray::TrayIconEvent, Manager, Emitter};
@@ -64,6 +65,9 @@ pub fn run() {
     } else { "en" };
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_log::Builder::default()
+            .level(log::LevelFilter::Info)
+            .build())
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_clipboard_manager::init())
@@ -101,12 +105,14 @@ pub fn run() {
             app.manage(GroqLanguage(Mutex::new("mixed".to_string())));
             app.manage(AutoPause(Mutex::new(false)));
             app.manage(AutoPaste(Mutex::new(true)));
-            app.manage(NoiseGateThreshold(Mutex::new(0.004)));
+            app.manage(NoiseGateThreshold(Mutex::new(0.002)));
             app.manage(AlwaysOnTop(Mutex::new(true)));
             app.manage(TargetApp(Mutex::new(("Unknown".to_string(), "Unknown".to_string()))));
             app.manage(AppLanguage(Mutex::new(sys_lang.to_string())));
             app.manage(keys::ApiKeys::default());
             app.manage(AiSemaphore(tokio::sync::Semaphore::new(1)));
+            app.manage(StreamingEnabled(Mutex::new(false)));
+            app.manage(StreamingResult(Mutex::new(None)));
 
             #[cfg(target_os = "windows")]
             {

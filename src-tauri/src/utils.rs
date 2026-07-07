@@ -258,7 +258,7 @@ pub fn remove_hallucinations(text: &str) -> String {
     let res = HALLUCINATION_RES.get_or_init(|| {
         patterns
             .iter()
-            .filter_map(|p| Regex::new(&format!(r"(?i)\b?{}\b?", regex::escape(p))).ok())
+            .filter_map(|p| Regex::new(&format!(r"(?i)\b{}\b", regex::escape(p))).ok())
             .collect()
     });
 
@@ -358,4 +358,124 @@ pub fn strip_filler_phrases(text: &str) -> String {
     }
 
     cleaned
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── resample_to_16k ──────────────────────────────────────────────────────
+
+    #[test]
+    fn resample_same_rate_returns_copy() {
+        let input = vec![1.0, 2.0, 3.0, 4.0];
+        let output = resample_to_16k(&input, 16000, 16000);
+        assert_eq!(input, output);
+    }
+
+    #[test]
+    fn resample_empty_input() {
+        let output = resample_to_16k(&[], 44100, 16000);
+        assert!(output.is_empty());
+    }
+
+    #[test]
+    fn resample_44100_to_16000_shortens() {
+        let input = vec![0.0; 44100]; // 1 second at 44.1kHz
+        let output = resample_to_16k(&input, 44100, 16000);
+        assert_eq!(output.len(), 16000);
+    }
+
+    #[test]
+    fn resample_preserves_silence() {
+        let input = vec![0.0; 48000];
+        let output = resample_to_16k(&input, 48000, 16000);
+        assert!(output.iter().all(|&s| s == 0.0));
+    }
+
+    // ── clean_repetitive_phrases ─────────────────────────────────────────────
+
+    #[test]
+    fn clean_removes_duplicate_words() {
+        let result = clean_repetitive_phrases("hello hello world");
+        assert_eq!(result, "hello world");
+    }
+
+    #[test]
+    fn clean_preserves_unique_words() {
+        let result = clean_repetitive_phrases("hello world");
+        assert_eq!(result, "hello world");
+    }
+
+    #[test]
+    fn clean_empty_input() {
+        let result = clean_repetitive_phrases("");
+        assert_eq!(result, "");
+    }
+
+    #[test]
+    fn clean_removes_hallucination_patterns() {
+        // [music] is matched by remove_hallucinations which uses word-boundary regex
+        // Brackets are not word chars, so the pattern must be in the explicit list
+        let result = clean_repetitive_phrases("DimaTorzok hello world");
+        assert_eq!(result, "hello world");
+    }
+
+    #[test]
+    fn clean_removes_subtitles_pattern() {
+        let result = clean_repetitive_phrases("hello world subtitles by amara.org");
+        assert_eq!(result, "hello world");
+    }
+
+    // ── strip_filler_phrases ─────────────────────────────────────────────────
+
+    #[test]
+    fn strip_removes_russian_preamble() {
+        let result = strip_filler_phrases("Вот исправленный текст: привет мир");
+        assert_eq!(result, "привет мир");
+    }
+
+    #[test]
+    fn strip_removes_english_preamble() {
+        let result = strip_filler_phrases("Here's the cleaned text: hello world");
+        assert_eq!(result, "hello world");
+    }
+
+    #[test]
+    fn strip_preserves_normal_text() {
+        let result = strip_filler_phrases("привет мир");
+        assert_eq!(result, "привет мир");
+    }
+
+    #[test]
+    fn strip_returns_empty_for_short_text() {
+        let result = strip_filler_phrases("a");
+        assert_eq!(result, "");
+    }
+
+    #[test]
+    fn strip_returns_empty_for_punctuation_only() {
+        let result = strip_filler_phrases("...");
+        assert_eq!(result, "");
+    }
+
+    // ── remove_hallucinations ────────────────────────────────────────────────
+
+    #[test]
+    fn hallucination_removes_dima_torzok() {
+        let result = remove_hallucinations("hello DimaTorzok world");
+        assert_eq!(result, "hello world");
+    }
+
+    #[test]
+    fn hallucination_removes_subtitles() {
+        let result = remove_hallucinations("текст Субтитры далее");
+        assert_eq!(result, "текст далее");
+    }
+
+    #[test]
+    fn hallucination_preserves_normal_text() {
+        let result = remove_hallucinations("привет мир");
+        assert_eq!(result, "привет мир");
+    }
 }

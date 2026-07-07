@@ -8,9 +8,9 @@ This directory contains detailed release notes for every version of NYX Vox.
 - [v1.1.0](v1.1.0/release.md) - **Transcription Reliability & Tech-Vocab Update** 🚀
 - [v1.0.0](v1.0.0/release.md) - **Official Release (Code Cleanup, Text Selection & AI Fixes)** 🚀
 - [v0.1.3-beta](v0.1.3-beta/release.md) - Maintenance & UI Polish
-- [v0.1.2-beta](v0.1.2-beta/release.md) - Onboarding & Stability
-- [v0.1.1-beta](v0.1.1-beta/release.md) - Native Paste & Offline
-- [v0.1.0-beta](v0.1.0-beta/release.md) - Initial Public Beta
+- v0.1.2-beta - Onboarding & Stability *(release notes not preserved)*
+- v0.1.1-beta - Native Paste & Offline *(release notes not preserved)*
+- v0.1.0-beta - Initial Public Beta *(release notes not preserved)*
 
 ---
 
@@ -24,6 +24,6 @@ This directory contains detailed release notes for every version of NYX Vox.
 - [v1.1.0](v1.1.0/release.md) — **Надёжность транскрибации и IT-словарь** 🚀
 - [v1.0.0](v1.0.0/release.md) — **Официальный релиз (Очистка кода, Выделение текста и Исправление AI)** 🚀
 - [v0.1.3-beta](v0.1.3-beta/release.md) — Техническое обслуживание и улучшение UI
-- [v0.1.2-beta](v0.1.2-beta/release.md) — Адаптация и стабильность
-- [v0.1.1-beta](v0.1.1-beta/release.md) — Нативная вставка и офлайн-режим
-- [v0.1.0-beta](v0.1.0-beta/release.md) — Первоначальная публичная бета-версия
+- v0.1.2-beta — Адаптация и стабильность *(заметки о релизе не сохр��нены)*
+- v0.1.1-beta — Нативная вставка и офлайн-режим *(заметки о релизе не сохранены)*
+- v0.1.0-beta — Первоначальная публичная бета-версия *(заметки о релизе не сохранены)*

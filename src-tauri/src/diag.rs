@@ -30,7 +30,6 @@ pub async fn run_self_diagnosis(app: AppHandle) -> Result<serde_json::Value, Str
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     
     #[test]
     fn test_resample_logic() {

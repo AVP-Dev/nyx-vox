@@ -256,6 +256,7 @@ pub async fn stop_recording(
         mode
     };
     let model_type = *whisper_model.0.lock().map_err(|e| e.to_string())?;
+    log::debug!("stop_recording: mode={}, model_type={:?}", mode, model_type);
 
     let lang = match mode.as_str() {
         "deepgram" => dg_lang.0.lock().map_err(|e| e.to_string())?.clone(),
@@ -269,6 +270,7 @@ pub async fn stop_recording(
     did_pause_media.0.store(false, Ordering::SeqCst);
 
     let result = if mode == "deepgram" {
+        log::debug!("stop_recording: calling Deepgram...");
         let api_key = api_keys
             .0
             .lock()
@@ -286,6 +288,7 @@ pub async fn stop_recording(
         )
         .await
     } else if mode == "whisper" {
+        log::debug!("stop_recording: calling Whisper...");
         whisper::stop_recording(
             Arc::clone(&state),
             Arc::clone(&recording_flag.0),
@@ -295,6 +298,7 @@ pub async fn stop_recording(
         )
         .await
     } else if mode == "groq" || mode == "gemini" {
+        log::debug!("stop_recording: calling {}...", mode.to_uppercase());
         let service = if mode == "groq" {
             keys::Service::Groq
         } else {
@@ -338,6 +342,7 @@ pub async fn stop_recording(
     }
 
     let mut final_text = result.clone();
+    log::debug!("stop_recording: raw result: {:?}", final_text.chars().take(200).collect::<String>());
     if final_text.trim().starts_with('{') {
         if let Ok(json) = serde_json::from_str::<serde_json::Value>(&final_text) {
             if let Some(content) = json["content"].as_str() {
@@ -345,9 +350,17 @@ pub async fn stop_recording(
             }
         }
     }
+    log::debug!("stop_recording: after JSON unwrap: {:?}", final_text.chars().take(200).collect::<String>());
 
+    let pre_cleanup = final_text.clone();
     final_text = crate::utils::strip_filler_phrases(&crate::utils::clean_repetitive_phrases(&final_text));
+    log::debug!("stop_recording: after cleanup: {:?}", final_text.chars().take(200).collect::<String>());
+    if final_text.trim().is_empty() && !pre_cleanup.trim().is_empty() {
+        log::debug!("stop_recording: cleanup stripped all text, falling back to raw");
+        final_text = pre_cleanup;
+    }
     final_text = crate::transliteration::fix_transliterations(&final_text);
+    log::debug!("stop_recording: final_text len={}", final_text.len());
 
     if !final_text.is_empty() {
         let f_mode = formatting_mode.0.lock().map_err(|e| e.to_string())?.clone();
@@ -409,7 +422,11 @@ pub async fn stop_recording(
                     };
                     match refined {
                         Ok(text) => {
-                            final_text = text;
+                            if !text.trim().is_empty() {
+                                final_text = text;
+                            } else {
+                                log::debug!("stop_recording: formatting returned empty, keeping pre-formatted text");
+                            }
                             let _ = app.emit("formatting-status", "done");
                         }
                         Err(e) => {
@@ -530,7 +547,12 @@ pub fn paste_text(app: AppHandle, text: String) -> Result<(), String> {
 
 #[tauri::command]
 pub fn get_target_app(state: State<'_, TargetApp>) -> String {
-    state.0.lock().unwrap().0.clone()
+    state
+        .0
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .0
+        .clone()
 }
 
 #[tauri::command]
@@ -579,7 +601,7 @@ pub async fn check_accessibility() -> Result<bool, String> {
                 return Ok(true);
             }
 
-            println!("[Accessibility] Status: NOT TRUSTED. If granted in settings, please remove and re-add NYX Vox to the list.");
+            log::warn!("Accessibility Status: NOT TRUSTED. If granted in settings, please remove and re-add NYX Vox to the list.");
         }
 
         Ok(trusted)

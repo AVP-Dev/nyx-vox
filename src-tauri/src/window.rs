@@ -37,8 +37,8 @@ pub fn show_window_at_size<R: Runtime>(app: &AppHandle<R>, width: f64, height: f
 }
 
 pub fn show_overlay<R: Runtime>(app: &AppHandle<R>) {
-    println!("DEBUG: show_overlay called");
-    
+    log::debug!("show_overlay called");
+
     // 1. Capture target app info IMMEDIATELY before showing window
     let info = get_frontmost_app_info();
     if let Some(state) = app.try_state::<TargetApp>() {
@@ -48,24 +48,24 @@ pub fn show_overlay<R: Runtime>(app: &AppHandle<R>) {
     }
 
     if let Some(window) = app.get_webview_window("main") {
-        println!("DEBUG: 'main' window found, calling show()");
-        
+        log::debug!("'main' window found, calling show()");
+
         // Ensure the app is active and unhidden on macOS
         #[cfg(target_os = "macos")]
         {
-            app.show().ok(); 
+            app.show().ok();
             // Allow window to appear on all workspaces and over full-screen apps
             window.set_visible_on_all_workspaces(true).ok();
         }
 
         let _ = window.show();
         let _ = window.set_focus();
-        
+
         // Respect user preference for Always on Top
         if let Some(aot_state) = app.try_state::<AlwaysOnTop>() {
             if let Ok(enabled) = aot_state.0.lock() {
                 let _ = window.set_always_on_top(*enabled);
-                
+
                 // Extra punch for macOS: Ensure it's really on top if enabled
                 #[cfg(target_os = "macos")]
                 if *enabled {
@@ -78,7 +78,7 @@ pub fn show_overlay<R: Runtime>(app: &AppHandle<R>) {
 
         let _ = app.emit("app-summon", ());
     } else {
-        println!("DEBUG: ERROR - 'main' window NOT FOUND");
+        log::error!("'main' window NOT FOUND");
     }
 }
 

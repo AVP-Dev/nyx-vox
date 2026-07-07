@@ -56,7 +56,7 @@ impl ApiKeys {
             .build("NYX_VOX_SALT")
             .unwrap_or_else(|_| "FALLBACK_ID".to_string());
         if hardware_id == "FALLBACK_ID" {
-            eprintln!("WARNING: Using fallback HWID for encryption. Keys may not be portable.");
+            log::warn!("Using fallback HWID for encryption. Keys may not be portable.");
         }
         let mut hasher = Sha256::new();
         hasher.update(hardware_id.as_bytes());
@@ -145,7 +145,7 @@ impl ApiKeys {
                                 }
                             }
                             Err(e) => {
-                                eprintln!("ERROR: Failed to decrypt key for {:?}: {}", service, e);
+                                log::error!("Failed to decrypt key for {:?}: {}", service, e);
                             }
                         }
                     }
@@ -191,5 +191,74 @@ impl Default for ApiKeys {
             map.insert(service.clone(), None);
         }
         Self(Mutex::new(map))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn encrypt_decrypt_roundtrip() {
+        let plain = "sk-test-api-key-12345";
+        let encrypted = ApiKeys::encrypt_key(plain).expect("encrypt should succeed");
+        let decrypted = ApiKeys::decrypt_key(&encrypted).expect("decrypt should succeed");
+        assert_eq!(decrypted, plain);
+    }
+
+    #[test]
+    fn encrypt_decrypt_empty_string() {
+        let encrypted = ApiKeys::encrypt_key("").expect("encrypt empty should succeed");
+        let decrypted = ApiKeys::decrypt_key(&encrypted).expect("decrypt should succeed");
+        assert_eq!(decrypted, "");
+    }
+
+    #[test]
+    fn encrypt_decrypt_unicode() {
+        let plain = "ключ-ключ-🔑-测试";
+        let encrypted = ApiKeys::encrypt_key(plain).expect("encrypt should succeed");
+        let decrypted = ApiKeys::decrypt_key(&encrypted).expect("decrypt should succeed");
+        assert_eq!(decrypted, plain);
+    }
+
+    #[test]
+    fn encrypted_format_starts_with_v2() {
+        let encrypted = ApiKeys::encrypt_key("test").unwrap();
+        assert!(encrypted.starts_with("v2:"), "Expected v2: prefix, got: {}", &encrypted[..encrypted.len().min(10)]);
+    }
+
+    #[test]
+    fn decrypt_invalid_format_returns_error() {
+        let result = ApiKeys::decrypt_key("not-a-valid-cipher");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn decrypt_v2_short_payload_returns_error() {
+        // v2: prefix + tiny base64 that decodes to <12 bytes
+        let result = ApiKeys::decrypt_key("v2:AAA");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn each_encryption_produces_different_output() {
+        // Nonce is random, so two encryptions of same text should differ
+        let e1 = ApiKeys::encrypt_key("same-text").unwrap();
+        let e2 = ApiKeys::encrypt_key("same-text").unwrap();
+        assert_ne!(e1, e2, "Two encryptions of same text should differ (random nonce)");
+        // But both should decrypt to the same value
+        assert_eq!(ApiKeys::decrypt_key(&e1).unwrap(), ApiKeys::decrypt_key(&e2).unwrap());
+    }
+
+    #[test]
+    fn service_store_keys_are_unique() {
+        let keys: Vec<&str> = Service::ALL.iter().map(|s| s.store_key()).collect();
+        let unique: std::collections::HashSet<&str> = keys.iter().copied().collect();
+        assert_eq!(keys.len(), unique.len(), "store_key() values must be unique");
+    }
+
+    #[test]
+    fn service_all_contains_five_variants() {
+        assert_eq!(Service::ALL.len(), 5);
     }
 }

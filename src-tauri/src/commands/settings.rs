@@ -6,6 +6,7 @@ use crate::state::*;
 use crate::{keys, whisper, tray};
 
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub async fn get_all_settings(
     app: AppHandle,
     stt_mode: State<'_, SttMode>,
@@ -276,7 +277,7 @@ pub async fn get_services_status(state: State<'_, keys::ApiKeys>) -> Result<Hash
     let mut status = HashMap::new();
     if let Ok(lock) = state.0.lock() {
         for (service, key_opt) in lock.iter() {
-            status.insert(service.clone(), key_opt.is_some() && !key_opt.as_ref().unwrap().is_empty());
+            status.insert(service.clone(), key_opt.as_ref().is_some_and(|k| !k.is_empty()));
         }
     }
     Ok(status)

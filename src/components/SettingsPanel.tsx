@@ -17,6 +17,8 @@ import { EnginesTab, type EngineHelp } from './settings/EnginesTab';
 import { KeysTab } from './settings/KeysTab';
 import { HistoryTab } from './settings/HistoryTab';
 import { InfoTab } from './settings/InfoTab';
+import { ToastContainer, useToast } from './ui/Toast';
+import { ConfirmDialog, useConfirm } from './ui/ConfirmDialog';
 
 type SttLanguage = 'auto' | 'mixed' | 'ru' | 'en';
 
@@ -75,6 +77,8 @@ interface SettingsPanelProps {
     onSetFormattingMode: (m: 'none' | 'gemini' | 'deepseek' | 'qwen' | 'groq') => void;
     noiseGate: number;
     onSetNoiseGate: (v: number) => void;
+    streamingEnabled: boolean;
+    onToggleStreaming: (v: boolean) => void;
 }
 
 export const SettingsPanel: React.FC<SettingsPanelProps> = ({ 
@@ -89,10 +93,13 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     whisperLanguage, onSetWhisperLanguage,
     groqLanguage, onSetGroqLanguage,
     formattingMode, onSetFormattingMode,
-    noiseGate, onSetNoiseGate
+    noiseGate, onSetNoiseGate,
+    streamingEnabled, onToggleStreaming
 }) => {
     const [tab, setTab] = useState('general');
     const [showHelp, setShowHelp] = useState<string | null>(null);
+    const { toasts, addToast, dismissToast } = useToast();
+    const confirmDialog = useConfirm();
 
     // Settings State
     const [whisperModel, setWhisperModel] = useState<'small' | 'medium' | 'turbo'>('small');
@@ -139,26 +146,29 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
             try {
                 const acc = await invoke<boolean>('check_accessibility');
                 const mic = await invoke<boolean>('check_microphone_permission');
-                
-                const accJustGranted = acc && (accGranted === false || accGranted === null);
-                const micJustGranted = mic && (micGranted === false || micGranted === null);
 
-                if (accJustGranted || micJustGranted) {
-                    const { getCurrentWindow } = await import('@tauri-apps/api/window');
-                    const win = getCurrentWindow();
-                    await win.show();
-                    await win.setFocus();
-                    if (alwaysOnTop) {
-                        try {
-                            await win.setAlwaysOnTop(true);
-                        } catch (e) { console.error(e); }
-                    }
-                }
+                setAccGranted(prevAcc => {
+                    setMicGranted(prevMic => {
+                        const accJustGranted = acc && (prevAcc === false || prevAcc === null);
+                        const micJustGranted = mic && (prevMic === false || prevMic === null);
 
-                setAccGranted(acc);
-                setMicGranted(mic);
-            } catch (e) {
-                console.error('Failed to check permissions:', e);
+                        if (accJustGranted || micJustGranted) {
+                            import('@tauri-apps/api/window').then(async ({ getCurrentWindow }) => {
+                                const win = getCurrentWindow();
+                                await win.show();
+                                await win.setFocus();
+                                if (alwaysOnTop) {
+                                    try { await win.setAlwaysOnTop(true); } catch { /* ignore */ }
+                                }
+                            });
+                        }
+
+                        return mic;
+                    });
+                    return acc;
+                });
+            } catch {
+                // Permission check failed — non-critical
             }
         };
 
@@ -170,7 +180,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
             });
         }
         return () => { if (unlistenFn) unlistenFn(); };
-    }, [accGranted, micGranted, alwaysOnTop]);
+    }, [alwaysOnTop]);
 
     useEffect(() => {
         const loadSettings = async () => {
@@ -179,16 +189,16 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 if (savedLang) setLang(savedLang as 'ru' | 'en');
 
                 const wm = await invoke<'small' | 'medium' | 'turbo'>('get_whisper_model_type'); setWhisperModel(wm);
-                
-                const keys = ['deepgram', 'groq', 'gemini', 'qwen', 'deepseek'];
-                for (const s of keys) {
-                    const k = await invoke<string>('get_api_key', { service: s });
-                    if (s === 'deepgram') setDgApiKey(k);
-                    else if (s === 'groq') setGroqApiKey(k);
-                    else if (s === 'gemini') setGeminiApiKey(k);
-                    else if (s === 'qwen') setQwenApiKey(k);
-                    else if (s === 'deepseek') setDeepseekApiKey(k);
-                }
+
+                const services = ['deepgram', 'groq', 'gemini', 'qwen', 'deepseek'] as const;
+                const apiKeys = await Promise.all(
+                    services.map(s => invoke<string>('get_api_key', { service: s }))
+                );
+                setDgApiKey(apiKeys[0]);
+                setGroqApiKey(apiKeys[1]);
+                setGeminiApiKey(apiKeys[2]);
+                setQwenApiKey(apiKeys[3]);
+                setDeepseekApiKey(apiKeys[4]);
 
                 const hist = await invoke<[boolean, string]>('get_history_settings');
                 setHistorySmartCleanup(hist[0]);
@@ -252,11 +262,11 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         setIsPaused(false);
         setDownloadProgress('0%');
         try { await invoke('download_whisper_model'); }
-        catch (err) { 
+        catch (err) {
             if (err !== 'Загрузка отменена') {
-                alert(err); 
+                addToast(String(err), 'error');
             }
-            setDownloading(false); 
+            setDownloading(false);
         }
     };
 
@@ -282,21 +292,27 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
             await invoke('delete_whisper_model');
             setModelAvailable(false);
         } catch (err) {
-            alert(`Error deleting model: ${err}`);
-            console.error("Delete model error:", err);
+            addToast(`${lang === 'ru' ? 'Ошибка удаления модели' : 'Error deleting model'}: ${err}`, 'error');
         }
     };
 
     const handleSaveKey = async (service: string, key: string) => {
         try {
             await invoke('cmd_set_api_key', { service, key });
-            setSavedStatus({ ...savedStatus, [service]: true });
-            setTimeout(() => setSavedStatus({ ...savedStatus, [service]: false }), 2000);
-        } catch (err) { alert(err); }
+            setSavedStatus(prev => ({ ...prev, [service]: true }));
+            setTimeout(() => setSavedStatus(prev => ({ ...prev, [service]: false })), 2000);
+        } catch (err) { addToast(String(err), 'error'); }
     };
 
     const handleDeleteKey = async (service: string) => {
-        if (confirm(lang === 'ru' ? 'Удалить ключ?' : 'Delete key?')) {
+        const confirmed = await confirmDialog.confirm({
+            title: lang === 'ru' ? 'Удалить ключ?' : 'Delete key?',
+            message: lang === 'ru' ? 'Это действие нельзя отменить.' : 'This action cannot be undone.',
+            confirmLabel: lang === 'ru' ? 'Удалить' : 'Delete',
+            cancelLabel: lang === 'ru' ? 'Отмена' : 'Cancel',
+            destructive: true,
+        });
+        if (confirmed) {
             await invoke('cmd_set_api_key', { service, key: '' });
             if (service === 'deepgram') setDgApiKey('');
             else if (service === 'groq') setGroqApiKey('');
@@ -314,8 +330,11 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
     const handleClearHistory = async () => {
         if (!isConfirmingClear) { setIsConfirmingClear(true); setTimeout(() => setIsConfirmingClear(false), 3000); return; }
-        try { await invoke('clear_history'); setIsConfirmingClear(false); alert(lang === 'ru' ? 'Очищено' : 'Cleared'); }
-        catch (err) { alert(err); }
+        try {
+            await invoke('clear_history');
+            setIsConfirmingClear(false);
+            addToast(lang === 'ru' ? 'Очищено' : 'Cleared', 'success');
+        } catch (err) { addToast(String(err), 'error'); }
     };
 
     const handleOpenHistory = () => invoke('open_history_window');
@@ -343,15 +362,15 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                     setShowUpdatePopup(true);
                 } else {
                     setUpdateStatus('idle');
-                    alert(lang === 'ru' ? 'У вас установлена самая актуальная версия!' : 'You have the latest version installed!');
+                    addToast(lang === 'ru' ? 'У вас установлена самая актуальная версия!' : 'You have the latest version installed!', 'success');
                 }
             } else {
                 setUpdateStatus('idle');
-                alert(lang === 'ru' ? 'Не удалось проверить обновления.' : 'Failed to check for updates.');
+                addToast(lang === 'ru' ? 'Не удалось проверить обновления.' : 'Failed to check for updates.', 'error');
             }
         } catch {
             setUpdateStatus('idle');
-            alert(lang === 'ru' ? 'Ошибка при проверке обновлений.' : 'Error checking for updates.');
+            addToast(lang === 'ru' ? 'Ошибка при проверке обновлений.' : 'Error checking for updates.', 'error');
         }
     };
 
@@ -419,8 +438,8 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                                     transition={{ duration: 0.2 }}
                                 >
                                     {tab === 'general' && (
-                                        <GeneralTab 
-                                            c={c} lang={lang} 
+                                        <GeneralTab
+                                            c={c} lang={lang}
                                             autoPaste={autoPaste} onToggleAutoPaste={onToggleAutoPaste}
                                             clearOnPaste={clearOnPaste} onToggleClearOnPaste={onToggleClearOnPaste}
                                             startMinimized={startMinimized} onToggleStartMinimized={onToggleStartMinimized}
@@ -430,6 +449,9 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                                             noiseGate={noiseGate} onSetNoiseGate={onSetNoiseGate}
                                             micGranted={micGranted}
                                             accGranted={accGranted}
+                                            streamingEnabled={streamingEnabled}
+                                            onToggleStreaming={onToggleStreaming}
+                                            addToast={addToast}
                                         />
                                     )}
                                     {tab === 'engines' && (
@@ -550,6 +572,21 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                         </motion.div>
                     )}
                 </AnimatePresence>
+
+                {/* Toast Notifications */}
+                <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+
+                {/* Confirm Dialog */}
+                <ConfirmDialog
+                    open={confirmDialog.open}
+                    title={confirmDialog.title}
+                    message={confirmDialog.message}
+                    confirmLabel={confirmDialog.confirmLabel}
+                    cancelLabel={confirmDialog.cancelLabel}
+                    destructive={confirmDialog.destructive}
+                    onConfirm={() => confirmDialog.onConfirm?.()}
+                    onCancel={confirmDialog.cancel}
+                />
         </motion.div>
     );
 };

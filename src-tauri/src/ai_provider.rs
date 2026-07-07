@@ -182,7 +182,7 @@ pub fn start_recording<R: Runtime>(
                     lock.samples.extend_from_slice(&mono);
                 }
             },
-            |err| eprintln!("cpal error: {}", err),
+            |err| log::error!("cpal error: {}", err),
             None,
         );
 
@@ -281,7 +281,7 @@ pub async fn stop_recording<R: Runtime>(
         .send()
         .await
         .map_err(|e| {
-            eprintln!("❌ [CRITICAL ERROR] Groq STT Network Error: {}", e);
+            log::error!("Groq STT Network Error: {}", e);
             format!("Network error: {}", e)
         })?;
 
@@ -470,7 +470,7 @@ pub async fn groq_refine_text<R: Runtime>(
     let body_text = res.text().await.unwrap_or_default();
 
     if !status.is_success() {
-        eprintln!("Groq refinement error: {}", status);
+        log::error!("Groq refinement error: {}", status);
         return Err(format!(
             "Groq AI Refinement Failed ({}): {}",
             status, body_text
@@ -566,7 +566,7 @@ pub async fn gemini_refine_text<R: Runtime>(
     let body_text = res.text().await.unwrap_or_default();
 
     if !status.is_success() {
-        eprintln!("Gemini refinement error: {} ({})", status, GEMINI_MODEL);
+        log::error!("Gemini refinement error: {} ({})", status, GEMINI_MODEL);
         return Err(format!(
             "Gemini AI Refinement Failed ({}): {}",
             status, body_text
@@ -585,4 +585,41 @@ pub async fn gemini_refine_text<R: Runtime>(
     let _ = app.emit("ai-result", &final_text);
 
     Ok(final_text)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn build_refinement_with_custom_instruction() {
+        let result = build_refinement_user_content(
+            Some("Clean this text".to_string()),
+            "hello world",
+        );
+        assert!(result.starts_with("Clean this text"));
+        assert!(result.contains("hello world"));
+        assert!(result.contains(crate::prompts::REFINEMENT_USER_DELIMITER));
+        assert!(result.ends_with(crate::prompts::REFINEMENT_USER_SUFFIX));
+    }
+
+    #[test]
+    fn build_refinement_with_default_instruction() {
+        let result = build_refinement_user_content(None, "test text");
+        assert!(result.contains(crate::prompts::REFINEMENT_USER_INSTRUCTION_GENERIC));
+        assert!(result.contains("test text"));
+    }
+
+    #[test]
+    fn build_refinement_preserves_text_content() {
+        let result = build_refinement_user_content(None, "привет мир, hello world");
+        assert!(result.contains("привет мир, hello world"));
+    }
+
+    #[test]
+    fn build_refinement_empty_text() {
+        let result = build_refinement_user_content(None, "");
+        assert!(!result.is_empty()); // instruction + delimiters still present
+        assert!(result.contains(crate::prompts::REFINEMENT_USER_DELIMITER));
+    }
 }

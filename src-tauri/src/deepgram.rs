@@ -75,7 +75,7 @@ pub fn start_recording<R: Runtime>(
                     lock.samples.extend_from_slice(&mono);
                 }
             },
-            |err| eprintln!("cpal error: {}", err),
+            |err| log::error!("cpal error: {}", err),
             None,
         );
 

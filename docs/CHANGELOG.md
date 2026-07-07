@@ -4,6 +4,54 @@
 
 ---
 
+## 📅 Unreleased (Post-1.2.0 Quality Improvements)
+
+### 🧹 Architecture & Code Quality Overhaul
+
+#### 1. **Frontend Refactoring** ✅
+- `page.tsx` 1065 → 297 lines (−72%)
+- Extracted 8 hooks: `useSettings`, `useRecording`, `useWindowManager`, `useInitialSettings`, `useTargetApp`, `useTauriEvents`, `useKeyboardShortcuts`, `useTrayLanguage`
+- Extracted 4 components: `QuickMenu`, `HeaderBar`, `ResultPane`, `ActionBar`
+- Extracted 4 utility modules: `types`, `text`, `windowSizes`, `animations`
+- Lazy loading for `SettingsPanel` and `WelcomeOverlay`
+
+#### 2. **Backend Refactoring** ✅
+- `whisper.rs` 846 lines → 6 focused modules (`whisper/`): `paths`, `model_cache`, `recording`, `transcribe`, `download`, `mod`
+- Deduplicated 4 patterns: filename/URL mapping, model_mutex, spawn_capture_thread, hallucination filtering
+
+#### 3. **Critical Bug Fixes (6 P0)** ✅
+- B6: Multi-char uppercase handling in transcription
+- B7: Hallucination substring matching (was false-positive on normal text)
+- B1: Animation target wrong phase in auto-paste mode
+- B3: JSON parsing fallback for raw text starting with `{`
+- P2: Stale closure in SettingsPanel `setSavedStatus`
+- All other P0 bugs from audit resolved
+
+#### 4. **SettingsPanel & GeneralTab Fixes** ✅
+- Replaced 10× `alert()`/`confirm()` with `Toast` and `ConfirmDialog` UI components
+- Fixed stale closure in `setSavedStatus` (functional update)
+- Sequential `invoke` calls → `Promise.all` for parallel execution
+- Removed unnecessary `useEffect` deps causing re-renders
+
+#### 5. **Logging & Safety** ✅
+- Replaced ~50 `println!`/`eprintln!` → `log::debug!/info!/warn!/error!` across 9 files
+- All `unwrap()` → safe alternatives (mutex, settings, debug_log)
+- Added `tauri_plugin_log` for structured logging
+- Clippy: 0 warnings (was 8)
+
+#### 6. **Test Suite** ✅
+- **Frontend:** Vitest setup + 60 tests (was 0%)
+  - `text.test.ts` — 32 tests for `cleanHallucinations`
+  - `windowSizes.test.ts` — 17 tests for window size logic
+  - `useStore.test.ts` — 11 tests for Zustand store
+- **Backend:** 74 Rust tests (was 51)
+  - `ai_provider.rs` — 4 tests for refinement content builder
+  - `keys.rs` — 9 tests for encrypt/decrypt roundtrip
+  - `history.rs` — 11 tests for retention periods and serialization
+  - Extracted `retention_period_to_seconds()` as testable pure function
+
+---
+
 ## 📅 Version 1.2.0 (Current)
 
 ### 🎯 Security Hardening & Architecture Overhaul
