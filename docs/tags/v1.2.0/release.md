@@ -96,9 +96,9 @@ This release represents a comprehensive audit-driven overhaul of NYX Vox. We've 
 
 ---
 
-## 📋 Post-Release Updates (2026-07-07)
+## 📋 Дополнения к v1.2.0 (2026-07-07)
 
-> Изменения, внесённые после релиза v1.2.0 в рамках работы над качеством кодовой базы.
+> Изменения, внесённые в рамках подготовки к релизу v1.2.0.
 
 ### 🧹 Рефакторинг архитектуры
 - **Frontend:** `page.tsx` 1065 → 297 строк (−72%). Извлечено 8 хуков, 4 компонента, 4 utility-модуля. Lazy loading для SettingsPanel/WelcomeOverlay.
