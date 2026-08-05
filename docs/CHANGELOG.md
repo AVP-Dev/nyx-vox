@@ -118,7 +118,13 @@
 
 ---
 
-## 📅 Version 1.2.0 (Current)
+## 📅 Version 1.2.0 (Next Release — not yet published)
+
+> The last public release is **v1.1.0**. The v1.2.0 tag exists in git, but no
+> v1.2.0 build was ever published. The next public release will be named
+> **v1.2.0** (not v1.3.0), and it will include everything listed below plus
+> the Unreleased section above (GigaChat, Whisper speed, stability fixes,
+> language auto-detection).
 
 ### 🎯 Security Hardening & Architecture Overhaul
 

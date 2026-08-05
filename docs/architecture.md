@@ -10,8 +10,8 @@ NYX Vox — десктопное приложение для голосовог�
 
 Поток данных:
 ```
-Микрофон → cpal (запись) → STT-движок (Whisper/Deepgram/Groq)
-→ Текст → AI-форматирование (Gemini/DeepSeek/Qwen) → Автопаста (enigo)
+Микрофон → cpal (запись) → STT-движок (Whisper/Deepgram/Groq/Gemini/GigaChat)
+→ Текст → AI-форматирование (Gemini/DeepSeek/Qwen/Groq/GigaChat) → Автопаста (enigo)
 ```
 
 Frontend (Next.js) отображает UI и вызывает backend через Tauri IPC.
@@ -21,24 +21,24 @@ Backend (Rust) обрабатывает аудио, вызывает STT и AI A
 
 ### Audio Pipeline (commands/audio.rs)
 - Назначение: запись с микрофона, остановка, обработка аудио
-- Расположение: `src-tauri/src/commands/audio.rs` (697 строк)
-- Ключевые функции: `start_recording`, `stop_recording`, `process_audio`
+- Расположение: `src-tauri/src/commands/audio.rs`
+- Ключевые функции: `start_recording`, `stop_recording`, `paste_text`, `process_audio`
 - Зависит от: cpal, hound, whisper-rs, state.rs
-- Особенности: Noise Gate, tail padding, compare_exchange для atomic stop
+- Особенности: Noise Gate, Audio Gain (1.0-5.0), tail padding, compare_exchange для atomic stop, причины отклонения записи (тихо/коротко/нет звука)
 
-### STT Engine (whisper.rs, deepgram.rs)
+### STT Engine (whisper/, deepgram.rs, ai_provider.rs, gigachat.rs)
 - Назначение: распознавание речи в текст
-- Расположение: `src-tauri/src/whisper.rs` (747 строк), `deepgram.rs` (205 строк)
-- Ключевые файлы: whisper.rs (локальный), deepgram.rs (облачный, WebSocket)
-- Зависит от: whisper-rs (Metal/CoreML), tungstenite, tokio-tungstenite
-- Особенности: три модели Whisper (Small/Medium/Turbo), загрузка моделей при первом использовании, Core ML acceleration
+- Расположение: `src-tauri/src/whisper/` (6 модулей: paths, model_cache, recording, transcribe, download, mod), `deepgram.rs`, `gigachat.rs`, STT-часть в `ai_provider.rs`
+- Ключевые файлы: whisper/mod.rs (локальный), deepgram.rs (облачный, WebSocket), gigachat.rs (SberAI, HTTP)
+- Зависит от: whisper-rs (Metal/CoreML), tungstenite, tokio-tungstenite, reqwest (rustls-tls)
+- Особенности: три модели Whisper (Small/Medium/Turbo), кешированный WhisperState (без reinit Metal/Core ML), Core ML acceleration, автоопределение языка (Whisper auto, Deepgram multi, Groq ru, Gemini mixed)
 
 ### AI Provider (ai_provider.rs)
 - Назначение: форматирование текста через LLM
-- Расположение: `src-tauri/src/ai_provider.rs` (588 строк)
-- Ключевые файлы: ai_provider.rs (диспетчер), deepseek.rs, qwen.rs
+- Расположение: `src-tauri/src/ai_provider.rs`
+- Ключевые файлы: ai_provider.rs (диспетчер), deepseek.rs, qwen.rs, gigachat.rs (GigaChat-2)
 - Зависит от: reqwest, serde_json, prompts.rs
-- Особенности: три провайдера (Gemini, DeepSeek, Qwen), семафор для параллельных запросов, temperature 0.0
+- Особенности: пять провайдеров (Gemini, DeepSeek, Qwen, Groq, GigaChat), семафор для параллельных запросов, temperature 0.0
 
 ### Settings (commands/settings.rs, state.rs)
 - Назначение: управление настройками приложения
@@ -76,20 +76,19 @@ Backend (Rust) обрабатывает аудио, вызывает STT и AI A
 
 | Сервис | Зачем используется | Где в коде |
 |---|---|---|
-| Groq API | STT (Whisper Large-v3-Turbo) | ai_provider.rs |
-| Deepgram API | STT (Nova-2) | deepgram.rs |
-| Gemini API | AI-форматирование | ai_provider.rs |
+| Groq API | STT (Whisper Large-v3-Turbo) + AI-форматирование | ai_provider.rs |
+| Deepgram API | STT (Nova-2/Nova-3, WebSocket) | deepgram.rs |
+| Gemini API | STT (mixed) + AI-форматирование | ai_provider.rs |
 | DeepSeek API | AI-форматирование | deepseek.rs |
 | Qwen API | AI-форматирование | qwen.rs |
+| GigaChat API (SberAI) | STT (GigaChat-2-Pro) + AI-форматирование (GigaChat-2), OAuth, Russian Trusted CA | gigachat.rs |
 | GitHub API | Проверка обновлений | commands/app.rs |
 
 ## Известные архитектурные проблемы
 
-- `whisper.rs` (747 строк) — смешивает загрузку моделей и транскрипцию
-- `page.tsx` (1115 строк) — монолитная главная страница фронтенда
-- Нет тестов ни на одной стороне
-- macOS only — тяжёлая привязка к objc2, core-graphics
-- hooks/ — пустой каталог
+- `commands/audio.rs` — самая большая логика записи/вставки, кандидат на дальнейшее разбиение
+- GigaChat STT не проверен с реальным ключом (OAuth-флоу, выбор модели)
+- macOS only — тяжёлая привязка к objc2, core-graphics, accessibility-client
 
 ## Расхождения со старой документацией
 

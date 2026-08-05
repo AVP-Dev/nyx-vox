@@ -33,6 +33,7 @@ interface WindowSizeParams {
     isIdle: boolean;
     isOverlay: boolean;
     isCompact: boolean;
+    compactResultWindow: boolean;
     showSettings: boolean;
     showWelcome: boolean;
     showQuickMenu: boolean;
@@ -45,6 +46,7 @@ interface WindowSizeParams {
 export function resolveWindowSize(params: WindowSizeParams): [number, number] {
     const {
         phase, isIdle, isOverlay, isCompact,
+        compactResultWindow,
         showSettings, showWelcome, showQuickMenu,
         transcriptTextLength,
     } = params;
@@ -57,6 +59,6 @@ export function resolveWindowSize(params: WindowSizeParams): [number, number] {
     if (phase === 'result' && !isCompact) {
         return [WINDOW_SIZES.resultBase[0], computeResultHeight(transcriptTextLength)];
     }
-    if (isIdle) return [...WINDOW_SIZES.idle];
+    if (isIdle) return compactResultWindow ? [48, 48] : [...WINDOW_SIZES.idle];
     return [...WINDOW_SIZES.recording];
 }

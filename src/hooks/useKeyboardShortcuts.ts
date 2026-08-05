@@ -15,11 +15,12 @@ export function useKeyboardShortcuts(opts: UseKeyboardShortcutsOptions) {
             const currentPhase = opts.phaseRef.current;
             if (currentPhase === 'result' || currentPhase === 'editing') {
                 if (e.key === 'Enter') {
-                    const isMod = e.metaKey || e.ctrlKey;
-                    if (currentPhase === 'result' || isMod) {
-                        e.preventDefault();
-                        opts.handlePaste();
-                    }
+                    // In 'result' mode, plain Enter pastes.
+                    // In 'editing' mode, plain Enter pastes too (the user
+                    // expects Enter to send the edited text), while
+                    // Cmd/Ctrl+Enter remains a modifier shortcut.
+                    e.preventDefault();
+                    opts.handlePaste();
                 }
                 if (e.key === 'Escape') {
                     opts.setTranscript('');

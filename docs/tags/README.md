@@ -4,7 +4,10 @@ This directory contains detailed release notes for every version of NYX Vox.
 
 ## 🏷️ Versions
 
-- [v1.2.0](v1.2.0/release.md) - **Security Hardening, Voice Frontend & Architecture Overhaul** 🚀
+> **Note:** v1.2.0 is the next release (tag exists in git, build not yet published).
+> Last public release: **v1.1.0**.
+
+- [v1.2.0](v1.2.0/release.md) - **Security Hardening, GigaChat, Voice Frontend & Architecture Overhaul** 🚀
 - [v1.1.0](v1.1.0/release.md) - **Transcription Reliability & Tech-Vocab Update** 🚀
 - [v1.0.0](v1.0.0/release.md) - **Official Release (Code Cleanup, Text Selection & AI Fixes)** 🚀
 - [v0.1.3-beta](v0.1.3-beta/release.md) - Maintenance & UI Polish
@@ -20,10 +23,13 @@ This directory contains detailed release notes for every version of NYX Vox.
 
 ## 🏷️ Версии
 
-- [v1.2.0](v1.2.0/release.md) — **Усиление безопасности, голосовой фронтенд и перестройка архитектуры** 🚀
+> **Примечание:** v1.2.0 — следующий релиз (тег есть в git, сборка ещё не опубликована).
+> Последний публичный релиз: **v1.1.0**.
+
+- [v1.2.0](v1.2.0/release.md) — **Усиление безопасности, GigaChat, голосовой фронтенд и перестройка архитектуры** 🚀
 - [v1.1.0](v1.1.0/release.md) — **Надёжность транскрибации и IT-словарь** 🚀
 - [v1.0.0](v1.0.0/release.md) — **Официальный релиз (Очистка кода, Выделение текста и Исправление AI)** 🚀
 - [v0.1.3-beta](v0.1.3-beta/release.md) — Техническое обслуживание и улучшение UI
-- v0.1.2-beta — Адаптация и стабильность *(заметки о релизе не сохр��нены)*
+- v0.1.2-beta — Адаптация и стабильность *(заметки о релизе не сохранены)*
 - v0.1.1-beta — Нативная вставка и офлайн-режим *(заметки о релизе не сохранены)*
 - v0.1.0-beta — Первоначальная публичная бета-версия *(заметки о релизе не сохранены)*
