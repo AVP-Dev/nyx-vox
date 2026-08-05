@@ -92,6 +92,7 @@ NYX Vox requires **Accessibility** (for auto-pasting text) and **Microphone** pe
 
 **Planned:**
 - [ ] **Audio file transcription** — drag & drop an audio file into the app (or pick one via a dialog) → automatic transcription and text output
+- [ ] **System audio capture (calls/meetings)** — record internal/system audio and get a speaker-diarized transcript (separate roles for you and the other person)
 - [ ] **Custom global shortcuts** — rebindable hotkeys
 - [ ] **History export** — save transcriptions to TXT / MD / JSON
 - [ ] **Microphone selection** — choose an input device in Settings (currently the system default is used)
