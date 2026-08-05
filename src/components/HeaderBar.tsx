@@ -18,9 +18,6 @@ export interface HeaderBarProps {
     formattingStatus: string | null;
     lang: AppLanguage;
     sttMode: string;
-    dgLanguage: string;
-    whisperLanguage: string;
-    groqLanguage: string;
     formattingMode: FormattingMode;
     lastActiveFormatting: Exclude<FormattingMode, 'none'>;
     showQuickMenu: boolean;
@@ -42,7 +39,6 @@ export function HeaderBar(props: HeaderBarProps) {
     const {
         phase, isRec, isProc, isIdle, isOverlay,
         aiStatus, formattingStatus, lang, sttMode,
-        dgLanguage, whisperLanguage, groqLanguage,
         formattingMode, lastActiveFormatting,
         showQuickMenu, transcriptText, autoPaste,
         scrollRef,
@@ -69,13 +65,6 @@ export function HeaderBar(props: HeaderBarProps) {
         onSetTranscript('');
         onSetPhase('idle');
     };
-
-    const langIndicatorColor = (() => {
-        const cur = sttMode === 'deepgram' ? dgLanguage : (sttMode === 'whisper' ? whisperLanguage : groqLanguage);
-        if (cur === 'ru') return 'bg-blue-400';
-        if (cur === 'en') return 'bg-slate-200';
-        return 'bg-white/20';
-    })();
 
     return (
         <div data-tauri-drag-region className="flex items-center h-10 w-full relative px-2 shrink-0 cursor-default">
@@ -169,7 +158,6 @@ export function HeaderBar(props: HeaderBarProps) {
                                 </motion.span>
                             ) : (
                                 <motion.div key="idle-dots" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex gap-1.5 items-center">
-                                    <div className={`w-1.5 h-1.5 rounded-full ${langIndicatorColor}`} />
                                     <div className={`w-1.5 h-1.5 rounded-full ${sttMode === 'whisper' ? 'bg-emerald-400' : 'bg-orange-400'}`} />
                                     <div className={`w-1.5 h-1.5 rounded-full ${formattingMode !== 'none' ? 'bg-cyan-400' : 'bg-white/5'}`} />
                                 </motion.div>

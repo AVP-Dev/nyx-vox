@@ -4,7 +4,9 @@
 // the Metal/GPU backend on every transcription (~47s cold start).
 
 use std::sync::Mutex;
-use whisper_rs::{FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters};
+use whisper_rs::{
+    FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters, WhisperState,
+};
 
 use crate::state::WhisperModelType;
 
@@ -13,7 +15,13 @@ use super::paths::get_model_path;
 // ── Cached model wrapper ────────────────────────────────────────────────────
 
 pub(super) struct WhisperModel {
+    /// Kept alive for the lifetime of `state` — WhisperState borrows the context.
+    #[allow(dead_code)]
     pub(super) ctx: WhisperContext,
+    /// Cached WhisperState: recreating it on every call re-initializes the
+    /// Metal/Core ML backend (~seconds on each transcription). Reusing the
+    /// same state across calls makes inference near-instant on repeat runs.
+    pub(super) state: WhisperState,
 }
 
 static WHISPER_MODEL_SMALL: Mutex<Option<WhisperModel>> = Mutex::new(None);
@@ -43,6 +51,9 @@ fn init_whisper_model(model_type: WhisperModelType) -> Result<WhisperModel, Stri
 
     let mut ctx_params = WhisperContextParameters::default();
     ctx_params.use_gpu(true);
+    // Flash attention is supported by ggml-metal and cuts the self-attention
+    // cost on GPU. DTW timestamps are not used, so there is no conflict.
+    ctx_params.flash_attn(true);
     let ctx = WhisperContext::new_with_params(&model_path, ctx_params).map_err(|e| {
         format!(
             "Whisper context creation failed: {}. Try re-downloading the model in Settings.",
@@ -55,17 +66,22 @@ fn init_whisper_model(model_type: WhisperModelType) -> Result<WhisperModel, Stri
         t0.elapsed()
     );
 
-    // Pre-warm Metal: create a temporary state to compile all GPU shaders once.
+    // Pre-warm Metal + Core ML: create the state once (this is the expensive
+    // part — it initializes backends and loads the Core ML encoder) and run a
+    // 1-second silence pass to compile all GPU shaders. The same state is then
+    // cached and reused for every transcription, so the warmup cost is paid
+    // exactly once per model.
     log::debug!("Pre-warming Metal shaders...");
     let t_warmup = std::time::Instant::now();
-    if let Ok(mut warmup_state) = ctx.create_state() {
-        let params = FullParams::new(SamplingStrategy::Greedy { best_of: 1 });
-        let silence = vec![0.0f32; 16000]; // 1 second of silence
-        let _ = warmup_state.full(params, &silence);
-    }
+    let mut state = ctx
+        .create_state()
+        .map_err(|e| format!("Failed to create WhisperState: {:?}", e))?;
+    let params = FullParams::new(SamplingStrategy::Greedy { best_of: 1 });
+    let silence = vec![0.0f32; 16000]; // 1 second of silence
+    let _ = state.full(params, &silence);
     log::debug!("Metal pre-warmed in {:?}", t_warmup.elapsed());
 
-    Ok(WhisperModel { ctx })
+    Ok(WhisperModel { ctx, state })
 }
 
 // ── Public API ──────────────────────────────────────────────────────────────

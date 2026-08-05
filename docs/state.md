@@ -6,17 +6,20 @@
 
 ## Последнее обновление
 Дата: 2026-08-05
-Кто/что обновило: Командный агент (Аудит + GigaChat + фиксы стабильности)
+Кто/что обновило: Командный агент (GigaChat STT + фиксы после код-ревью)
 
 ## Что сейчас в работе
-- Добавлен SberAI/GigaChat как движок форматирования (модель GigaChat-2). Ключ — авторизационный (base64 client_id:secret) из кабинета developers.sber.ru
-- Исправлены баги «закрытия/зависания» и «не транскрибирует»: причины пустого результата, paste_text, сетевой чек, s.play
-- Удалён мёртвый код (streaming.rs, useAudioRecorder, мёртвые события, тумблер «Стриминг»)
-- Синхронизированы промпты: docs/AI_PROMPTS.md зеркалит prompts.rs
-- Следующий шаг: тестирование GigaChat с реальным ключом (`bun run tauri dev`), затем коммит в dev
+- **GigaChat добавлен как STT-движок** (кнопка «GigaChat Pro» в EnginesTab):
+  - Модели: форматирование — `GigaChat-2`, STT — `GigaChat-2-Pro` (multimodal, аудио)
+  - OAuth на `ngw.devices.sberbank.ru:9443` (сертификат Минцифры), токен 30 мин с кешем и рефрешем по 401/403
+  - TLS: reqwest переключён на rustls-tls, Russian Trusted Root CA скачивается один раз с gu-st.ru в app-data и используется как trust anchor (add_root_certificate)
+  - STT: аудио загружается через POST /v1/files (purpose=general), затем chat/completions с attachments:[file_id] + function_call=auto — OpenAI-стиль input_audio НЕ поддерживается (400 invalid JSON)
+  - Проверено вживую: «Раз, два, три...» → «GigaChat работает отлично. Hello, my name is Alex...»
+- Проведён полный код-ревью (28 замечаний), исправлено 4 подхода (критические баги, дедупликация, промпты/локализация, чистка)
+- Все проверки пройдены: cargo check, cargo clippy, cargo test (80), eslint — чисто
 
 ## Что стабильно работает (не трогать без причины)
-- STT pipeline (Whisper, Deepgram, Groq, Gemini)
+- STT pipeline (Whisper, Deepgram, Groq, Gemini, GigaChat)
 - AI formatting (Gemini, DeepSeek, Qwen, Groq, GigaChat)
 - Автопаста через CGEvent (с проверкой Accessibility и возвратом статуса)
 - Шифрование API-ключей (AES-256-GCM)
@@ -28,7 +31,6 @@
 - Playwright E2E (3 smoke-теста)
 
 ## Известные проблемы / баги
-- Whisper turbo: обработка ~60s на некоторых фразах (требует расследования — возможно memory pressure)
 - GigaChat: не тестировался с реальным ключом — нужна проверка OAuth-флоу и выбора модели
 - `libc::_exit(0)` при выходе сохранён (необходим для избежания ggml crash), но перед ним добавлен flush данных
 
@@ -52,7 +54,7 @@
 1. **Enter paste bug** — race condition в `paste_text` (audio.rs:508-549). Фикс: await через `oneshot::channel`, `app.hide()` вместо `w.hide()`, убрать redundant `win.hide()` из фронтенда. Root cause найден, требуется реализация.
 
 ### 🟡 Приоритет 2 — Производительность
-2. **Whisper State кэширование** — `create_state()` на каждый вызов, кэшировать как контекст
+2. ~~**Whisper State кэширование**~~ — **ВЫПОЛНЕНО**: `WhisperState` кэшируется в `WhisperModel` (model_cache.rs), инференс не платит за reinit Metal/Core ML
 3. **Прогресс инференса** — Whisper callback для прогресс-бара
 4. **Streaming для Deepgram** — WebSocket вместо batch REST API
 
@@ -68,6 +70,8 @@
 11. **CI/CD pipeline** — GitHub Actions: clippy + test + build при PR
 
 ## Журнал сессий (кратко, последние 5-10 записей, старое можно удалять)
+- [2026-08-05] **Сессия 9 (Удаление выбора языка)**: Убран выбор языка распознавания из UI — движки сами определяют язык (Whisper: `auto` → `set_language(None)`, Deepgram: `multi`, Groq: `ru`, Gemini: `mixed`). Удалены `DeepgramLanguage`/`WhisperLanguage`/`GroqLanguage`/`GeminiLanguage` (state.rs), 8 команд set/get_*_language (settings.rs), manage/load в lib.rs, языковые пропсы в useSettings/useInitialSettings/SettingsPanel/EnginesTab/HeaderBar/page.tsx, `useTrayLanguage`, `Language`/`SttLanguage` типы, языковой селектор и индикатор языка. Захардкожено в audio.rs (start/stop). Проверки: clippy 0 warnings, cargo test 80 pass, tsc clean, eslint 0, bun build success. Vitest: 49 pass / 2 fail (pre-existing, `vi.stubGlobal` не работает — не связано).
+- [2026-08-05] **Сессия 8 (Whisper ускорение)**: Найдена и исправлена причина медленной транскрипции (~30-60s на фразу). Регрессия после рефакторинга 17f46cd: `WhisperState` перестал кэшироваться (в `b292ed1` был, при разбиении whisper.rs → whisper/ потерялся) — `create_state()` вызывался на каждый инференс, а в whisper.cpp это reinit бэкендов + загрузка Core ML encoder (~секунды). Исправлено: (1) `WhisperState` возвращён в `WhisperModel` и переиспользуется (whisper.cpp очищает `result_all` в начале `whisper_full_with_state`, состояние безопасно переиспользовать); (2) pre-warm теперь на закэшированном state, а не на выбрасываемом временном; (3) включён `flash_attn` в контексте (ускорение attention на ggml-metal). clippy 0 warnings, cargo test 80 pass. Обновлён docs/state.md (убрана проблема 60s).
 - [2026-08-05] **Сессия 7 (Аудит + GigaChat)**: Исправлены баги стабильности и транскрипции, добавлен SberAI/GigaChat. **Стабильность:** `paste_text` проверяет Accessibility, возвращает реальный статус, показывает окно при ошибке (нет «скрытого окна без вставки»); сетевой чек кэшируется 5с (был блок 1.5с); ошибки `s.play()` эмитят `recording-error` и сбрасывают флаг; `quit_app_safely` делает flush settings.json/history.json перед `_exit`. **Транскрипция:** причины пустого результата (тихо/коротко/нет звука) через `recording-error` (локализовано); `triggerStart` не стирает прошлый текст до подтверждения старта; убрана двойная очистка на фронте; auto-paste не зависает в processing. **GigaChat:** `gigachat.rs` (OAuth-токен 30 мин с кэшем, автоключ base64(client_id:secret) из кабинета Сбера, модель GigaChat-2), Service::Gigachat, кнопка в EnginesTab + поле ключа в KeysTab. **Чистка:** удалены useAudioRecorder.ts, streaming.rs, мёртвые события, нерабочий тумблер «Стриминг»; `setupEvents` с catch; vitest исключён из e2e. Проверки: cargo test 80 pass, clippy 0 warnings, bun test 60 pass, lint/build/tsc чистые. Ветка `dev`, main не трогали.
 - [2026-08-05] **Сессия чистки**: Удалены build-артефакты и хлам (~9.2 ГБ): `src-tauri/target/` (9 ГБ), `.next/`, `out/`, `playwright-report/`, `test-results/`, `tsconfig.tsbuildinfo`, `window_debug.log`, `.DS_Store` (4 шт). Добавлен `.commandcode/` в .gitignore (служебная папка ассистента). Структурированы `docs/_reports/`: создан индекс `README.md` со статусами актуальности — все отчёты от 2026-07-07, задачи выполнены. Обновлён docs/README.md (ссылки на основные доки).
 - [2026-07-08] **Сессия P1 завершена**: 4 задачи решены параллельно через субагентов. ESLint чист (0 ошибок), Audio Gain вынесен в настройки (слайдер 1.0-5.0), Playwright E2E настроен (3 теста), Enter paste bug расследован (root cause найден, фикс в roadmap). Документация обновлена: state.md, tags/v1.2.0/release.md, tags/history.md. Коммит `7e3a607`. Следующий шаг: Enter paste bug fix (P1 #1) или P2.

@@ -28,7 +28,7 @@ fn is_online() -> bool {
 
     let online = tokio::task::block_in_place(|| {
         std::net::TcpStream::connect_timeout(
-            &"8.8.8.8:53".parse().unwrap(),
+            &"8.8.8.8:53".parse().expect("hardcoded DNS address"),
             std::time::Duration::from_millis(500),
         )
         .is_ok()
@@ -99,11 +99,7 @@ pub async fn start_recording(
     api_keys: State<'_, keys::ApiKeys>,
     ai_state: State<'_, ai_provider::SharedAiState>,
     dg_state: State<'_, deepgram::SharedDeepgramState>,
-    dg_lang: State<'_, DeepgramLanguage>,
-    whisper_lang: State<'_, WhisperLanguage>,
     whisper_model: State<'_, WhisperModel>,
-    groq_lang: State<'_, GroqLanguage>,
-    gemini_lang: State<'_, GeminiLanguage>,
 ) -> Result<(), String> {
     let mode = stt_mode.0.lock().map_err(|e| e.to_string())?.clone();
     let ap = *auto_pause.0.lock().map_err(|e| e.to_string())?;
@@ -148,11 +144,12 @@ pub async fn start_recording(
     }
 
     let lang = match final_mode.as_str() {
-        "deepgram" => dg_lang.0.lock().map_err(|e| e.to_string())?.clone(),
-        "whisper" => whisper_lang.0.lock().map_err(|e| e.to_string())?.clone(),
-        "groq" => groq_lang.0.lock().map_err(|e| e.to_string())?.clone(),
-        "gemini" => gemini_lang.0.lock().map_err(|e| e.to_string())?.clone(),
-        _ => "mixed".to_string(),
+        "deepgram" => "multi",
+        "whisper" => "auto",
+        "groq" => "ru",
+        "gemini" => "mixed",
+        "gigachat" => "mixed",
+        _ => "mixed",
     };
 
     if final_mode == "deepgram" {
@@ -175,13 +172,12 @@ pub async fn start_recording(
                         "Deepgram ключ не найден. Используем офлайн режим.",
                     );
                     final_mode = "whisper".to_string();
-                    let whisper_lang = whisper_lang.0.lock().map_err(|e| e.to_string())?.clone();
                     whisper::start_recording(
                         app,
                         Arc::clone(&state),
                         Arc::clone(&recording_flag.0),
                         Arc::clone(&processing_flag.0),
-                        &whisper_lang,
+                        "auto",
                         model_type,
                     )?;
                 } else {
@@ -198,14 +194,16 @@ pub async fn start_recording(
             Arc::clone(&state),
             Arc::clone(&recording_flag.0),
             Arc::clone(&processing_flag.0),
-            &lang,
+            lang,
             model_type,
         )?;
-    } else if final_mode == "groq" || final_mode == "gemini" {
+    } else if final_mode == "groq" || final_mode == "gemini" || final_mode == "gigachat" {
         let service = if final_mode == "groq" {
             keys::Service::Groq
-        } else {
+        } else if final_mode == "gemini" {
             keys::Service::Gemini
+        } else {
+            keys::Service::Gigachat
         };
         let key = api_keys
             .0
@@ -224,8 +222,10 @@ pub async fn start_recording(
                     "Добавьте ключ {} в настройках.",
                     if final_mode == "groq" {
                         "Groq"
-                    } else {
+                    } else if final_mode == "gemini" {
                         "Gemini"
+                    } else {
+                        "GigaChat"
                     }
                 ));
             }
@@ -253,11 +253,7 @@ pub async fn stop_recording(
     did_pause_media: State<'_, DidPauseMedia>,
     api_keys: State<'_, keys::ApiKeys>,
     formatting_mode: State<'_, FormattingMode>,
-    dg_lang: State<'_, DeepgramLanguage>,
-    whisper_lang: State<'_, WhisperLanguage>,
     whisper_model: State<'_, WhisperModel>,
-    groq_lang: State<'_, GroqLanguage>,
-    gemini_lang: State<'_, GeminiLanguage>,
     noise_gate: State<'_, NoiseGateThreshold>,
     audio_gain: State<'_, AudioGain>,
 ) -> Result<String, String> {
@@ -289,17 +285,21 @@ pub async fn stop_recording(
     log::debug!("stop_recording: mode={}, model_type={:?}", mode, model_type);
 
     let lang = match mode.as_str() {
-        "deepgram" => dg_lang.0.lock().map_err(|e| e.to_string())?.clone(),
-        "whisper" => whisper_lang.0.lock().map_err(|e| e.to_string())?.clone(),
-        "groq" => groq_lang.0.lock().map_err(|e| e.to_string())?.clone(),
-        "gemini" => gemini_lang.0.lock().map_err(|e| e.to_string())?.clone(),
-        _ => "mixed".to_string(),
+        "deepgram" => "multi",
+        "whisper" => "auto",
+        "groq" => "ru",
+        "gemini" => "mixed",
+        "gigachat" => "mixed",
+        _ => "mixed",
     };
 
     let threshold = *noise_gate.0.lock().map_err(|e| e.to_string())?;
     let gain = *audio_gain.0.lock().map_err(|e| e.to_string())?;
 
-    did_pause_media.0.store(false, Ordering::SeqCst);
+    let was_paused = did_pause_media.0.swap(false, Ordering::SeqCst);
+    if was_paused {
+        crate::utils::system_media_control(0);
+    }
 
     let result = if mode == "deepgram" {
         log::debug!("stop_recording: calling Deepgram...");
@@ -316,7 +316,7 @@ pub async fn stop_recording(
             Arc::clone(&dg_state),
             Arc::clone(&recording_flag.0),
             api_key,
-            &lang,
+            lang,
             threshold,
             gain,
         )
@@ -327,49 +327,65 @@ pub async fn stop_recording(
             &app,
             Arc::clone(&state),
             Arc::clone(&recording_flag.0),
-            &lang,
+            lang,
             model_type,
             threshold,
             gain,
         )
         .await
-    } else if mode == "groq" || mode == "gemini" {
+    } else if mode == "groq" || mode == "gemini" || mode == "gigachat" {
         log::debug!("stop_recording: calling {}...", mode.to_uppercase());
-        let service = if mode == "groq" {
-            keys::Service::Groq
+        if mode == "gigachat" {
+            let api_key = api_keys
+                .0
+                .lock()
+                .map_err(|e| e.to_string())?
+                .get(&keys::Service::Gigachat)
+                .cloned()
+                .flatten()
+                .unwrap_or_default();
+            recording_flag.0.store(false, Ordering::SeqCst);
+            let Some(wav) = ai_provider::take_recording_wav(&app, &ai_state, threshold, gain)? else {
+                return Ok(String::new());
+            };
+            crate::gigachat::transcribe(app.clone(), wav, api_key, lang).await
         } else {
-            keys::Service::Gemini
-        };
-        let api_key = api_keys
-            .0
-            .lock()
-            .map_err(|e| e.to_string())?
-            .get(&service)
-            .cloned()
-            .flatten()
-            .unwrap_or_default();
-        if mode == "gemini" {
-            ai_provider::gemini_stop_recording(
-                app.clone(),
-                Arc::clone(&ai_state),
-                Arc::clone(&recording_flag.0),
-                api_key,
-                &lang,
-                threshold,
-                gain,
-            )
-            .await
-        } else {
-            ai_provider::stop_recording(
-                app.clone(),
-                Arc::clone(&ai_state),
-                Arc::clone(&recording_flag.0),
-                api_key,
-                &lang,
-                threshold,
-                gain,
-            )
-            .await
+            let service = if mode == "groq" {
+                keys::Service::Groq
+            } else {
+                keys::Service::Gemini
+            };
+            let api_key = api_keys
+                .0
+                .lock()
+                .map_err(|e| e.to_string())?
+                .get(&service)
+                .cloned()
+                .flatten()
+                .unwrap_or_default();
+            if mode == "gemini" {
+                ai_provider::gemini_stop_recording(
+                    app.clone(),
+                    Arc::clone(&ai_state),
+                    Arc::clone(&recording_flag.0),
+                    api_key,
+                    lang,
+                    threshold,
+                    gain,
+                )
+                .await
+            } else {
+                ai_provider::stop_recording(
+                    app.clone(),
+                    Arc::clone(&ai_state),
+                    Arc::clone(&recording_flag.0),
+                    api_key,
+                    lang,
+                    threshold,
+                    gain,
+                )
+                .await
+            }
         }
     } else {
         Ok(String::new())
@@ -426,7 +442,10 @@ pub async fn stop_recording(
                         .0
                         .lock()
                         .map(|l| l.clone())
-                        .unwrap_or_else(|_| "ru".to_string());
+                        .unwrap_or_else(|e| {
+                            log::warn!("AppLanguage mutex poisoned: {}", e);
+                            "ru".to_string()
+                        });
                     let _ = app.emit("formatting-status", format!("{:?}", service));
                     let _ = app.emit(
                         "ai-status",
@@ -499,20 +518,22 @@ pub async fn stop_recording(
 
     let _ = app.emit("ai-status", "");
 
-    let raw_text = result.clone();
-    let target_app = app
-        .try_state::<crate::state::TargetApp>()
-        .and_then(|s| s.0.lock().ok().map(|l| l.0.clone()))
-        .unwrap_or_else(|| "Unknown".to_string());
+    if !final_text.is_empty() {
+        let raw_text = result.clone();
+        let target_app = app
+            .try_state::<crate::state::TargetApp>()
+            .and_then(|s| s.0.lock().ok().map(|l| l.0.clone()))
+            .unwrap_or_else(|| "Unknown".to_string());
 
-    let _ = crate::history::add_history_entry(
-        app.clone(),
-        final_text.clone(),
-        raw_text,
-        mode,
-        target_app,
-    )
-    .await;
+        let _ = crate::history::add_history_entry(
+            app.clone(),
+            final_text.clone(),
+            raw_text,
+            mode,
+            target_app,
+        )
+        .await;
+    }
 
     Ok(final_text)
 }

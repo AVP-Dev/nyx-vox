@@ -6,23 +6,47 @@
 
 ## 📅 Unreleased (Post-1.2.0 Quality Improvements)
 
+### 🆕 GigaChat STT (Transcription Engine)
+- Added GigaChat as a **speech-to-text engine** (button "GigaChat Pro" in EnginesTab)
+- Model: `GigaChat-2-Pro` (multimodal: text + audio); formatting stays on `GigaChat-2` (cheaper)
+- Audio uploaded via `POST /v1/files` (`purpose=general`), then `chat/completions` with `attachments: [file_id]` + `function_call: "auto"` — inline OpenAI-style `input_audio` is **not** supported (400)
+- Same authorization key as formatting (Base64 `client_id:client_secret`); OAuth token cached, auto-refresh on 401/403
+- Works in Russia without a VPN
+
 ### 🆕 SberAI / GigaChat Formatting Engine
 - Added GigaChat (SberAI) as a text formatting engine (model: `GigaChat-2`)
 - OAuth access token (30-min TTL) is fetched automatically from the authorization key (`base64(client_id:client_secret)`) and cached; auto-refresh on 401/403
 - New "GigaChat" button in EnginesTab (formatting) and API-key field in KeysTab
 - Works in Russia without a VPN (unlike Gemini)
 
+### 🔐 GigaChat TLS (Russian Trusted CA)
+- Both GigaChat endpoints serve certificates from the Russian Trusted Sub CA (Минцифры), which macOS doesn't trust
+- `reqwest` switched from default `native-tls` to `rustls-tls`; the official Russian Trusted Root CA is downloaded once from `gu-st.ru` into app-data and used via `add_root_certificate` — no disabled certificate verification
+- OAuth endpoint: `ngw.devices.sberbank.ru:9443/api/v2/oauth`; chat: `api.giga.chat/v1/chat/completions`
+
 ### 🛠️ Stability Fixes
 - `paste_text` now checks Accessibility before hiding the window, returns a real status, and re-shows the window on failure — no more "hidden window with no paste"
 - Network reachability check cached for 5s (was blocking up to 1.5s per recording start)
 - Microphone stream start failures (`s.play()`) now emit `recording-error` and reset the recording flag instead of spinning forever
 - `quit_app_safely` flushes `settings.json` and `history.json` before `_exit` — no data loss on quit
+- **Code review fixes (28 items):** semaphore timeout in `gemini_refine_text`, proper error handling in Gemini STT (`map_err` instead of `unwrap_or_default`), auto-resume of paused media on stop, history entries only for non-empty results, dead code removed (`PositionInitialized`, `REFINEMENT_USER_INSTRUCTION_DEEPSEEK`, `tauri-plugin-window-state`), tray menu rebuilt only on language change, poisoned-mutex logging
 
 ### 🎤 Transcription Reliability
 - Recording rejection now shows the user a human-readable reason ("Too quiet", "Too short", "No sound captured") via `recording-error` event
 - `triggerStart` no longer wipes the previous transcript before the backend confirms recording started
 - Removed duplicate frontend text cleanup (backend is the single source of truth)
 - Auto-paste no longer leaves the UI stuck in `processing` when the paste fails
+- **Deepgram:** switched to `nova-2-general` with automatic fallback to `nova-3-general` on "No such model/language/tier combination" — works across account tiers
+- **Groq:** clearer error message for 403 (model permission / region block hint)
+
+### ⚡ Whisper Speed
+- `WhisperState` is now cached in `WhisperModel` and reused across transcriptions — no more Metal/Core ML backend re-init on every inference (was the main source of 30-60s delays)
+- Enabled `flash_attn` in the Whisper context — faster self-attention on ggml-metal
+- Pre-warm now runs on the cached state, so shader compilation is paid exactly once per model load
+
+### 🗣️ Language Selection Removed
+- Removed the per-engine language picker from the UI — each engine now auto-detects the spoken language: Whisper (`auto` → whisper.cpp auto-detect), Deepgram (`multi`), Groq (`ru` base), Gemini (`mixed` prompt)
+- Removed `DeepgramLanguage`/`WhisperLanguage`/`GroqLanguage`/`GeminiLanguage` states, `set/get_*_language` commands, `useTrayLanguage`, and the language indicator dot in the header
 
 ### 🧹 Cleanup
 - Removed dead code: `useAudioRecorder.ts`, `streaming.rs`, dead events (`transcript-partial`, `deepgram-final`, `deepgram-error`), and the non-functional "Streaming" toggle

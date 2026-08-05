@@ -37,7 +37,7 @@ window-vibrancy = "0.7.1"
 tungstenite = "0.24"
 tokio-tungstenite = { version = "0.24", features = ["native-tls"] }
 url = "2"
-reqwest = { version = "0.12", features = ["stream", "multipart", "json"] }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "stream", "multipart", "json"] }
 base64 = "0.22"
 futures-util = "0.3"
 enigo = "0.2.1"
@@ -45,7 +45,6 @@ dirs-next = "2.0"
 machineid-rs = "1.2"
 aes-gcm = "0.10"
 sha2 = "0.10"
-tauri-plugin-window-state = "2.0.0-rc"
 core-graphics = "0.23.2"
 objc2-app-kit = { version = "0.3.2", features = ["NSWorkspace", "NSRunningApplication", "NSApplication"] }
 objc2-foundation = { version = "0.3.2", features = ["NSDate", "NSString"] }

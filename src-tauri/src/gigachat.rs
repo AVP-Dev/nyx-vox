@@ -2,23 +2,33 @@ use crate::state::{FormattingStyle, FormattingStyleState};
 use serde_json::json;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
-use tauri::{AppHandle, Manager, Runtime};
+use tauri::{AppHandle, Emitter, Manager, Runtime};
 
-/// GigaChat (Sber) text refinement.
+/// GigaChat (Sber) text refinement & transcription.
 ///
 /// Auth model: the user pastes an *authorization key* (Base64 of
 /// `client_id:client_secret`) into the API-key field. GigaChat then issues a
 /// short-lived OAuth access token (30 minutes) which is cached here and
 /// refreshed automatically on expiry or on a 401/403 response.
 ///
-/// Endpoints (current as of 2026-07-17):
-/// - OAuth:  POST https://api.giga.chat/api/v2/oauth
-/// - Chat:   POST https://api.giga.chat/v1/chat/completions (OpenAI-compatible)
-const OAUTH_URL: &str = "https://api.giga.chat/api/v2/oauth";
+/// TLS: both GigaChat endpoints serve certificates issued by the Russian
+/// Trusted Sub CA (Минцифры), which macOS does not trust by default. Per the
+/// official docs we download the root certificate once and use it as a custom
+/// CA bundle instead of disabling verification.
+///
+/// Endpoints (current as of 2026-08-05):
+/// - OAuth:  POST https://ngw.devices.sberbank.ru:9443/api/v2/oauth
+/// - Chat:   POST https://api.giga.chat/v1/chat/completions (unified URL since 2026-07-17)
+const OAUTH_URL: &str = "https://ngw.devices.sberbank.ru:9443/api/v2/oauth";
 const CHAT_URL: &str = "https://api.giga.chat/v1/chat/completions";
-const MODEL: &str = "GigaChat-2";
+const MODEL_FORMAT: &str = "GigaChat-2";
+const MODEL_STT: &str = "GigaChat-2-Pro"; // multimodal: text + audio
 const TOKEN_TTL: Duration = Duration::from_secs(30 * 60); // 30 minutes
 const TOKEN_REFRESH_MARGIN: Duration = Duration::from_secs(60);
+
+/// Russian Trusted Root CA — official download link (gosuslugi.ru).
+const ROOT_CA_URL: &str = "https://gu-st.ru/content/lending/russian_trusted_root_ca_pem.crt";
+const ROOT_CA_FILE: &str = "russian_trusted_root_ca.pem";
 
 /// Cached access token + when it was obtained. Guarded by a static mutex so
 /// repeated refinements reuse the token instead of hitting the OAuth endpoint.
@@ -29,57 +39,60 @@ fn auth_header_value(auth_key: &str) -> String {
     format!("Basic {}", auth_key.trim())
 }
 
-/// Builds an HTTP client. GigaChat's certificate chain is issued by the
-/// Russian Trusted Sub CA (Минцифры), which macOS does not trust by default.
-/// We first try the system trust store; if TLS verification fails at runtime,
-/// callers fall back to `insecure_client()` so the integration still works
-/// until the user installs the root certificate.
-fn client() -> Result<reqwest::Client, String> {
-    reqwest::Client::builder()
-        .connect_timeout(Duration::from_secs(8))
-        .timeout(Duration::from_secs(30))
-        .build()
-        .map_err(|e| format!("Client build failed: {}", e))
+/// Path to the downloaded Russian Trusted Root CA (app data dir).
+fn root_ca_path<R: Runtime>(app: &AppHandle<R>) -> Result<std::path::PathBuf, String> {
+    let dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("App data dir error: {}", e))?;
+    std::fs::create_dir_all(&dir).map_err(|e| format!("Create app data dir: {}", e))?;
+    Ok(dir.join(ROOT_CA_FILE))
 }
 
-/// Fallback client that skips certificate verification. Needed because the
-/// GigaChat cert is signed by a Russian CA that macOS doesn't trust out of the
-/// box. Prefer installing the root cert; this is a pragmatic fallback.
-fn insecure_client() -> Result<reqwest::Client, String> {
-    reqwest::Client::builder()
-        .connect_timeout(Duration::from_secs(8))
-        .timeout(Duration::from_secs(30))
-        .danger_accept_invalid_certs(true)
-        .build()
-        .map_err(|e| format!("Client build failed: {}", e))
-}
-
-/// Runs `f` with the secure client; retries once with the insecure client on a
-/// TLS/connect failure, so a missing Russian root CA doesn't block the feature.
-async fn send_with_fallback<F>(
-    secure: &reqwest::Client,
-    insecure: &reqwest::Client,
-    f: F,
-) -> Result<reqwest::Response, reqwest::Error>
-where
-    F: Fn(&reqwest::Client) -> reqwest::RequestBuilder,
-{
-    match f(secure).send().await {
-        Ok(resp) => Ok(resp),
-        Err(e) => {
-            // Retry with certificate validation disabled only for TLS/cert errors.
-            if e.is_connect() || e.is_timeout() {
-                log::warn!("GigaChat TLS/connect failed, retrying without cert verification: {}", e);
-                f(insecure).send().await
-            } else {
-                Err(e)
-            }
-        }
+/// Ensures the Russian Trusted Root CA is present locally, downloading it once
+/// from the official source. Returns the path to the PEM file.
+async fn ensure_root_ca<R: Runtime>(app: &AppHandle<R>) -> Result<std::path::PathBuf, String> {
+    let path = root_ca_path(app)?;
+    if path.exists() {
+        return Ok(path);
     }
+
+    log::info!("GigaChat: downloading Russian Trusted Root CA");
+    let resp = reqwest::get(ROOT_CA_URL)
+        .await
+        .map_err(|e| format!("Failed to download root CA: {}", e))?;
+    if !resp.status().is_success() {
+        return Err(format!(
+            "Failed to download root CA: HTTP {}",
+            resp.status()
+        ));
+    }
+    let bytes = resp
+        .bytes()
+        .await
+        .map_err(|e| format!("Failed to read root CA: {}", e))?;
+    std::fs::write(&path, &bytes).map_err(|e| format!("Failed to write root CA: {}", e))?;
+    log::info!("GigaChat: root CA saved to {:?}", path);
+    Ok(path)
+}
+
+/// Builds an HTTP client with the Russian Trusted Root CA as the trust anchor.
+async fn client_with_ca<R: Runtime>(app: &AppHandle<R>) -> Result<reqwest::Client, String> {
+    let ca_path = ensure_root_ca(app).await?;
+    let ca_pem = std::fs::read(&ca_path).map_err(|e| format!("Read root CA: {}", e))?;
+    let ca = reqwest::Certificate::from_pem(&ca_pem)
+        .map_err(|e| format!("Parse root CA: {}", e))?;
+
+    reqwest::Client::builder()
+        .connect_timeout(Duration::from_secs(8))
+        .timeout(Duration::from_secs(30))
+        .add_root_certificate(ca)
+        .build()
+        .map_err(|e| format!("Client build failed: {}", e))
 }
 
 /// Returns a valid access token, fetching (or refreshing) it if needed.
-async fn get_access_token(auth_key: &str) -> Result<String, String> {
+async fn get_access_token<R: Runtime>(app: &AppHandle<R>, auth_key: &str) -> Result<String, String> {
     // Fast path: cached, still fresh.
     if let Ok(cache) = TOKEN_CACHE.lock() {
         if let Some((token, obtained)) = cache.as_ref() {
@@ -89,20 +102,21 @@ async fn get_access_token(auth_key: &str) -> Result<String, String> {
         }
     }
 
-    let secure = client()?;
-    let insecure = insecure_client()?;
+    // OAuth endpoint requires the Russian Trusted Root CA. The client built
+    // with `client_with_ca` already has it as a trust anchor.
+    let client = client_with_ca(app).await?;
     let rquid = uuid::Uuid::new_v4().to_string();
 
-    let res = send_with_fallback(&secure, &insecure, |c| {
-        c.post(OAUTH_URL)
-            .header("Content-Type", "application/x-www-form-urlencoded")
-            .header("Accept", "application/json")
-            .header("RqUID", &rquid)
-            .header("Authorization", auth_header_value(auth_key))
-            .body("scope=GIGACHAT_API_PERS")
-    })
-    .await
-    .map_err(|e| format!("GigaChat OAuth request failed: {}", e))?;
+    let res = client
+        .post(OAUTH_URL)
+        .header("Content-Type", "application/x-www-form-urlencoded")
+        .header("Accept", "application/json")
+        .header("RqUID", &rquid)
+        .header("Authorization", auth_header_value(auth_key))
+        .body("scope=GIGACHAT_API_PERS")
+        .send()
+        .await
+        .map_err(|e| format!("GigaChat OAuth request failed: {}", e))?;
 
     let status = res.status();
     let body = res.text().await.unwrap_or_default();
@@ -154,14 +168,14 @@ fn build_user_content(instruction: Option<String>, text: &str) -> String {
 }
 
 async fn chat_once(
-    secure: &reqwest::Client,
-    insecure: &reqwest::Client,
+    client: &reqwest::Client,
     access_token: &str,
+    model: &str,
     system_prompt: &str,
     user_content: &str,
 ) -> Result<String, String> {
     let body = json!({
-        "model": MODEL,
+        "model": model,
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_content}
@@ -170,14 +184,14 @@ async fn chat_once(
         "top_p": crate::prompts::DEFAULT_TOP_P
     });
 
-    let res = send_with_fallback(secure, insecure, |c| {
-        c.post(CHAT_URL)
-            .header("Authorization", format!("Bearer {}", access_token))
-            .header("Content-Type", "application/json")
-            .json(&body)
-    })
-    .await
-    .map_err(|e| format!("GigaChat request failed: {}", e))?;
+    let res = client
+        .post(CHAT_URL)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .header("Content-Type", "application/json")
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| format!("GigaChat request failed: {}", e))?;
 
     let status = res.status();
     let body_text = res.text().await.unwrap_or_default();
@@ -207,15 +221,14 @@ pub async fn refine_text<R: Runtime>(
         return Err("API ключ GigaChat не найден.".to_string());
     }
 
-    let secure = client()?;
-    let insecure = insecure_client()?;
+    let client = client_with_ca(&app).await?;
     let system_prompt = build_system_prompt(&app);
     let user_content = build_user_content(instruction, &text);
 
     // Attempt with a fresh token (the fast path in get_access_token may return
     // a cached one; force-invalidation on auth failure happens via the retry).
-    let token = get_access_token(&auth_key).await?;
-    match chat_once(&secure, &insecure, &token, &system_prompt, &user_content).await {
+    let token = get_access_token(&app, &auth_key).await?;
+    match chat_once(&client, &token, MODEL_FORMAT, &system_prompt, &user_content).await {
         Ok(out) => {
             let cleaned = crate::utils::clean_repetitive_phrases(&out);
             Ok(crate::utils::strip_filler_phrases(&cleaned))
@@ -227,8 +240,8 @@ pub async fn refine_text<R: Runtime>(
                 if let Ok(mut cache) = TOKEN_CACHE.lock() {
                     *cache = None; // invalidate
                 }
-                let token = get_access_token(&auth_key).await?;
-                match chat_once(&secure, &insecure, &token, &system_prompt, &user_content).await {
+                let token = get_access_token(&app, &auth_key).await?;
+                match chat_once(&client, &token, MODEL_FORMAT, &system_prompt, &user_content).await {
                     Ok(out) => {
                         let cleaned = crate::utils::clean_repetitive_phrases(&out);
                         return Ok(crate::utils::strip_filler_phrases(&cleaned));
@@ -248,6 +261,143 @@ pub async fn refine_text<R: Runtime>(
             Err(format!("GigaChat AI Refinement Failed: {}", e))
         }
     }
+}
+
+/// Transcribe audio via GigaChat 2 Pro (multimodal: audio → text).
+/// Reuses the same OAuth token cache as formatting.
+pub async fn transcribe<R: Runtime>(
+    app: AppHandle<R>,
+    wav_data: Vec<u8>,
+    api_key: String,
+    language: &str,
+) -> Result<String, String> {
+    let auth_key = api_key.trim().to_string();
+    if auth_key.is_empty() {
+        return Err("API ключ GigaChat не найден.".to_string());
+    }
+
+    let lang_pref = app
+        .state::<crate::state::AppLanguage>()
+        .0
+        .lock()
+        .map(|l| l.clone())
+        .unwrap_or_else(|_| "ru".to_string());
+    let _ = app.emit(
+        "ai-status",
+        if lang_pref == "ru" {
+            "🎙️ Транскрибирую..."
+        } else {
+            "🎙️ Transcribing..."
+        },
+    );
+
+    let client = client_with_ca(&app).await?;
+    let token = get_access_token(&app, &auth_key).await?;
+
+    // GigaChat doesn't accept inline audio like OpenAI. Audio must be uploaded
+    // to /v1/files first, then referenced by id via `attachments`.
+    let file_part = reqwest::multipart::Part::bytes(wav_data)
+        .file_name("recording.wav")
+        .mime_str("audio/wav")
+        .map_err(|e| e.to_string())?;
+    let form = reqwest::multipart::Form::new()
+        .part("file", file_part)
+        .text("purpose", "general");
+
+    let file_res = client
+        .post("https://api.giga.chat/v1/files")
+        .header("Authorization", format!("Bearer {}", token))
+        .multipart(form)
+        .send()
+        .await
+        .map_err(|e| format!("GigaChat file upload failed: {}", e))?;
+    let file_status = file_res.status();
+    let file_body = file_res.text().await.unwrap_or_default();
+    if !file_status.is_success() {
+        return Err(format!(
+            "GigaChat file upload failed ({}): {}",
+            file_status, file_body
+        ));
+    }
+    let file_json: serde_json::Value = serde_json::from_str(&file_body)
+        .map_err(|e| format!("GigaChat file upload parse error: {}", e))?;
+    let file_id = file_json["id"]
+        .as_str()
+        .ok_or_else(|| format!("GigaChat file upload missing id: {}", file_body))?
+        .to_string();
+    log::info!("GigaChat: audio uploaded, file_id={}", file_id);
+
+    let stt_prompt = if language == "mixed" {
+        crate::prompts::MIXED_RU_EN_STT_PROMPT
+    } else {
+        crate::prompts::GEMINI_STT_PROMPT
+    };
+
+    let body = json!({
+        "model": MODEL_STT,
+        "function_call": "auto",
+        "messages": [
+            {
+                "role": "user",
+                "content": stt_prompt,
+                "attachments": [file_id]
+            }
+        ],
+        "temperature": 0.0,
+        "max_tokens": 2048
+    });
+
+    let res = client
+        .post(CHAT_URL)
+        .header("Authorization", format!("Bearer {}", token))
+        .header("Content-Type", "application/json")
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| format!("GigaChat STT request failed: {}", e))?;
+
+    let status = res.status();
+    if status == reqwest::StatusCode::UNAUTHORIZED || status == reqwest::StatusCode::FORBIDDEN {
+        if let Ok(mut cache) = TOKEN_CACHE.lock() {
+            *cache = None;
+        }
+        let token = get_access_token(&app, &auth_key).await?;
+        let res2 = client
+            .post(CHAT_URL)
+            .header("Authorization", format!("Bearer {}", token))
+            .header("Content-Type", "application/json")
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| format!("GigaChat STT retry failed: {}", e))?;
+        let status2 = res2.status();
+        let body2 = res2.text().await.unwrap_or_default();
+        if !status2.is_success() {
+            return Err(format!("GigaChat STT Failed ({}): {}", status2, body2));
+        }
+        let json2: serde_json::Value =
+            serde_json::from_str(&body2).map_err(|e| format!("JSON parse error: {}", e))?;
+        let text = json2["choices"][0]["message"]["content"]
+            .as_str()
+            .unwrap_or("")
+            .to_string();
+        let cleaned = crate::utils::clean_repetitive_phrases(&text);
+        return Ok(json!({ "content": cleaned }).to_string());
+    }
+
+    let body_text = res.text().await.unwrap_or_default();
+    if !status.is_success() {
+        return Err(format!("GigaChat STT Failed ({}): {}", status, body_text));
+    }
+
+    let json: serde_json::Value =
+        serde_json::from_str(&body_text).map_err(|e| format!("JSON parse error: {}", e))?;
+    let text = json["choices"][0]["message"]["content"]
+        .as_str()
+        .unwrap_or("")
+        .to_string();
+    let cleaned = crate::utils::clean_repetitive_phrases(&text);
+    Ok(json!({ "content": cleaned }).to_string())
 }
 
 #[cfg(test)]

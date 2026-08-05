@@ -12,7 +12,6 @@ import { useInitialSettings } from '@/hooks/useInitialSettings';
 import { useTargetApp } from '@/hooks/useTargetApp';
 import { useTauriEvents } from '@/hooks/useTauriEvents';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
-import { useTrayLanguage } from '@/hooks/useTrayLanguage';
 
 // Components
 import { HeaderBar } from '@/components/HeaderBar';
@@ -63,9 +62,6 @@ export default function Home() {
     // --- Initial Settings Load ---
     const { showWelcome, setShowWelcome, isVisible, permsMissing } = useInitialSettings({
         setSttMode: settings.setSttMode,
-        setDgLanguage: settings.setDgLanguage,
-        setWhisperLanguage: settings.setWhisperLanguage,
-        setGroqLanguage: settings.setGroqLanguage,
         setAppLanguage: settings.setAppLanguage,
         setAutoPaste: settings.setAutoPaste,
         setClearOnPaste: settings.setClearOnPaste,
@@ -95,15 +91,6 @@ export default function Home() {
         showQuickMenu: settings.showQuickMenu,
         alwaysOnTop: settings.alwaysOnTop,
         transcriptTextLength: transcriptText?.length || 0,
-    });
-
-    // --- Tray Language ---
-    useTrayLanguage({
-        sttMode: settings.sttMode,
-        dgLanguage: settings.dgLanguage,
-        whisperLanguage: settings.whisperLanguage,
-        groqLanguage: settings.groqLanguage,
-        appLanguage: settings.appLanguage,
     });
 
     // --- Tauri Events ---
@@ -199,12 +186,6 @@ export default function Home() {
                                                 onSetFormattingStyle={(s) => { settings.setFormattingStyle(s); import('@tauri-apps/api/core').then(({ invoke }) => invoke('set_formatting_style', { style: s })); }}
                                                 sttMode={settings.sttMode}
                                                 onSetSttMode={settings.setSttMode}
-                                                dgLanguage={settings.dgLanguage}
-                                                onSetDgLanguage={settings.setDgLanguage}
-                                                whisperLanguage={settings.whisperLanguage}
-                                                onSetWhisperLanguage={settings.setWhisperLanguage}
-                                                groqLanguage={settings.groqLanguage}
-                                                onSetGroqLanguage={settings.setGroqLanguage}
                                                 formattingMode={settings.formattingMode}
                                                 onSetFormattingMode={settings.handleFormattingModeChange}
                                                 noiseGate={settings.noiseGate}
@@ -237,9 +218,6 @@ export default function Home() {
                                             formattingStatus={formattingStatus}
                                             lang={lang}
                                             sttMode={settings.sttMode}
-                                            dgLanguage={settings.dgLanguage}
-                                            whisperLanguage={settings.whisperLanguage}
-                                            groqLanguage={settings.groqLanguage}
                                             formattingMode={settings.formattingMode}
                                             lastActiveFormatting={settings.lastActiveFormatting}
                                             showQuickMenu={settings.showQuickMenu}
