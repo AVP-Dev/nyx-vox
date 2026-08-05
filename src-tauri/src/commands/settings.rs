@@ -10,9 +10,6 @@ use crate::{keys, whisper, tray};
 pub async fn get_all_settings(
     app: AppHandle,
     stt_mode: State<'_, SttMode>,
-    dg_lang: State<'_, DeepgramLanguage>,
-    whisper_lang: State<'_, WhisperLanguage>,
-    groq_lang: State<'_, GroqLanguage>,
     auto_paste: State<'_, AutoPaste>,
     always_on_top: State<'_, AlwaysOnTop>,
     formatting_mode: State<'_, FormattingMode>,
@@ -23,9 +20,6 @@ pub async fn get_all_settings(
     audio_gain: State<'_, AudioGain>,
 ) -> Result<serde_json::Value, String> {
     let stt = stt_mode.0.lock().map_err(|e| e.to_string())?.clone();
-    let dg = dg_lang.0.lock().map_err(|e| e.to_string())?.clone();
-    let wl = whisper_lang.0.lock().map_err(|e| e.to_string())?.clone();
-    let gl = groq_lang.0.lock().map_err(|e| e.to_string())?.clone();
     let ap = *auto_paste.0.lock().map_err(|e| e.to_string())?;
     let aot = *always_on_top.0.lock().map_err(|e| e.to_string())?;
     let fm = formatting_mode.0.lock().map_err(|e| e.to_string())?.clone();
@@ -43,9 +37,6 @@ pub async fn get_all_settings(
 
     Ok(serde_json::json!({
         "sttMode": stt,
-        "deepgramLanguage": dg,
-        "whisperLanguage": wl,
-        "groqLanguage": gl,
         "autoPaste": ap,
         "clearOnPaste": clear_on_paste,
         "startMinimized": start_minimized,
@@ -140,34 +131,6 @@ pub async fn get_formatting_style(state: State<'_, FormattingStyleState>) -> Res
 }
 
 #[tauri::command]
-pub async fn set_deepgram_language(lang: String, state: State<'_, DeepgramLanguage>, app: AppHandle) -> Result<(), String> {
-    let store = app.store("settings.json").map_err(|e: tauri_plugin_store::Error| e.to_string())?;
-    store.set("deepgram_language", serde_json::json!(lang));
-    store.save().map_err(|e: tauri_plugin_store::Error| e.to_string())?;
-    *state.0.lock().map_err(|e| e.to_string())? = lang;
-    Ok(())
-}
-
-#[tauri::command]
-pub async fn get_deepgram_language(state: State<'_, DeepgramLanguage>) -> Result<String, String> {
-    Ok(state.0.lock().map_err(|e| e.to_string())?.clone())
-}
-
-#[tauri::command]
-pub async fn set_whisper_language(lang: String, state: State<'_, WhisperLanguage>, app: AppHandle) -> Result<(), String> {
-    let store = app.store("settings.json").map_err(|e: tauri_plugin_store::Error| e.to_string())?;
-    store.set("whisper_language", serde_json::json!(lang));
-    store.save().map_err(|e: tauri_plugin_store::Error| e.to_string())?;
-    *state.0.lock().map_err(|e| e.to_string())? = lang;
-    Ok(())
-}
-
-#[tauri::command]
-pub async fn get_whisper_language(state: State<'_, WhisperLanguage>) -> Result<String, String> {
-    Ok(state.0.lock().map_err(|e| e.to_string())?.clone())
-}
-
-#[tauri::command]
 pub async fn set_whisper_model_type(model: WhisperModelType, state: State<'_, WhisperModel>, app: AppHandle) -> Result<(), String> {
     let store = app.store("settings.json").map_err(|e: tauri_plugin_store::Error| e.to_string())?;
     store.set("whisper_model", serde_json::json!(model));
@@ -179,34 +142,6 @@ pub async fn set_whisper_model_type(model: WhisperModelType, state: State<'_, Wh
 #[tauri::command]
 pub async fn get_whisper_model_type(state: State<'_, WhisperModel>) -> Result<WhisperModelType, String> {
     Ok(*state.0.lock().map_err(|e| e.to_string())?)
-}
-
-#[tauri::command]
-pub async fn set_groq_language(lang: String, state: State<'_, GroqLanguage>, app: AppHandle) -> Result<(), String> {
-    let store = app.store("settings.json").map_err(|e: tauri_plugin_store::Error| e.to_string())?;
-    store.set("groq_language", serde_json::json!(lang));
-    store.save().map_err(|e: tauri_plugin_store::Error| e.to_string())?;
-    *state.0.lock().map_err(|e| e.to_string())? = lang;
-    Ok(())
-}
-
-#[tauri::command]
-pub async fn get_groq_language(state: State<'_, GroqLanguage>) -> Result<String, String> {
-    Ok(state.0.lock().map_err(|e| e.to_string())?.clone())
-}
-
-#[tauri::command]
-pub async fn set_gemini_language(lang: String, state: State<'_, GeminiLanguage>, app: AppHandle) -> Result<(), String> {
-    let store = app.store("settings.json").map_err(|e: tauri_plugin_store::Error| e.to_string())?;
-    store.set("gemini_language", serde_json::json!(lang));
-    store.save().map_err(|e: tauri_plugin_store::Error| e.to_string())?;
-    *state.0.lock().map_err(|e| e.to_string())? = lang;
-    Ok(())
-}
-
-#[tauri::command]
-pub async fn get_gemini_language(state: State<'_, GeminiLanguage>) -> Result<String, String> {
-    Ok(state.0.lock().map_err(|e| e.to_string())?.clone())
 }
 
 #[tauri::command]

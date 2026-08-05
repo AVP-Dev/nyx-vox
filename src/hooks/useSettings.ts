@@ -1,13 +1,10 @@
 import { useState, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import type { SttMode, Language, AppLanguage, FormattingMode, FormattingStyle } from '@/lib/types';
+import type { SttMode, AppLanguage, FormattingMode, FormattingStyle } from '@/lib/types';
 
 export interface SettingsState {
     showSettings: boolean;
     sttMode: SttMode;
-    dgLanguage: Language;
-    whisperLanguage: Language;
-    groqLanguage: Language;
     appLanguage: AppLanguage;
     autoPaste: boolean;
     clearOnPaste: boolean;
@@ -25,9 +22,6 @@ export interface SettingsState {
 export interface SettingsActions {
     setShowSettings: (v: boolean) => void;
     setSttMode: (v: SttMode) => void;
-    setDgLanguage: (v: Language) => void;
-    setWhisperLanguage: (v: Language) => void;
-    setGroqLanguage: (v: Language) => void;
     setAppLanguage: (v: AppLanguage) => void;
     setAutoPaste: (v: boolean) => void;
     setClearOnPaste: (v: boolean) => void;
@@ -48,9 +42,6 @@ export interface SettingsActions {
 export function useSettings(): SettingsState & SettingsActions {
     const [showSettings, setShowSettings] = useState(false);
     const [sttMode, setSttMode] = useState<SttMode>('deepgram');
-    const [dgLanguage, setDgLanguage] = useState<Language>('mixed');
-    const [whisperLanguage, setWhisperLanguage] = useState<Language>('ru');
-    const [groqLanguage, setGroqLanguage] = useState<Language>('mixed');
     const [appLanguage, setAppLanguage] = useState<AppLanguage>('ru');
     const [autoPaste, setAutoPaste] = useState(true);
     const [clearOnPaste, setClearOnPaste] = useState(false);
@@ -71,7 +62,7 @@ export function useSettings(): SettingsState & SettingsActions {
     }, []);
 
     const toggleSTTMode = useCallback(async () => {
-        const modes: SttMode[] = ['deepgram', 'whisper', 'groq', 'gemini'];
+        const modes: SttMode[] = ['deepgram', 'whisper', 'groq', 'gemini', 'gigachat'];
         setSttMode(prev => {
             const next = modes[(modes.indexOf(prev) + 1) % modes.length];
             invoke('set_stt_mode', { mode: next }).catch(console.error);
@@ -89,13 +80,13 @@ export function useSettings(): SettingsState & SettingsActions {
 
     return {
         // State
-        showSettings, sttMode, dgLanguage, whisperLanguage, groqLanguage,
+        showSettings, sttMode,
         appLanguage, autoPaste, clearOnPaste, startMinimized, alwaysOnTop,
         autoPauseMedia, noiseGate, audioGain, formattingMode, lastActiveFormatting, formattingStyle,
         showQuickMenu,
         // Setters
-        setShowSettings, setSttMode, setDgLanguage, setWhisperLanguage,
-        setGroqLanguage, setAppLanguage, setAutoPaste, setClearOnPaste,
+        setShowSettings, setSttMode,
+        setAppLanguage, setAutoPaste, setClearOnPaste,
         setStartMinimized, setAlwaysOnTop, setAutoPauseMedia, setNoiseGate, setAudioGain, setFormattingMode,
         setLastActiveFormatting, setFormattingStyle, setShowQuickMenu,
         // Handlers

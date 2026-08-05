@@ -141,11 +141,11 @@ pub(super) fn run_whisper(
     let t0 = std::time::Instant::now();
     log::debug!("Using model: {:?}", model_type);
 
-    let lock = super::model_cache::get_or_load_model(model_type)?;
-    let model = lock.as_ref().ok_or("Failed to initialize Whisper model")?;
+    let mut lock = super::model_cache::get_or_load_model(model_type)?;
+    let model = lock.as_mut().ok_or("Failed to initialize Whisper model")?;
 
     let params = configure_params(language, samples);
-    let mut wstate = model.ctx.create_state().map_err(|e| format!("{:?}", e))?;
+    let wstate = &mut model.state;
 
     let t_infer = std::time::Instant::now();
     wstate
@@ -156,7 +156,7 @@ pub(super) fn run_whisper(
     let lang_id = wstate.full_lang_id_from_state();
     log::debug!("Detected language ID: {}", lang_id);
 
-    let result = collect_segments(&wstate);
+    let result = collect_segments(wstate);
 
     log::debug!("Total run_whisper time: {:?}", t0.elapsed());
     Ok(convert_all_caps_to_normal(
@@ -175,6 +175,7 @@ fn configure_params<'a>(language: &'a str, samples: &'a [f32]) -> FullParams<'a,
 
     let lang_code = match language {
         "mixed" => Some("ru"),
+        "auto" => None, // let whisper.cpp auto-detect the spoken language
         _ => Some(language),
     };
     params.set_language(lang_code);
@@ -220,6 +221,7 @@ fn build_initial_prompt(language: &str) -> String {
     // For mixed mode: language is forced to Russian, initial_prompt handles English terms.
     match language {
         "en" => format!("Transcribe all speech accurately. Tech terms: {}", VOCAB_HINT),
+        "auto" => format!("Точная транскрипция речи. {}", VOCAB_HINT),
         "mixed" => format!(
             "Русская речь с английскими техническими терминами. {}",
             crate::prompts::MIXED_RU_EN_STT_PROMPT

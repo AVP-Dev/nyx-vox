@@ -88,6 +88,39 @@ pub fn resample_to_16k(samples: &[f32], from_rate: u32, to_rate: u32) -> Vec<f32
     result
 }
 
+/// Convert float samples to 16-bit mono WAV bytes in memory.
+pub fn samples_to_wav(samples: &[f32], sample_rate: u32) -> Result<Vec<u8>, String> {
+    use std::io::Cursor;
+
+    let mut wav_cursor = Cursor::new(Vec::new());
+    {
+        let spec = hound::WavSpec {
+            channels: 1,
+            sample_rate,
+            bits_per_sample: 16,
+            sample_format: hound::SampleFormat::Int,
+        };
+        let mut writer = hound::WavWriter::new(&mut wav_cursor, spec)
+            .map_err(|e| format!("WavWriter error: {}", e))?;
+
+        for &sample in samples {
+            let val: f32 = sample * 32767.0;
+            let amplitude = val.clamp(-32768.0, 32767.0) as i16;
+            writer
+                .write_sample(amplitude)
+                .map_err(|e| format!("Write sample error: {}", e))?;
+        }
+        writer
+            .finalize()
+            .map_err(|e| format!("Wav finalize error: {}", e))?;
+    }
+    let wav_data = wav_cursor.into_inner();
+    if wav_data.is_empty() {
+        return Err("WAV data empty".to_string());
+    }
+    Ok(wav_data)
+}
+
 pub fn get_frontmost_app_info() -> (String, String) {
     #[cfg(target_os = "macos")]
     {

@@ -2,9 +2,18 @@ use tauri::{
     menu::{Menu, MenuItem},
     AppHandle,
 };
+use std::sync::Mutex;
 
 #[tauri::command]
 pub fn update_tray_lang(app: AppHandle, lang: String) {
+    static LAST_LANG: Mutex<Option<String>> = Mutex::new(None);
+    {
+        let last = LAST_LANG.lock().unwrap();
+        if last.as_deref() == Some(&lang) {
+            return;
+        }
+    }
+
     if let Some(tray) = app.tray_by_id("main") {
         let welcome_label = if lang == "ru" {
             "Инструкция"
@@ -85,4 +94,5 @@ pub fn update_tray_lang(app: AppHandle, lang: String) {
             let _ = tray.set_menu(Some(tray_menu));
         }
     }
+    *LAST_LANG.lock().unwrap() = Some(lang);
 }

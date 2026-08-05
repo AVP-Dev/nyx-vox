@@ -66,8 +66,8 @@ pub fn run() {
     let opt_space  = Shortcut::new(Some(Modifiers::ALT), Code::Space);
 
     let recording_state: whisper::SharedState = Arc::new(Mutex::new(whisper::RecordingState::default()));
-    let ai_state: ai_provider::SharedAiState = Arc::new(Mutex::new(ai_provider::RecordingState::default()));
-    let deepgram_state: deepgram::SharedDeepgramState = Arc::new(Mutex::new(deepgram::DeepgramState::default()));
+    let ai_state: ai_provider::SharedAiState = Arc::new(Mutex::new(AudioBuffer::default()));
+    let deepgram_state: deepgram::SharedDeepgramState = Arc::new(Mutex::new(AudioBuffer::default()));
 
     let sys_lang = if cfg!(target_os = "macos") {
         if let Ok(o) = std::process::Command::new("defaults").arg("read").arg("-g").arg("AppleLanguages").output() {
@@ -107,15 +107,10 @@ pub fn run() {
             app.manage(RecordingFlag::default());
             app.manage(ActiveSttMode(Mutex::new(String::new())));
             app.manage(DidPauseMedia::default());
-            app.manage(PositionInitialized::default());
             app.manage(SttMode(Mutex::new("deepgram".to_string())));
             app.manage(FormattingMode(Mutex::new("none".to_string())));
             app.manage(FormattingStyleState(Mutex::new(FormattingStyle::default())));
-            app.manage(DeepgramLanguage(Mutex::new("mixed".to_string())));
-            app.manage(WhisperLanguage(Mutex::new("mixed".to_string())));
             app.manage(WhisperModel(Mutex::new(WhisperModelType::default())));
-            app.manage(GroqLanguage(Mutex::new("mixed".to_string())));
-            app.manage(GeminiLanguage(Mutex::new("mixed".to_string())));
             app.manage(AutoPause(Mutex::new(false)));
             app.manage(AutoPaste(Mutex::new(true)));
             app.manage(NoiseGateThreshold(Mutex::new(0.002)));
@@ -161,8 +156,6 @@ pub fn run() {
 
                     load_str_setting!("stt_mode", SttMode);
                     load_str_setting!("formatting_mode", FormattingMode);
-                    load_str_setting!("deepgram_language", DeepgramLanguage);
-                    load_str_setting!("whisper_language", WhisperLanguage);
                     
                     if let Some(m) = store.get("whisper_model").and_then(|v: serde_json::Value| v.as_str().map(|s| s.to_string())) {
                         let m_type = match m.as_str() {
@@ -174,9 +167,6 @@ pub fn run() {
                             if let Ok(mut lock) = state.0.lock() { *lock = m_type; }
                         }
                     }
-
-                    load_str_setting!("groq_language", GroqLanguage);
-                    load_str_setting!("gemini_language", GeminiLanguage);
 
                     if let Some(l) = store.get("app_language").and_then(|v: serde_json::Value| v.as_str().map(|s| s.to_string())) {
                         initial_app_lang = l;
@@ -371,16 +361,8 @@ pub fn run() {
             commands::show_welcome_window,
             commands::hide_welcome_window,
             commands::fix_quarantine,
-            commands::set_deepgram_language,
-            commands::get_deepgram_language,
-            commands::set_whisper_language,
-            commands::get_whisper_language,
             commands::set_whisper_model_type,
             commands::get_whisper_model_type,
-            commands::set_groq_language,
-            commands::get_groq_language,
-            commands::set_gemini_language,
-            commands::get_gemini_language,
             commands::get_target_app,
             commands::update_target_app,
             tray::update_tray_lang,

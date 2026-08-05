@@ -3,15 +3,12 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { APP_VERSION } from '@/components/SettingsPanel';
 import type {
-    SttMode, Language, AppLanguage, FormattingMode, FormattingStyle,
+    SttMode, AppLanguage, FormattingMode, FormattingStyle,
 } from '@/lib/types';
 import type { SettingsActions } from '@/hooks/useSettings';
 
 interface Setters {
     setSttMode: SettingsActions['setSttMode'];
-    setDgLanguage: SettingsActions['setDgLanguage'];
-    setWhisperLanguage: SettingsActions['setWhisperLanguage'];
-    setGroqLanguage: SettingsActions['setGroqLanguage'];
     setAppLanguage: SettingsActions['setAppLanguage'];
     setAutoPaste: SettingsActions['setAutoPaste'];
     setClearOnPaste: SettingsActions['setClearOnPaste'];
@@ -66,9 +63,6 @@ export function useInitialSettings(setters: Setters) {
 
                 const results = await Promise.all([
                     invoke<string>('get_stt_mode'),
-                    invoke<Language>('get_deepgram_language'),
-                    invoke<Language>('get_whisper_language'),
-                    invoke<Language>('get_groq_language'),
                     invoke<boolean>('get_auto_paste'),
                     invoke<boolean>('get_clear_on_paste'),
                     invoke<boolean>('get_start_minimized'),
@@ -80,21 +74,18 @@ export function useInitialSettings(setters: Setters) {
                 ]);
 
                 setters.setSttMode(results[0] as SttMode);
-                setters.setDgLanguage(results[1]);
-                setters.setWhisperLanguage(results[2]);
-                setters.setGroqLanguage(results[3]);
-                setters.setAutoPaste(results[4]);
-                setters.setClearOnPaste(results[5]);
-                setters.setStartMinimized(results[6]);
-                setters.setAlwaysOnTop(results[8] ?? true);
+                setters.setAutoPaste(results[1]);
+                setters.setClearOnPaste(results[2]);
+                setters.setStartMinimized(results[3]);
+                setters.setAlwaysOnTop(results[5] ?? true);
 
-                const fMode = results[9] as FormattingMode;
+                const fMode = results[6] as FormattingMode;
                 setters.setFormattingMode(fMode || 'none');
                 if (fMode && fMode !== 'none') setters.setLastActiveFormatting(fMode);
 
-                const fStyle = results[10] as FormattingStyle;
+                const fStyle = results[7] as FormattingStyle;
                 setters.setFormattingStyle(fStyle || 'casual');
-                setters.setAutoPauseMedia(results[11] ?? false);
+                setters.setAutoPauseMedia(results[8] ?? false);
 
                 // Load audio gain from get_all_settings (no individual getter exists)
                 try {

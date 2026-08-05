@@ -32,7 +32,7 @@ pub async fn refine_text<R: Runtime>(
     );
 
     let user_instruction = instruction
-        .unwrap_or_else(|| crate::prompts::REFINEMENT_USER_INSTRUCTION_DEEPSEEK.to_string());
+        .unwrap_or_else(|| crate::prompts::REFINEMENT_USER_INSTRUCTION_GENERIC.to_string());
 
     let user_content = format!(
         "{}{}{}{}",

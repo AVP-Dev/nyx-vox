@@ -91,3 +91,15 @@
 Решение: `paste_text` проверяет Accessibility перед скрытием, возвращает реальный статус через `oneshot`-канал; при ошибке окно показывается обратно. Фронт при ошибке вставки переходит в `result` с сообщением, а не зависает в `processing`.
 Альтернативы: ничего не делать — пользователь оставался в неведении. Эмулировать вставку через pasteboard без Cmd+V — меняет поведение в сторонних приложениях.
 Последствия: `paste_text` стал `Result<(), String>` с реальной семантикой; UI-поток стал надёжнее.
+
+### [2026-08-05] GigaChat STT через GigaChat-2-Pro (multimodal)
+Контекст: GigaChat-2-Pro поддерживает аудио-вход (текст, изображение, аудио). Пользователь хочет транскрибировать голос через Сбер без VPN. Ключ авторизации тот же, что для форматирования.
+Решение: `gigachat::transcribe()` — OAuth (тот же кеш токена), загрузка WAV через `POST /v1/files` (`purpose=general`), затем `chat/completions` с `attachments: [file_id]` + `function_call: "auto"` на модели `GigaChat-2-Pro`. Форматирование осталось на `GigaChat-2` (дешевле).
+Альтернативы: inline-аудио в формате OpenAI (`input_audio`) — сервер отвечает 400 `invalid JSON syntax` (GigaChat не поддерживает). Модель `GigaChat-Pro` (старая линейка) — 404 `No such model`.
+Последствия: STT-движок `gigachat` в audio.rs (start/stop_recording), кнопка «GigaChat Pro» в EnginesTab, `SttMode` включает `'gigachat'`. Два сетевых вызова на транскрипцию (upload + chat).
+
+### [2026-08-05] Trust anchor для сертификатов Минцифры
+Контекст: оба GigaChat-эндпоинта (`ngw.devices.sberbank.ru:9443` и `api.giga.chat`) подписаны Russian Trusted Sub CA, который macOS не доверяет. Любой TLS-стек (rustls/native-tls) падал с verify error; `danger_accept_invalid_certs` не помогал — сервер шлёт полную цепочку, но Sub CA из госуслуг не совпадает с серверным.
+Решение: reqwest переключён на `rustls-tls` (вместо default native-tls, где `add_root_certificate` ведёт себя иначе). Russian Trusted Root CA скачивается один раз с `gu-st.ru` (официальный источник из доки Сбера) в app-data и добавляется через `add_root_certificate` в `client_with_ca()`. Никакого отключения верификации.
+Альтернативы: curl-обёртка для OAuth (`-k`) — костыль, отклонён. `danger_accept_invalid_certs` — отключает проверку для всех хостов, отклонён.
+Последствия: в app-data появляется `russian_trusted_root_ca.pem`; все GigaChat-запросы идут через `client_with_ca()`. `Cargo.toml`: reqwest = `default-features = false, features = ["rustls-tls", ...]`.

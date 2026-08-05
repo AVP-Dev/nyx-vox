@@ -4,8 +4,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { SectionTitle } from './Common';
 
 type FormattingMode = 'none' | 'gemini' | 'deepseek' | 'qwen' | 'groq' | 'gigachat';
-type SttLanguage = 'mixed' | 'ru' | 'en';
-
 interface EngineInfo {
     title: string;
     badge: string;
@@ -23,15 +21,11 @@ export interface EngineHelp {
 interface EnginesTabProps {
     c: typeof DICTIONARY.en;
     lang: string;
-    sttMode: 'deepgram' | 'whisper' | 'groq' | 'gemini';
-    handleModeChange: (mode: 'deepgram' | 'whisper' | 'groq' | 'gemini') => void;
+    sttMode: 'deepgram' | 'whisper' | 'groq' | 'gemini' | 'gigachat';
+    handleModeChange: (mode: 'deepgram' | 'whisper' | 'groq' | 'gemini' | 'gigachat') => void;
     showHelp: string | null;
     setShowHelp: (v: string | null) => void;
     ENGINE_HELP: EngineHelp;
-    dgLanguage: SttLanguage;
-    whisperLanguage: SttLanguage;
-    groqLanguage: SttLanguage;
-    handleLanguageChange: (lang: SttLanguage) => void;
     formattingMode: 'none' | 'gemini' | 'deepseek' | 'qwen' | 'groq' | 'gigachat';
     handleFormattingModeChange: (mode: 'none' | 'gemini' | 'deepseek' | 'qwen' | 'groq' | 'gigachat') => void;
     whisperModel: 'small' | 'medium' | 'turbo';
@@ -49,7 +43,6 @@ interface EnginesTabProps {
 
 export const EnginesTab: React.FC<EnginesTabProps> = ({
     c, lang, sttMode, handleModeChange, showHelp, setShowHelp, ENGINE_HELP,
-    dgLanguage, whisperLanguage, groqLanguage, handleLanguageChange,
     formattingMode, handleFormattingModeChange, whisperModel, handleWhisperModelChange,
     modelAvailable, downloading, downloadProgress, handleDownload, handleDeleteModel,
     isPaused, handlePause, handleResume, handleCancel
@@ -65,7 +58,7 @@ export const EnginesTab: React.FC<EnginesTabProps> = ({
                         </button>
                     </div>
                 </SectionTitle>
-                <div className="grid grid-cols-2 gap-2 mb-3">
+                <div className="grid grid-cols-3 gap-2 mb-3">
                     <EngineButton 
                         active={sttMode === 'deepgram'} 
                         icon={<Wifi className={`w-4 h-4 mb-1.5 shrink-0 ${sttMode === 'deepgram' ? 'text-primary' : 'text-white/30'}`} />} 
@@ -91,6 +84,15 @@ export const EnginesTab: React.FC<EnginesTabProps> = ({
                         onClick={() => handleModeChange('gemini')}
                         activeColor="border-sky-500/30"
                         activeLabelColor="text-sky-400/90"
+                    />
+                    <EngineButton 
+                        active={sttMode === 'gigachat'}
+                        icon={<Globe className={`w-4 h-4 mb-1.5 shrink-0 ${sttMode === 'gigachat' ? 'text-emerald-400' : 'text-white/30'}`} />}
+                        label={c.settings.gigachatSTTLabel || 'GigaChat'}
+                        desc={c.settings.gigachatSTTDesc || ''}
+                        onClick={() => handleModeChange('gigachat')}
+                        activeColor="border-emerald-500/30"
+                        activeLabelColor="text-emerald-400/90"
                     />
                     <EngineButton 
                         active={sttMode === 'whisper'} 
@@ -122,23 +124,6 @@ export const EnginesTab: React.FC<EnginesTabProps> = ({
                     </motion.div>
                 )}
             </AnimatePresence>
-
-            <div>
-                <SectionTitle>{c.settings.sttLanguage}</SectionTitle>
-                <div className="grid grid-cols-3 gap-2 mb-3">
-                    {[
-                        { id: 'mixed', label: c.settings.langMixed },
-                        { id: 'ru', label: c.settings.langRu },
-                        { id: 'en', label: c.settings.langEn },
-                    ].map((l) => {
-                        const currentLang = sttMode === 'deepgram' ? dgLanguage : (sttMode === 'whisper' ? whisperLanguage : groqLanguage);
-                        const isActive = currentLang === l.id;
-                        return (
-                            <button key={l.id} onClick={() => handleLanguageChange(l.id as SttLanguage)} className={`p-2 rounded-xl border transition-all text-center text-[12px] font-semibold ${isActive ? 'bg-white/8 border-strong text-white' : 'bg-white/3 border-white/8 text-muted hover:border-white/15'}`}>{l.label}</button>
-                        );
-                    })}
-                </div>
-            </div>
 
             <div>
                 <SectionTitle>{c.settings.formattingEngine}</SectionTitle>
@@ -223,7 +208,11 @@ export const EnginesTab: React.FC<EnginesTabProps> = ({
                     <FaqSeparator />
                     <FaqItem icon={<Zap className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />} text={c.settings.faqGroq} />
                     <FaqSeparator />
+                    <FaqItem icon={<Globe className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />} text={c.settings.faqGemini} />
+                    <FaqSeparator />
                     <FaqItem icon={<HardDrive className="w-4 h-4 text-muted shrink-0 mt-0.5" />} text={c.settings.faqWhisper} />
+                    <FaqSeparator />
+                    <FaqItem icon={<Globe className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />} text={ENGINE_HELP[lang as keyof EngineHelp].gigachat.desc} isItalic color="text-emerald-400/80" />
                     <FaqSeparator />
                     <FaqItem icon={<HelpCircle className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />} text={ENGINE_HELP[lang as keyof EngineHelp].formatting.desc} isItalic color="text-sky-400/80" />
                 </div>

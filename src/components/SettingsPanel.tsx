@@ -21,8 +21,6 @@ import { ToastContainer, useToast } from './ui/Toast';
 import { ConfirmDialog, useConfirm } from './ui/ConfirmDialog';
 import type { FormattingMode } from '@/lib/types';
 
-type SttLanguage = 'mixed' | 'ru' | 'en';
-
 export const APP_VERSION = '1.2.0';
 
 interface EngineHelpItem {
@@ -36,9 +34,9 @@ const ENGINE_HELP: Record<string, Record<string, EngineHelpItem>> = {
     ru: {
         deepgram: { title: 'Deepgram', badge: 'Pro', type: 'Cloud', desc: 'Молниеносно, пунктуация, диктофонное качество.' },
         groq: { title: 'Groq', badge: 'Free', type: 'Cloud', desc: 'Whisper на стероидах. Бесплатно и очень быстро.' },
-        gemini: { title: 'Gemini', badge: 'Soto', type: 'Multimodal', desc: 'Google AI. Высочайшая точность + стиль.' },
+        gemini: { title: 'Gemini', badge: 'SOTA', type: 'Multimodal', desc: 'Google AI. Высочайшая точность + стиль.' },
         whisper: { title: 'Local', badge: 'Privasi', type: 'Offline', desc: '100% приватно. Работает без интернета.' },
-        gigachat: { title: 'GigaChat', badge: 'Сбер', type: 'LLM', desc: 'SberAI. Российская нейросеть, доступна без VPN.' },
+        gigachat: { title: 'GigaChat', badge: 'Сбер', type: 'LLM', desc: 'SberAI. Быстрая, доступна без VPN.' },
         formatting: { title: 'Formatting', badge: 'AI', type: 'LLM', desc: '✨ AI режим: автоматически исправляет ошибки, убирает "эээ" и расставляет абзацы.' }
     },
     en: {
@@ -46,7 +44,7 @@ const ENGINE_HELP: Record<string, Record<string, EngineHelpItem>> = {
         groq: { title: 'Groq', badge: 'FREE', type: 'Cloud', desc: 'Blazing fast Whisper LPU. Best value.' },
         gemini: { title: 'Gemini', badge: 'SOTA', type: 'Multimodal', desc: 'Google AI. Premium accuracy and formatting.' },
         whisper: { title: 'Local', badge: 'PRIVACY', type: 'Offline', desc: '100% private. Works without internet.' },
-        gigachat: { title: 'GigaChat', badge: 'SBER', type: 'LLM', desc: 'SberAI. Russian neural network, works without VPN.' },
+        gigachat: { title: 'GigaChat', badge: 'Sber', type: 'LLM', desc: 'SberAI. Russian neural network, works without VPN.' },
         formatting: { title: 'Formatting', badge: 'AI', type: 'LLM', desc: '✨ AI mode: fixes typos, removes filler words, and structures text into paragraphs.' }
     }
 };
@@ -68,14 +66,8 @@ interface SettingsPanelProps {
     formattingStyle: 'casual' | 'professional';
     onSetFormattingStyle: (s: 'casual' | 'professional') => void;
     // Shared settings
-    sttMode: 'deepgram' | 'whisper' | 'groq' | 'gemini';
-    onSetSttMode: (m: 'deepgram' | 'whisper' | 'groq' | 'gemini') => void;
-    dgLanguage: SttLanguage;
-    onSetDgLanguage: (l: SttLanguage) => void;
-    whisperLanguage: SttLanguage;
-    onSetWhisperLanguage: (l: SttLanguage) => void;
-    groqLanguage: SttLanguage;
-    onSetGroqLanguage: (l: SttLanguage) => void;
+    sttMode: 'deepgram' | 'whisper' | 'groq' | 'gemini' | 'gigachat';
+    onSetSttMode: (m: 'deepgram' | 'whisper' | 'groq' | 'gemini' | 'gigachat') => void;
     formattingMode: FormattingMode;
     onSetFormattingMode: (m: FormattingMode) => void;
     noiseGate: number;
@@ -92,9 +84,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     autoPauseMedia, handleToggleAutoPauseMedia,
     formattingStyle, onSetFormattingStyle,
     sttMode, onSetSttMode,
-    dgLanguage, onSetDgLanguage,
-    whisperLanguage, onSetWhisperLanguage,
-    groqLanguage, onSetGroqLanguage,
     formattingMode, onSetFormattingMode,
     noiseGate, onSetNoiseGate,
     audioGain, onSetAudioGain,
@@ -240,15 +229,9 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         setModelAvailable(avail);
     };
 
-    const handleModeChange = async (m: 'deepgram' | 'whisper' | 'groq' | 'gemini') => {
+    const handleModeChange = async (m: 'deepgram' | 'whisper' | 'groq' | 'gemini' | 'gigachat') => {
         onSetSttMode(m);
         await invoke('set_stt_mode', { mode: m });
-    };
-
-    const handleLanguageChange = async (l: SttLanguage) => {
-        if (sttMode === 'deepgram') { onSetDgLanguage(l); await invoke('set_deepgram_language', { lang: l }); }
-        else if (sttMode === 'whisper') { onSetWhisperLanguage(l); await invoke('set_whisper_language', { lang: l }); }
-        else if (sttMode === 'groq') { onSetGroqLanguage(l); await invoke('set_groq_language', { lang: l }); }
     };
 
     const handleFormattingModeChange = async (m: FormattingMode) => {
@@ -463,7 +446,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                                         <EnginesTab 
                                             c={c} lang={lang} sttMode={sttMode} handleModeChange={handleModeChange} 
                                             showHelp={showHelp} setShowHelp={setShowHelp} ENGINE_HELP={ENGINE_HELP as unknown as EngineHelp}
-                                            dgLanguage={dgLanguage} whisperLanguage={whisperLanguage} groqLanguage={groqLanguage} handleLanguageChange={handleLanguageChange}
                                             formattingMode={formattingMode} handleFormattingModeChange={handleFormattingModeChange}
                                             whisperModel={whisperModel} handleWhisperModelChange={handleWhisperModelChange}
                                             modelAvailable={modelAvailable} downloading={downloading} downloadProgress={downloadProgress}

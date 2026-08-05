@@ -18,6 +18,13 @@ pub enum FormattingStyle {
     Professional,
 }
 
+// ── Shared audio buffer (used by Deepgram, Groq, Gemini) ─────────────────
+#[derive(Default)]
+pub struct AudioBuffer {
+    pub samples: Vec<f32>,
+    pub sample_rate: u32,
+}
+
 // ── Shared state types ────────────────────────────────────────────────────────
 #[derive(Default)]
 pub struct DidPauseMedia(pub AtomicBool);
@@ -44,12 +51,7 @@ pub struct ActiveSttMode(pub Mutex<String>);
 // STT Mode: "deepgram" or "whisper" or "groq"
 pub struct SttMode(pub Mutex<String>);
 
-// STT Languages (per mode)
-pub struct DeepgramLanguage(pub Mutex<String>);
-pub struct WhisperLanguage(pub Mutex<String>);
 pub struct WhisperModel(pub Mutex<WhisperModelType>);
-pub struct GroqLanguage(pub Mutex<String>);
-pub struct GeminiLanguage(pub Mutex<String>);
 
 // Auto-Pause Media flag
 pub struct AutoPause(pub Mutex<bool>);
@@ -68,11 +70,6 @@ pub struct AlwaysOnTop(pub Mutex<bool>);
 
 // Target application info (Name, Bundle ID)
 pub struct TargetApp(pub Mutex<(String, String)>);
-
-// Position initialized flag (to only center once on launch)
-#[derive(Default)]
-#[allow(dead_code)]
-pub struct PositionInitialized(pub AtomicBool);
 
 // APP Language ("ru" or "en")
 pub struct AppLanguage(pub Mutex<String>);

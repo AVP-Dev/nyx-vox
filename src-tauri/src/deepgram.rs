@@ -3,16 +3,10 @@ use std::sync::{
     Arc, Mutex,
 };
 use tauri::{AppHandle, Emitter, Runtime};
-use std::io::Cursor;
 
-// ── Shared recording state (Same structure as Groq for batch processing) ──────
-#[derive(Default)]
-pub struct DeepgramState {
-    pub samples: Vec<f32>,
-    pub sample_rate: u32,
-}
+use crate::state::AudioBuffer;
 
-pub type SharedDeepgramState = Arc<Mutex<DeepgramState>>;
+pub type SharedDeepgramState = Arc<Mutex<AudioBuffer>>;
 
 // ── Start capturing (Batch mode) ──────────────────────────────────────────────
 pub fn start_recording<R: Runtime>(
@@ -67,10 +61,22 @@ pub fn start_recording<R: Runtime>(
                     .map(|f| f.iter().sum::<f32>() / channels as f32)
                     .collect();
 
-                // Visual feedback (audio levels)
+                // Visual feedback (audio levels) — throttled to 50ms
                 let rms = (mono.iter().map(|s| s * s).sum::<f32>() / mono.len() as f32).sqrt();
                 let level = (rms * 10.0).min(1.0_f32);
-                let _ = emit_handle.emit("audio-level", level);
+
+                use std::sync::atomic::AtomicU64;
+                static LAST_EMIT_MS: AtomicU64 = AtomicU64::new(0);
+                let now_ms = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_millis() as u64;
+
+                let last = LAST_EMIT_MS.load(Ordering::Relaxed);
+                if now_ms - last > 50 {
+                    let _ = emit_handle.emit("audio-level", level);
+                    LAST_EMIT_MS.store(now_ms, Ordering::Relaxed);
+                }
 
                 if let Ok(mut lock) = samples_ref.lock() {
                     lock.samples.extend_from_slice(&mono);
@@ -155,29 +161,8 @@ pub async fn stop_recording<R: Runtime>(
 
     // Resample to 16k (Deepgram standard)
     let processed_samples = crate::utils::resample_to_16k(&samples, src_rate, 16000);
+    let wav_data = crate::utils::samples_to_wav(&processed_samples, 16000)?;
 
-    // Convert to WAV in memory
-    let mut wav_cursor = Cursor::new(Vec::new());
-    {
-        let spec = hound::WavSpec {
-            channels: 1,
-            sample_rate: 16000,
-            bits_per_sample: 16,
-            sample_format: hound::SampleFormat::Int,
-        };
-        let mut writer = hound::WavWriter::new(&mut wav_cursor, spec)
-            .map_err(|e| format!("WavWriter error: {}", e))?;
-
-        for &sample in &processed_samples {
-            let val: f32 = sample * 32767.0;
-            let amplitude = val.clamp(-32768.0, 32767.0) as i16;
-            writer.write_sample(amplitude).map_err(|e| format!("Write sample error: {}", e))?;
-        }
-        writer.finalize().map_err(|e| format!("Wav finalize error: {}", e))?;
-    }
-
-    let wav_data = wav_cursor.into_inner();
-    
     // REST API Request
     let client = reqwest::Client::builder()
         .connect_timeout(std::time::Duration::from_secs(8))
@@ -187,13 +172,13 @@ pub async fn stop_recording<R: Runtime>(
     
     // Build query params
     let mut query_params: Vec<(&str, &str)> = vec![
-        ("model", "nova-3-general"),
+        ("model", "nova-2-general"),
         ("smart_format", "true"),
         ("punctuate", "true"),
     ];
     
     if language == "mixed" {
-        // nova-3 native multilingual code-switching: language=multi handles
+        // native multilingual code-switching: language=multi handles
         // Russian+English automatically. Using a custom `prompt` here would
         // be rejected ("No such model/language/tier combination found").
         query_params.push(("language", "multi"));
@@ -206,24 +191,58 @@ pub async fn stop_recording<R: Runtime>(
         return Err("API ключ Deepgram не найден. Пожалуйста, проверьте настройки.".to_string());
     }
 
-    let res = tokio::time::timeout(
-        std::time::Duration::from_secs(20),
-        client
-            .post("https://api.deepgram.com/v1/listen")
-            .header("Authorization", format!("Token {}", api_key))
-            .header("Content-Type", "audio/wav")
-            .query(&query_params)
-            .body(wav_data)
-            .send(),
-    )
-    .await
-    .map_err(|_| "Deepgram: таймаут запроса (20с). Попробуйте ещё раз.".to_string())?
-    .map_err(|e| format!("Deepgram request failed: {}", e))?;
+    // Try the configured model first; some account tiers reject a specific
+    // model/language combination, so fall back to the other nova generation.
+    let models = ["nova-2-general", "nova-3-general"];
+    let mut last_err = String::new();
+    let mut response = None;
 
-    if !res.status().is_success() {
-        let err_text = res.text().await.unwrap_or_default();
-        return Err(format!("Deepgram API Error: {}", err_text));
+    for model in models {
+        let mut params = query_params.clone();
+        for (k, v) in params.iter_mut() {
+            if *k == "model" {
+                *v = model;
+            }
+        }
+
+        match tokio::time::timeout(
+            std::time::Duration::from_secs(20),
+            client
+                .post("https://api.deepgram.com/v1/listen")
+                .header("Authorization", format!("Token {}", api_key))
+                .header("Content-Type", "audio/wav")
+                .query(&params)
+                .body(wav_data.clone())
+                .send(),
+        )
+        .await
+        {
+            Ok(Ok(resp)) => {
+                if resp.status().is_success() {
+                    response = Some(resp);
+                    break;
+                }
+                let err_text = resp.text().await.unwrap_or_default();
+                // If the combination is invalid, try the other model; otherwise stop.
+                if !err_text.contains("No such model/language/tier combination") {
+                    return Err(format!("Deepgram API Error: {}", err_text));
+                }
+                last_err = err_text;
+            }
+            Ok(Err(e)) => {
+                last_err = format!("Deepgram request failed: {}", e);
+                break;
+            }
+            Err(_) => {
+                last_err = "Deepgram: таймаут запроса (20с). Попробуйте ещё раз.".to_string();
+                break;
+            }
+        }
     }
+
+    let Some(res) = response else {
+        return Err(format!("Deepgram API Error: {}", last_err));
+    };
 
     // Parse JSON: results.channels[0].alternatives[0].transcript
     let json: serde_json::Value = res.json().await.map_err(|e| format!("Parse json failed: {}", e))?;

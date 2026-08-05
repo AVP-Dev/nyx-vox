@@ -1,13 +1,12 @@
 use base64::{engine::general_purpose, Engine as _};
 use serde_json::json;
-use std::io::Cursor;
 use std::sync::{
     atomic::{AtomicBool, AtomicU64, Ordering},
     Arc, Mutex,
 };
 use tauri::{AppHandle, Emitter, Manager, Runtime};
 
-use crate::state::{AiSemaphore, FormattingStyle, FormattingStyleState};
+use crate::state::{AiSemaphore, AudioBuffer, FormattingStyle, FormattingStyleState};
 
 // ── Models ───────────────────────────────────────────────────────────────────
 const GROQ_STT_MODEL: &str = "whisper-large-v3-turbo";
@@ -15,13 +14,7 @@ const GROQ_REFINEMENT_MODEL: &str = "llama-3.3-70b-versatile";
 const GEMINI_MODEL: &str = "gemini-2.5-flash";
 
 // ── Shared recording state ────────────────────────────────────────────────────
-#[derive(Default)]
-pub struct RecordingState {
-    pub samples: Vec<f32>,
-    pub sample_rate: u32,
-}
-
-pub type SharedAiState = Arc<Mutex<RecordingState>>;
+pub type SharedAiState = Arc<Mutex<AudioBuffer>>;
 
 fn build_refinement_user_content(instruction: Option<String>, text: &str) -> String {
     let instruction = instruction
@@ -35,7 +28,7 @@ fn build_refinement_user_content(instruction: Option<String>, text: &str) -> Str
     )
 }
 
-fn take_recording_wav<R: Runtime>(
+pub(crate) fn take_recording_wav<R: Runtime>(
     app: &AppHandle<R>,
     state: &SharedAiState,
     threshold: f32,
@@ -77,34 +70,7 @@ fn take_recording_wav<R: Runtime>(
         samples.len(), rms, threshold, gain, src_rate, samples.len() as f64 / src_rate as f64);
 
     let processed_samples = crate::utils::resample_to_16k(&samples, src_rate, 16000);
-    let mut wav_cursor = Cursor::new(Vec::new());
-    {
-        let spec = hound::WavSpec {
-            channels: 1,
-            sample_rate: 16000,
-            bits_per_sample: 16,
-            sample_format: hound::SampleFormat::Int,
-        };
-        let mut writer = hound::WavWriter::new(&mut wav_cursor, spec)
-            .map_err(|e| format!("WavWriter error: {}", e))?;
-
-        for &sample in &processed_samples {
-            let val: f32 = sample * 32767.0;
-            let amplitude = val.clamp(-32768.0, 32767.0) as i16;
-            writer
-                .write_sample(amplitude)
-                .map_err(|e| format!("Write sample error: {}", e))?;
-        }
-        writer
-            .finalize()
-            .map_err(|e| format!("Wav finalize error: {}", e))?;
-    }
-
-    let wav_data = wav_cursor.into_inner();
-    if wav_data.is_empty() {
-        return Err("WAV data empty".to_string());
-    }
-
+    let wav_data = crate::utils::samples_to_wav(&processed_samples, 16000)?;
     Ok(Some(wav_data))
 }
 
@@ -335,6 +301,14 @@ pub async fn stop_recording<R: Runtime>(
     let body = res.text().await.map_err(|e| format!("Body error: {}", e))?;
 
     if !status.is_success() {
+        // 403 usually means the API key lacks access to the model or the
+        // region is blocked. Give the user an actionable hint instead of the
+        // raw JSON error body.
+        if status.as_u16() == 403 {
+            return Err(
+                "Groq вернул 403 Forbidden. Проверьте: (1) ключ имеет доступ к модели whisper-large-v3-turbo в console.groq.com → Model Permissions, (2) ваш регион не заблокирован (Groq недоступен из РФ/РБ без VPN).".to_string(),
+            );
+        }
         return Err(format!("Groq API error: {}", body));
     }
 
@@ -359,7 +333,7 @@ pub async fn gemini_stop_recording<R: Runtime>(
     threshold: f32,
     gain: f32,
 ) -> Result<String, String> {
-    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
     recording_flag.store(false, Ordering::SeqCst);
 
     let semaphore = app.state::<AiSemaphore>();
@@ -414,7 +388,7 @@ pub async fn gemini_stop_recording<R: Runtime>(
         "contents": [{
             "role": "user",
             "parts": [
-                { "text": if language == "mixed" { crate::prompts::MIXED_RU_EN_STT_PROMPT } else { "Transcribe this audio. Return only the transcript text." } },
+                { "text": if language == "mixed" { crate::prompts::MIXED_RU_EN_STT_PROMPT } else { crate::prompts::GEMINI_STT_PROMPT } },
                 { "inlineData": { "mimeType": "audio/wav", "data": audio_b64 } }
             ]
         }],
@@ -434,7 +408,7 @@ pub async fn gemini_stop_recording<R: Runtime>(
     .map_err(|e| format!("Gemini STT request failed: {}", e))?;
 
     let status = res.status();
-    let body_text = res.text().await.unwrap_or_default();
+    let body_text = res.text().await.map_err(|e| format!("Gemini STT read body: {}", e))?;
     if !status.is_success() {
         return Err(format!("Gemini STT Failed ({}): {}", status, body_text));
     }
@@ -456,7 +430,20 @@ pub async fn groq_refine_text<R: Runtime>(
     api_key: String,
     instruction: Option<String>,
 ) -> Result<String, String> {
-    let _ = app.emit("ai-status", "✨ Форматирование...");
+    let lang_pref = app
+        .state::<crate::state::AppLanguage>()
+        .0
+        .lock()
+        .map(|l| l.clone())
+        .unwrap_or_else(|_| "ru".to_string());
+    let _ = app.emit(
+        "ai-status",
+        if lang_pref == "ru" {
+            "✨ Форматирую..."
+        } else {
+            "✨ Formatting..."
+        },
+    );
     // 1. Acquisition of Semaphore — with a timeout so a stuck previous request
     // (e.g. one that hit the network timeout) can't block transcription forever.
     let semaphore = app.state::<AiSemaphore>();
@@ -550,13 +537,28 @@ pub async fn gemini_refine_text<R: Runtime>(
     api_key: String,
     instruction: Option<String>,
 ) -> Result<String, String> {
-    let _ = app.emit("ai-status", "✨ Форматирование...");
-    let semaphore = app.state::<AiSemaphore>();
-    let _permit = semaphore
+    let lang_pref = app
+        .state::<crate::state::AppLanguage>()
         .0
-        .acquire()
-        .await
-        .map_err(|e| format!("Semaphore error: {}", e))?;
+        .lock()
+        .map(|l| l.clone())
+        .unwrap_or_else(|_| "ru".to_string());
+    let _ = app.emit(
+        "ai-status",
+        if lang_pref == "ru" {
+            "✨ Форматирую..."
+        } else {
+            "✨ Formatting..."
+        },
+    );
+    let semaphore = app.state::<AiSemaphore>();
+    let _permit = tokio::time::timeout(
+        std::time::Duration::from_secs(5),
+        semaphore.0.acquire(),
+    )
+    .await
+    .map_err(|_| "Предыдущий запрос к ИИ не завершился. Попробуйте ещё раз.".to_string())?
+    .map_err(|e| format!("Semaphore error: {}", e))?;
     let api_key = api_key
         .trim_matches('"')
         .trim_matches('\'')
