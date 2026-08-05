@@ -30,7 +30,7 @@ const WelcomeOverlay = lazy(() =>
 );
 
 export default function Home() {
-    const { transcriptText, setProcessing, setTranscript } = useStore();
+    const { transcriptText, setProcessing, setTranscript, compactResultWindow } = useStore();
 
     // --- Settings ---
     const settings = useSettings();
@@ -85,6 +85,7 @@ export default function Home() {
         isIdle: rec.isIdle,
         isOverlay,
         isCompact,
+        compactResultWindow,
         isVisible,
         showSettings: settings.showSettings,
         showWelcome,

@@ -9,6 +9,7 @@ export interface UseWindowManagerOptions {
     isIdle: boolean;
     isOverlay: boolean;
     isCompact: boolean;
+    compactResultWindow: boolean;
     isVisible: boolean;
     showSettings: boolean;
     showWelcome: boolean;
@@ -84,6 +85,7 @@ export function useWindowManager(opts: UseWindowManagerOptions) {
             isIdle: opts.isIdle,
             isOverlay: opts.isOverlay,
             isCompact: opts.isCompact,
+            compactResultWindow: opts.compactResultWindow,
             showSettings: opts.showSettings,
             showWelcome: opts.showWelcome,
             showQuickMenu: opts.showQuickMenu,
@@ -92,6 +94,7 @@ export function useWindowManager(opts: UseWindowManagerOptions) {
         resizeWindow(w, h);
     }, [
         opts.phase, opts.isIdle, opts.isOverlay, opts.isCompact,
+        opts.compactResultWindow,
         opts.isVisible, opts.showSettings, opts.showWelcome,
         opts.showQuickMenu, opts.transcriptTextLength, resizeWindow,
     ]);

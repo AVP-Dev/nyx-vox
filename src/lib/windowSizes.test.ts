@@ -41,6 +41,7 @@ describe('resolveWindowSize', () => {
         isIdle: true,
         isOverlay: false,
         isCompact: false,
+        compactResultWindow: false,
         showSettings: false,
         showWelcome: false,
         showQuickMenu: false,
@@ -86,6 +87,16 @@ describe('resolveWindowSize', () => {
     it('returns idle size when idle', () => {
         const result = resolveWindowSize(baseParams);
         expect(result).toEqual([...WINDOW_SIZES.idle]);
+    });
+
+    it('returns compact 48x48 when compactResultWindow is true and idle', () => {
+        const result = resolveWindowSize({ ...baseParams, compactResultWindow: true });
+        expect(result).toEqual([48, 48]);
+    });
+
+    it('ignores compactResultWindow when quickMenu is open', () => {
+        const result = resolveWindowSize({ ...baseParams, compactResultWindow: true, showQuickMenu: true });
+        expect(result).toEqual([...WINDOW_SIZES.quickMenu]);
     });
 
     it('returns recording size when recording', () => {

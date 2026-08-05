@@ -1,250 +1,269 @@
 # Project: NYX Vox
 
-> Этот файл — ИНДЕКС, а не документация. Подробности — по ссылкам в docs/.
-> Не дублируй сюда содержимое architecture.md. Этот файл читают
-> автоматически: Claude Code, Codex, Jules и другие агенты, совместимые
-> со стандартом AGENTS.md. Симлинк CLAUDE.md -> AGENTS.md обеспечивает
-> совместимость с Claude Code.
+> This file is an INDEX, not documentation. Details live in the linked `docs/`.
+> Do not duplicate the contents of `docs/architecture.md` here. This file is
+> read automatically by Claude Code, Codex, Jules and other AGENTS.md-compatible
+> agents. The symlink `CLAUDE.md -> AGENTS.md` keeps Claude Code compatible.
 
-## Что это за проект
+## What this is
 
-NYX Vox — десктопное приложение для голосового ввода текста с AI-обработкой.
-Позволяет диктовать текст через микрофон, распознавать речь (локально через Whisper
-или облако через Deepgram/Groq), и автоматически форматировать результат через AI
-(Gemini, DeepSeek, Qwen). Платформа — macOS. Статус — активная разработка, v1.2.0.
+NYX Vox — a macOS desktop app for AI-assisted voice dictation. Speak into the
+microphone, get speech transcribed (locally via Whisper, or in the cloud via
+Deepgram / Groq / Gemini / GigaChat), and have the result formatted by AI
+(Gemini, DeepSeek, Qwen, Groq, GigaChat). Status: active development, v1.2.0.
 
-## Стек
-- Язык/фреймворк: Rust 2021 (backend) + TypeScript / Next.js 16 / React 19 (frontend)
+> Versioning note: the last public release on GitHub is v1.1.0. The v1.2.0
+> tag exists in git (main) but no v1.2.0 build was ever published — so the
+> next public release must be named v1.2.0, not v1.3.0.
+
+## Stack
+- Languages: Rust 2021 (backend) + TypeScript / Next.js 16 / React 19 (frontend)
 - UI: Tailwind CSS 4, Framer Motion 12, Lucide React
 - State: Zustand 5 (client), TanStack Query 5 (server)
-- Десктоп: Tauri 2.10 (IPC между Rust и WebView)
-- STT: whisper-rs 0.16 (Metal/CoreML), Deepgram API (WebSocket), Groq API
-- AI: Gemini, DeepSeek, Qwen (через reqwest)
-- Аудио: cpal 0.15, hound 3.5
-- Безопасность: aes-gcm 0.10, sha2 0.10, machineid-rs
-- Пакетный менеджер: bun (frontend), cargo (backend)
-- БД: нет — настройки через tauri-plugin-store, история в JSON-файлах
-- ORM/миграции: нет
-- Очереди/воркеры: нет
+- Desktop: Tauri 2.10 (Rust ↔ WebView IPC)
+- STT: whisper-rs 0.16 (Metal/CoreML), Deepgram, Groq, Gemini, GigaChat (via reqwest)
+- AI: Gemini, DeepSeek, Qwen, Groq, GigaChat (via reqwest)
+- Audio: cpal 0.15, hound 3.5
+- Security: aes-gcm 0.10, sha2 0.10, machineid-rs
+- Package manager: bun (frontend), cargo (backend)
+- DB: none — settings via tauri-plugin-store, history in JSON files
+- ORM/migrations: none
+- Queues/workers: none
 
-## Структура репозитория
+## Repository structure
 ```
 nyx-vox/
 ├── src/                        # Frontend (Next.js)
 │   ├── app/                    # Routes: page.tsx, history/, update/, welcome/
-│   ├── components/             # SettingsPanel, ThemeProvider, WaveformVisualizer, WelcomeOverlay
-│   │   └── settings/           # Tabs: General, Engines, History, Info, Keys + translations
+│   ├── components/             # HeaderBar, ActionBar, ResultPane, QuickMenu, SettingsPanel, ThemeProvider, WaveformVisualizer, WelcomeOverlay
+│   │   ├── settings/           # Tabs: General, Engines, History, Info, Keys + translations
+│   │   └── ui/                 # Toast, ConfirmDialog
 │   ├── constants/              # appInfo, version
 │   ├── store/                  # Zustand store (useStore.ts)
-│   ├── hooks/                  # (пустой)
+│   ├── hooks/                  # useSettings, useRecording, useWindowManager, useInitialSettings, useTargetApp, useTauriEvents, useKeyboardShortcuts
+│   ├── lib/                    # types, text, windowSizes, animations, services
 │   └── types/                  # tauri.d.ts
 ├── src-tauri/                  # Backend (Rust / Tauri)
 │   ├── src/
 │   │   ├── commands/           # Tauri-команды: audio.rs, settings.rs, app.rs, ai.rs
-│   │   ├── lib.rs              # Регистрация команд, инициализация
-│   │   ├── state.rs            # Глобальные состояния (Mutex/AtomicBool)
-│   │   ├── whisper.rs          # Локальный STT (whisper-rs + CoreML)
-│   │   ├── ai_provider.rs      # AI провайдеры (Gemini, DeepSeek, Qwen)
-│   │   ├── streaming.rs        # Стриминг AI-ответов
-│   │   ├── prompts.rs          # Системные промпты
-│   │   ├── deepgram.rs         # Deepgram STT (WebSocket)
-│   │   ├── keys.rs             # Шифрование API-ключей (AES-GCM)
-│   │   ├── history.rs          # История записей
-│   │   ├── transliteration.rs  # Транслитерация
-│   │   ├── utils.rs            # Утилиты, regex, ресемплинг
-│   │   ├── tray.rs             # Системный трей
-│   │   ├── window.rs           # Управление окном
-│   │   └── diag.rs             # Диагностика
+│   │   ├── lib.rs              # Command registration, init
+│   │   ├── main.rs             # Entry point
+│   │   ├── state.rs            # Global state (Mutex/AtomicBool)
+│   │   ├── whisper/            # Local STT: mod.rs, paths.rs, model_cache.rs, recording.rs, transcribe.rs, download.rs
+│   │   ├── ai_provider.rs      # AI providers (Gemini, DeepSeek, Qwen, Groq)
+│   │   ├── deepgram.rs         # Deepgram STT
+│   │   ├── deepseek.rs         # DeepSeek API client
+│   │   ├── qwen.rs             # Qwen API client
+│   │   ├── gigachat.rs         # GigaChat (SberAI) STT + formatting, Russian Trusted CA
+│   │   ├── prompts.rs          # System prompts
+│   │   ├── keys.rs             # API key encryption (AES-GCM)
+│   │   ├── history.rs          # Recording history
+│   │   ├── transliteration.rs  # Transliteration
+│   │   ├── utils.rs            # Utilities, regex, resampling
+│   │   ├── tray.rs             # System tray
+│   │   ├── window.rs           # Window management
+│   │   └── diag.rs             # Diagnostics
 │   └── Cargo.toml
-├── docs/                       # Документация проекта
-├── public/                     # Статические ассеты
+├── docs/                       # Project documentation
+├── public/                     # Static assets
+├── e2e/                        # Playwright E2E tests
 └── package.json
 ```
 
-## Жёсткие правила (нарушать нельзя)
+## Hard rules (never break)
 
-### 1. Не мутировать существующие объекты
-Всегда создавать новые объекты, никогда не изменять существующие на месте.
-Immutable data предотвращает побочные эффекты и упрощает отладку.
+### 1. Never mutate existing objects
+Always create new objects, never modify existing ones in place.
+Immutable data prevents side effects and simplifies debugging.
 
-### 2. Маленькие файлы и функции
-- Функции: <50 строк
-- Файлы: <800 строк (максимум)
-- Организация по feature/domain, не по типу
+### 2. Small files and functions
+- Functions: <50 lines
+- Files: <800 lines (maximum)
+- Organize by feature/domain, not by type
 
-### 3. Обработка ошибок на каждом уровне
-- Никогда не проглатывать ошибки молча
-- Пользовательские сообщения об ошибках в UI
-- Детальный контекст в логах на бэкенде
-- `?` в Rust, try/catch в TypeScript
+### 3. Error handling at every level
+- Never swallow errors silently
+- User-facing error messages in the UI
+- Detailed context in backend logs
+- `?` in Rust, try/catch in TypeScript
 
-### 4. Валидация на границах системы
-- Все пользовательские входы валидируются перед обработкой
-- Schema-based валидация (Zod на фронте)
-- Не доверять внешним данным (API, ввод пользователя)
+### 4. Validation at system boundaries
+- All user input is validated before processing
+- Schema-based validation (Zod on the frontend)
+- Don't trust external data (API, user input)
 
 ### 5. macOS only
-Проект привязан к macOS через objc2, core-graphics, accessibility-client.
-Кроссплатформенность не предусмотрена.
+The project is tied to macOS via objc2, core-graphics, accessibility-client.
+Cross-platform is not planned.
 
-### 6. API-ключи — никогда в коде
-Ключи хранятся зашифрованными (AES-256-GCM), привязаны к machine-id.
-Управление через `keys.rs`.
+### 6. API keys — never in code
+Keys are stored encrypted (AES-256-GCM), bound to machine-id.
+Managed via `keys.rs`.
 
-## Где искать подробности
-| Нужно узнать | Файл |
+## Where to look
+| Need to know | File |
 |---|---|
-| Архитектура и потоки данных | docs/architecture.md |
-| Текущий статус, что в работе, что сломано | docs/state.md |
-| Архитектурные решения (ADR) | docs/decisions.md |
-| Термины и доменные понятия | docs/glossary.md |
-| Технические характеристики | docs/TECHNICAL.md |
-| AI-промпты | docs/AI_PROMPTS.md |
+| Architecture and data flows | docs/architecture.md |
+| Current status, what's in progress, what's broken | docs/state.md |
+| Architectural decisions (ADR) | docs/decisions.md |
+| Terms and domain concepts | docs/glossary.md |
+| Technical specs | docs/TECHNICAL.md |
+| AI prompts | docs/AI_PROMPTS.md |
 | Changelog | docs/CHANGELOG.md |
-| Релизы по тегам | docs/tags/ |
+| Releases by tag | docs/tags/ |
 
-## Как запускать
+## How to run
 ```bash
-# Установка зависимостей
+# Install dependencies
 bun install
 
-# Dev-режим (frontend + Tauri backend)
+# Dev mode (frontend + Tauri backend)
 bun run tauri dev
 
-# Production сборка
+# Production build
 bun run tauri build
 
-# Только frontend (dev-сервер на порту 3002)
+# Frontend only (dev server on port 3002)
 bun run dev
 
-# Только backend проверки
+# Frontend checks
+bun run lint
+bun run test
+
+# Backend checks
 cd src-tauri
 cargo check
 cargo clippy -- -D warnings
 cargo fmt --check
+cargo test
 ```
 
-## Common Tasks
+## Common tasks
 
-### Добавить новую Tauri-команду
-1. Создать функцию в `src-tauri/src/commands/` с `#[tauri::command]`
-2. Зарегистрировать в `src-tauri/src/lib.rs` в `generate_handler![]`
-3. Вызвать из фронта через `invoke('command_name', { args })`
+### Add a new Tauri command
+1. Create a function in `src-tauri/src/commands/` with `#[tauri::command]`
+2. Register it in `src-tauri/src/lib.rs` inside `generate_handler![]`
+3. Call it from the frontend via `invoke('command_name', { args })`
 
-### Добавить новый AI-провайдер
-1. Создать модуль в `src-tauri/src/` (по аналогии с `deepseek.rs`, `qwen.rs`)
-2. Добавить обработку в `ai_provider.rs`
-3. Добавить промпт в `prompts.rs`
-4. Обновить UI в `components/settings/EnginesTab.tsx`
+### Add a new AI provider
+1. Create a module in `src-tauri/src/` (modeled on `deepseek.rs`, `qwen.rs`, `gigachat.rs`)
+2. Add handling in `ai_provider.rs`
+3. Add a prompt in `prompts.rs`
+4. Update the UI in `components/settings/EnginesTab.tsx`
+5. Add the key field in `components/settings/KeysTab.tsx` and the key service in `keys.rs`
 
-### Добавить настройку
-1. Добавить state в `src-tauri/src/state.rs` (Mutex/AtomicBool)
-2. Добавить get/set команды в `src-tauri/src/commands/settings.rs`
-3. Зарегистрировать в `lib.rs`
-4. Добавить UI-контрол в `components/settings/GeneralTab.tsx`
-5. Добавить перевод в `components/settings/translations.ts`
+### Add a setting
+1. Add state in `src-tauri/src/state.rs` (Mutex/AtomicBool)
+2. Add get/set commands in `src-tauri/src/commands/settings.rs`
+3. Register in `lib.rs`
+4. Add a UI control in `components/settings/GeneralTab.tsx`
+5. Add a translation in `components/settings/translations.ts`
 
-### Обновить промпты
-1. Изменить в `src-tauri/src/prompts.rs`
-2. Сверить с `docs/AI_PROMPTS.md`
-3. Проверить `cargo check`
+### Update prompts
+1. Change in `src-tauri/src/prompts.rs`
+2. Cross-check with `docs/AI_PROMPTS.md`
+3. Run `cargo check`
 
-## Code Style
+## Code style
 
 ### Rust
 - Edition 2021, min rustc 1.77.2
-- `cargo fmt` для форматирования
-- `cargo clippy -- -D warnings` для линта
-- `#[tauri::command]` для IPC-команд
-- `Mutex<T>` или `AtomicBool` для разделяемого состояния
-- `serde` для сериализации
+- `cargo fmt` for formatting
+- `cargo clippy -- -D warnings` for linting
+- `#[tauri::command]` for IPC commands
+- `Mutex<T>` or `AtomicBool` for shared state
+- `serde` for serialization
 
 ### TypeScript
 - Strict mode (tsconfig.json)
-- ESLint с next/core-web-vitals + next/typescript
-- Tailwind CSS 4 для стилей
-- PascalCase для компонентов, camelCase для функций/переменных
-- `invoke()` для всех вызовов бэкенда
+- ESLint with next/core-web-vitals + next/typescript
+- Tailwind CSS 4 for styling
+- PascalCase for components, camelCase for functions/variables
+- `invoke()` for all backend calls
 
 ## Testing
-Покрытие: 0%. Тесты отсутствуют на обеих сторонах.
-Технический долг — требуется добавить:
-- Unit-тесты для Rust-утилит (utils.rs, transliteration.rs)
-- Unit-тесты для Zustand store
-- E2E-тесты для критических путей (запись → транскрипция → вставка)
+Coverage is established but modest:
+- Backend: ~80 Rust unit tests (`cargo test`), incl. utils, transliteration, keys, history, ai_provider, whisper
+- Frontend: ~60 Vitest unit tests (`bun run test`)
+- E2E: 3 Playwright smoke tests (`bun run test:e2e`)
 
-## Environment Variables
-Файл `.env` отсутствует. API-ключи управляются через UI (Settings → Keys)
-и хранятся зашифрованными в tauri-plugin-store.
+Rules: write tests together with code, never defer them to "later";
+before finishing a task, check coverage of the touched code; if something
+can't be covered, say so explicitly in the session summary.
 
-Внешние API (настраиваются пользователем):
-- Groq API Key (STT)
+## Environment variables
+No `.env` file. API keys are managed through the UI (Settings → Keys) and
+stored encrypted in tauri-plugin-store.
+
+External APIs (user-configured):
+- Groq API Key (STT + AI formatting)
 - Deepgram API Key (STT)
-- Gemini API Key (AI formatting)
+- Gemini API Key (STT + AI formatting)
 - DeepSeek API Key (AI formatting)
 - Qwen API Key (AI formatting)
+- GigaChat API Key (STT + AI formatting)
 
 ## Deployment
-- Целевая платформа: macOS (dmg/app)
-- Сборка: `bun run tauri build`
-- Дистрибуция: GitHub Releases
+- Target platform: macOS (dmg/app)
+- Build: `bun run tauri build`
+- Distribution: GitHub Releases
 - CI/CD: GitHub Actions (`.github/`)
-- Подписи: нет (unsigned — требуется `xattr -cr` при установке)
+- Signing: none (unsigned — requires `xattr -cr` on install)
 
-## Ключевые архитектурные решения
-1. **Tauri 2 вместо Electron** — нативная производительность, малый размер бандла
-2. **Локальный Whisper + облачные STT** — fallback между движками при недоступности
-3. **AES-256-GCM для API-ключей** — шифрование привязано к machine-id
-4. **Статический экспорт Next.js** — `output: 'export'`, рендер в Tauri WebView
-5. **Zustand + TanStack Query** — разделение клиентского и серверного состояния
-6. **Единый source of truth для галлюцинаций** — backend cleanup, не frontend
-7. **Семафор для AI-запросов** — ограничение параллельных вызовов API
+## Key architectural decisions
+1. **Tauri 2 instead of Electron** — native performance, small bundle size
+2. **Local Whisper + cloud STT** — fallback between engines when unavailable
+3. **AES-256-GCM for API keys** — encryption bound to machine-id
+4. **Static Next.js export** — `output: 'export'`, rendered in Tauri WebView
+5. **Zustand + TanStack Query** — client vs. server state separation
+6. **Single source of truth for hallucination cleanup** — backend, not frontend
+7. **Semaphore for AI requests** — limits parallel API calls
+8. **WhisperState cached in WhisperModel** — no Metal/CoreML backend re-init per inference
+9. **`reqwest` with rustls-tls** — Russian Trusted CA support for GigaChat
 
 ---
 
-## Правила рабочего процесса (постоянные, не удалять)
+## Workflow rules (permanent, do not remove)
 
-### Делегирование
-При работе, затрагивающей несколько пакетов/стеков одновременно — не
-анализируй и не пиши код по всем сразу в одном потоке рассуждений.
-Разбивай на подзадачи по пакетам и делегируй саб-агентам (см. `.claude/
-agents/`). Если задача целиком в одном пакете — работай напрямую, без
-искусственного дробления.
+### Delegation
+When work spans multiple packages/stacks at once — don't analyze or write code
+for all of them in a single reasoning thread. Split into per-package subtasks
+and delegate to sub-agents (see `.claude/agents/`). If the task lives entirely
+in one package, work directly without artificial splitting.
 
-### Обязательные заметки о сессии
-Перед завершением ЛЮБОЙ рабочей сессии (не только документирования):
-1. Обнови `docs/state.md` (или `[пакет]/docs/state.md`) — что сделано,
-   что сломано, что осталось
-2. Если принял архитектурное решение — добавь запись в `docs/decisions.md`
-3. Если нашёл расхождение между документацией и реальным кодом —
-   зафиксируй явно, не исправляй документацию "по-тихому" без пометки
+### Mandatory session notes
+Before finishing ANY work session (not just documentation):
+1. Update `docs/state.md` (or `[package]/docs/state.md`) — what was done,
+   what's broken, what remains
+2. If you made an architectural decision — add an entry to `docs/decisions.md`
+3. If you found a discrepancy between docs and actual code — record it
+   explicitly, don't fix the docs silently without a note
 
-### Тесты — обязательное правило при добавлении функционала
-1. Пиши тесты вместе с кодом, не откладывай на "потом"
-2. Перед завершением задачи — проверь покрытие затронутого кода
-3. Если функционал НЕ покрыт тестами (нет времени/фреймворка/сложно
-   тестировать) — явно сообщи об этом в резюме сессии, не молчи
-4. Существующий код без тестов, не относящийся к текущей задаче —
-   не чини сам, но зафиксируй в `docs/state.md` как технический долг
+### Tests — mandatory when adding functionality
+1. Write tests together with the code, don't postpone them
+2. Before finishing a task — check coverage of the touched code
+3. If functionality is NOT covered by tests (no time/framework/hard to test) —
+   say so explicitly in the session summary, don't stay silent
+4. Existing code without tests that's unrelated to the current task —
+   don't fix it yourself, but record it in `docs/state.md` as tech debt
 
-### Периодическая проверка покрытия
-Отдельная задача "проверь покрытие" не пишет код — только сканирует
-и отчитывается в `docs/_reports/test-coverage-[дата].md`. Написание
-недостающих тестов — отдельный шаг после утверждения списка (см.
-`.claude/agents/test-writer.md`).
+### Periodic coverage check
+A separate "check coverage" task writes no code — it only scans and reports
+in `docs/_reports/test-coverage-[date].md`. Writing missing tests is a
+separate step after the list is approved (see `.claude/agents/backend-docs.md`
+and `.claude/agents/frontend-docs.md`).
 
-### Работа с найденной старой/легаси-документацией
-Если в проекте уже существует документация, написанная до внедрения
-этой системы — НЕ перезаписывай и не удаляй молча. Сверяй с кодом,
-расхождения фиксируй явно (таблица "было заявлено / есть на самом
-деле"), устаревшее — переноси в `docs/_archive/` с указанием даты,
-не удаляй полностью. Конфликты имён файлов между старой документацией
-и структурой doc-kit разрешай ЯВНО и с подтверждением через git-историю,
-если она доступна — не полагайся на визуальное впечатление "похоже,
-это был просто шаблон".
+### Working with found old/legacy documentation
+If the project already contains documentation written before this system was
+introduced — don't overwrite or delete it silently. Cross-check it against
+the code, record discrepancies explicitly (a "was claimed / actually is"
+table), move outdated content to `docs/_archive/` with a date rather than
+deleting it entirely. Resolve file-name conflicts between old docs and the
+doc-kit structure explicitly, confirming via git history when available —
+don't rely on the visual impression that "it was probably just a template".
 
-### Правило для агента (общее)
-Не выдумывай факты о коде — если не уверен, пиши "требует уточнения от
-автора". Перед объединением/перезаписью существующих файлов — покажи
-результат человеку для проверки, если файл содержал более нескольких
-строк содержательного текста.
+### General rule for agents
+Don't invent facts about the code — if unsure, write "needs author
+clarification". Before merging/overwriting existing files, show the result to
+a human for review if the file contained more than a few lines of meaningful
+content.
