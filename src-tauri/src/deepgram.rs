@@ -54,6 +54,7 @@ pub fn start_recording<R: Runtime>(
 
         let samples_ref = Arc::clone(&sample_store);
         let flag_inner = Arc::clone(&flag_cpal);
+        let emit_handle = app_stream.clone();
 
         let stream = device.build_input_stream(
             &config.into(),
@@ -69,7 +70,7 @@ pub fn start_recording<R: Runtime>(
                 // Visual feedback (audio levels)
                 let rms = (mono.iter().map(|s| s * s).sum::<f32>() / mono.len() as f32).sqrt();
                 let level = (rms * 10.0).min(1.0_f32);
-                let _ = app_stream.emit("audio-level", level);
+                let _ = emit_handle.emit("audio-level", level);
 
                 if let Ok(mut lock) = samples_ref.lock() {
                     lock.samples.extend_from_slice(&mono);
@@ -79,10 +80,22 @@ pub fn start_recording<R: Runtime>(
             None,
         );
 
-        if let Ok(s) = stream {
-            s.play().ok();
-            while flag_cpal.load(Ordering::SeqCst) {
-                std::thread::sleep(std::time::Duration::from_millis(50));
+        match stream {
+            Ok(s) => {
+                if let Err(e) = s.play() {
+                    log::error!("Failed to start microphone stream: {}", e);
+                    let _ = app_stream.emit("recording-error", "Не удалось запустить микрофон");
+                    flag_cpal.store(false, Ordering::SeqCst);
+                    return;
+                }
+                while flag_cpal.load(Ordering::SeqCst) {
+                    std::thread::sleep(std::time::Duration::from_millis(50));
+                }
+            }
+            Err(e) => {
+                log::error!("Failed to build microphone stream: {}", e);
+                let _ = app_stream.emit("recording-error", "Не удалось запустить микрофон");
+                flag_cpal.store(false, Ordering::SeqCst);
             }
         }
     });
@@ -91,7 +104,8 @@ pub fn start_recording<R: Runtime>(
 }
 
 // ── Stop recording & send to Deepgram REST API ────────────────────────────────
-pub async fn stop_recording(
+pub async fn stop_recording<R: Runtime>(
+    app: &AppHandle<R>,
     state: SharedDeepgramState,
     recording_flag: Arc<AtomicBool>,
     api_key: String,
@@ -100,7 +114,7 @@ pub async fn stop_recording(
     gain: f32,
 ) -> Result<String, String> {
     // Small sleep to catch the last buffer segments
-    tokio::time::sleep(std::time::Duration::from_millis(400)).await;
+    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
     recording_flag.store(false, Ordering::SeqCst);
 
     let (samples, src_rate) = {
@@ -111,8 +125,11 @@ pub async fn stop_recording(
         (data, rate)
     };
 
+    let app_lang = crate::utils::app_language(app);
+
     if samples.is_empty() {
         log::debug!("Deepgram: no audio samples captured");
+        crate::utils::emit_skip_reason(app, crate::utils::RecordingSkipReason::NoSamples, &app_lang);
         return Ok(String::new());
     }
 
@@ -120,6 +137,7 @@ pub async fn stop_recording(
     let min_samples = (src_rate as f64 * 0.3) as usize;
     if samples.len() < min_samples {
         log::debug!("Deepgram: audio too short: {} samples (need {}), src_rate={}", samples.len(), min_samples, src_rate);
+        crate::utils::emit_skip_reason(app, crate::utils::RecordingSkipReason::TooShort, &app_lang);
         return Ok(String::new());
     }
 
@@ -130,6 +148,7 @@ pub async fn stop_recording(
     let rms = (samples.iter().map(|s| s * s).sum::<f32>() / samples.len() as f32).sqrt();
     if rms < threshold {
         log::debug!("Deepgram: audio too quiet (RMS: {:.6} < threshold: {:.6}), skipping", rms, threshold);
+        crate::utils::emit_skip_reason(app, crate::utils::RecordingSkipReason::TooQuiet, &app_lang);
         return Ok(String::new());
     }
     log::debug!("Deepgram: processing {} samples (RMS: {:.6}, lang: {}, src_rate: {})", samples.len(), rms, language, src_rate);
@@ -174,17 +193,12 @@ pub async fn stop_recording(
     ];
     
     if language == "mixed" {
-        // Nova-3 native code-switching via language=multi
+        // nova-3 native multilingual code-switching: language=multi handles
+        // Russian+English automatically. Using a custom `prompt` here would
+        // be rejected ("No such model/language/tier combination found").
         query_params.push(("language", "multi"));
-        query_params.push(("prompt", crate::prompts::MIXED_RU_EN_STT_PROMPT));
-    } else if language == "auto" {
-        query_params.push(("detect_language", "true"));
-        query_params.push(("prompt", crate::prompts::DEEPGRAM_AUTO_PROMPT));
     } else {
         query_params.push(("language", language));
-        if language == "ru" {
-            query_params.push(("prompt", crate::prompts::DEEPGRAM_RU_PROMPT));
-        }
     }
 
     let api_key = api_key.trim_matches('"').trim_matches('\'').trim().to_string();
@@ -192,15 +206,19 @@ pub async fn stop_recording(
         return Err("API ключ Deepgram не найден. Пожалуйста, проверьте настройки.".to_string());
     }
 
-    let res = client
-        .post("https://api.deepgram.com/v1/listen")
-        .header("Authorization", format!("Token {}", api_key))
-        .header("Content-Type", "audio/wav")
-        .query(&query_params)
-        .body(wav_data)
-        .send()
-        .await
-        .map_err(|e| format!("Deepgram request failed: {}", e))?;
+    let res = tokio::time::timeout(
+        std::time::Duration::from_secs(20),
+        client
+            .post("https://api.deepgram.com/v1/listen")
+            .header("Authorization", format!("Token {}", api_key))
+            .header("Content-Type", "audio/wav")
+            .query(&query_params)
+            .body(wav_data)
+            .send(),
+    )
+    .await
+    .map_err(|_| "Deepgram: таймаут запроса (20с). Попробуйте ещё раз.".to_string())?
+    .map_err(|e| format!("Deepgram request failed: {}", e))?;
 
     if !res.status().is_success() {
         let err_text = res.text().await.unwrap_or_default();

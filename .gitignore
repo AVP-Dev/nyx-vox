@@ -27,6 +27,7 @@
 
 # AI Agents & Assistants
 .claude/
+.commandcode/
 .agent/
 .cline/
 .cursor/

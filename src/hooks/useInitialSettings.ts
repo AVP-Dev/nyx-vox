@@ -29,6 +29,7 @@ interface Setters {
 export function useInitialSettings(setters: Setters) {
     const [showWelcome, setShowWelcomeLocal] = useState(false);
     const [isVisible, setIsVisibleLocal] = useState(false);
+    const [permsMissing, setPermsMissing] = useState(false);
 
     // Destructure to get stable references for useCallback deps
     const { setShowWelcome: parentSetShowWelcome, setIsVisible: parentSetIsVisible } = setters;
@@ -48,7 +49,18 @@ export function useInitialSettings(setters: Setters) {
         const load = async () => {
             try {
                 const seen = await invoke<boolean>('get_welcome_seen', { version: APP_VERSION }).catch(() => true);
-                if (!seen) setShowWelcome(true);
+
+                // Check permissions on every startup
+                const [accOk, micOk] = await Promise.all([
+                    invoke<boolean>('check_accessibility').catch(() => true),
+                    invoke<boolean>('check_microphone_permission').catch(() => true),
+                ]);
+                const permsOk = accOk && micOk;
+
+                if (!seen || !permsOk) {
+                    setShowWelcome(true);
+                    if (!permsOk) setPermsMissing(true);
+                }
 
                 setIsVisible(true);
 
@@ -127,7 +139,7 @@ export function useInitialSettings(setters: Setters) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    return { showWelcome, setShowWelcome, isVisible, setIsVisible };
+    return { showWelcome, setShowWelcome, isVisible, setIsVisible, permsMissing };
 }
 
 // Extracted update check logic

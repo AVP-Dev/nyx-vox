@@ -3,8 +3,8 @@ import { Wifi, Zap, Globe, HardDrive, HelpCircle, Check, Loader2, Download, Tras
 import { motion, AnimatePresence } from 'framer-motion';
 import { SectionTitle } from './Common';
 
-type FormattingMode = 'none' | 'gemini' | 'deepseek' | 'qwen' | 'groq';
-type SttLanguage = 'auto' | 'mixed' | 'ru' | 'en';
+type FormattingMode = 'none' | 'gemini' | 'deepseek' | 'qwen' | 'groq' | 'gigachat';
+type SttLanguage = 'mixed' | 'ru' | 'en';
 
 interface EngineInfo {
     title: string;
@@ -32,8 +32,8 @@ interface EnginesTabProps {
     whisperLanguage: SttLanguage;
     groqLanguage: SttLanguage;
     handleLanguageChange: (lang: SttLanguage) => void;
-    formattingMode: 'none' | 'gemini' | 'deepseek' | 'qwen' | 'groq';
-    handleFormattingModeChange: (mode: 'none' | 'gemini' | 'deepseek' | 'qwen' | 'groq') => void;
+    formattingMode: 'none' | 'gemini' | 'deepseek' | 'qwen' | 'groq' | 'gigachat';
+    handleFormattingModeChange: (mode: 'none' | 'gemini' | 'deepseek' | 'qwen' | 'groq' | 'gigachat') => void;
     whisperModel: 'small' | 'medium' | 'turbo';
     handleWhisperModelChange: (model: 'small' | 'medium' | 'turbo') => void;
     modelAvailable: boolean;
@@ -125,12 +125,11 @@ export const EnginesTab: React.FC<EnginesTabProps> = ({
 
             <div>
                 <SectionTitle>{c.settings.sttLanguage}</SectionTitle>
-                <div className="grid grid-cols-4 gap-2 mb-3">
+                <div className="grid grid-cols-3 gap-2 mb-3">
                     {[
                         { id: 'mixed', label: c.settings.langMixed },
                         { id: 'ru', label: c.settings.langRu },
                         { id: 'en', label: c.settings.langEn },
-                        { id: 'auto', label: c.settings.langAuto },
                     ].map((l) => {
                         const currentLang = sttMode === 'deepgram' ? dgLanguage : (sttMode === 'whisper' ? whisperLanguage : groqLanguage);
                         const isActive = currentLang === l.id;
@@ -148,6 +147,7 @@ export const EnginesTab: React.FC<EnginesTabProps> = ({
                         { id: 'gemini', label: c.settings.formattingGemini, color: 'border-sky-500/30 text-sky-400' },
                         { id: 'qwen', label: c.settings.formattingQwen, color: 'border-purple-500/30 text-purple-400' },
                         { id: 'deepseek', label: c.settings.formattingDeepSeek, color: 'border-cyan-500/30 text-cyan-400' },
+                        { id: 'gigachat', label: c.settings.formattingGigachat, color: 'border-emerald-500/30 text-emerald-400' },
                         { id: 'none', label: c.settings.formattingNone, color: 'border-strong text-muted' },
                     ].map((m) => (
                         <button key={m.id} onClick={() => handleFormattingModeChange(m.id as FormattingMode)} className={`p-2.5 rounded-xl border transition-all text-left flex flex-col items-start ${formattingMode === m.id ? `bg-white/8 ${m.color.split(' ')[0]}` : 'bg-white/3 border-white/8 hover:border-white/15'}`}>

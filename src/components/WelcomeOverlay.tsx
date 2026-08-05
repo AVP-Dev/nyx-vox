@@ -16,10 +16,11 @@ interface WelcomeOverlayProps {
     onClose: () => void;
     appLanguage: 'ru' | 'en';
     onLanguageToggle: () => void;
+    initialTab?: Tab;
 }
 
-export function WelcomeOverlay({ onClose, appLanguage, onLanguageToggle }: WelcomeOverlayProps) {
-    const [tab, setTab] = useState<Tab>('welcome');
+export function WelcomeOverlay({ onClose, appLanguage, onLanguageToggle, initialTab }: WelcomeOverlayProps) {
+    const [tab, setTab] = useState<Tab>(initialTab ?? 'welcome');
     const [welcomeDoNotShowAgain, setWelcomeDoNotShowAgain] = useState(false);
     const [accGranted, setAccGranted] = useState<boolean | null>(null);
     const [micGranted, setMicGranted] = useState<boolean | null>(null);

@@ -16,7 +16,6 @@ export interface SettingsState {
     autoPauseMedia: boolean;
     noiseGate: number;
     audioGain: number;
-    streamingEnabled: boolean;
     formattingMode: FormattingMode;
     lastActiveFormatting: Exclude<FormattingMode, 'none'>;
     formattingStyle: FormattingStyle;
@@ -37,7 +36,6 @@ export interface SettingsActions {
     setAutoPauseMedia: (v: boolean) => void;
     setNoiseGate: (v: number) => void;
     setAudioGain: (v: number) => void;
-    setStreamingEnabled: (v: boolean) => void;
     setFormattingMode: (v: FormattingMode) => void;
     setLastActiveFormatting: (v: Exclude<FormattingMode, 'none'>) => void;
     setFormattingStyle: (v: FormattingStyle) => void;
@@ -50,9 +48,9 @@ export interface SettingsActions {
 export function useSettings(): SettingsState & SettingsActions {
     const [showSettings, setShowSettings] = useState(false);
     const [sttMode, setSttMode] = useState<SttMode>('deepgram');
-    const [dgLanguage, setDgLanguage] = useState<Language>('auto');
+    const [dgLanguage, setDgLanguage] = useState<Language>('mixed');
     const [whisperLanguage, setWhisperLanguage] = useState<Language>('ru');
-    const [groqLanguage, setGroqLanguage] = useState<Language>('auto');
+    const [groqLanguage, setGroqLanguage] = useState<Language>('mixed');
     const [appLanguage, setAppLanguage] = useState<AppLanguage>('ru');
     const [autoPaste, setAutoPaste] = useState(true);
     const [clearOnPaste, setClearOnPaste] = useState(false);
@@ -61,7 +59,6 @@ export function useSettings(): SettingsState & SettingsActions {
     const [autoPauseMedia, setAutoPauseMedia] = useState(false);
     const [noiseGate, setNoiseGate] = useState(0.002);
     const [audioGain, setAudioGain] = useState(2.0);
-    const [streamingEnabled, setStreamingEnabled] = useState(false);
     const [formattingMode, setFormattingMode] = useState<FormattingMode>('none');
     const [lastActiveFormatting, setLastActiveFormatting] = useState<Exclude<FormattingMode, 'none'>>('gemini');
     const [formattingStyle, setFormattingStyle] = useState<FormattingStyle>('casual');
@@ -94,12 +91,12 @@ export function useSettings(): SettingsState & SettingsActions {
         // State
         showSettings, sttMode, dgLanguage, whisperLanguage, groqLanguage,
         appLanguage, autoPaste, clearOnPaste, startMinimized, alwaysOnTop,
-        autoPauseMedia, noiseGate, audioGain, streamingEnabled, formattingMode, lastActiveFormatting, formattingStyle,
+        autoPauseMedia, noiseGate, audioGain, formattingMode, lastActiveFormatting, formattingStyle,
         showQuickMenu,
         // Setters
         setShowSettings, setSttMode, setDgLanguage, setWhisperLanguage,
         setGroqLanguage, setAppLanguage, setAutoPaste, setClearOnPaste,
-        setStartMinimized, setAlwaysOnTop, setAutoPauseMedia, setNoiseGate, setAudioGain, setStreamingEnabled, setFormattingMode,
+        setStartMinimized, setAlwaysOnTop, setAutoPauseMedia, setNoiseGate, setAudioGain, setFormattingMode,
         setLastActiveFormatting, setFormattingStyle, setShowQuickMenu,
         // Handlers
         handleFormattingModeChange, toggleSTTMode, handleLanguageToggle,

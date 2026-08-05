@@ -5,19 +5,20 @@
 > Держи компактно: не история навсегда, а срез "что сейчас".
 
 ## Последнее обновление
-Дата: 2026-07-08
-Кто/что обновило: Claude Code (session complete)
+Дата: 2026-08-05
+Кто/что обновило: Командный агент (Аудит + GigaChat + фиксы стабильности)
 
 ## Что сейчас в работе
-- P1 phase завершена и закоммичена
-- Готово к тестированию: `bun run tauri dev`
-- Ветка `dev`: 5 коммитов впереди `origin/dev`
-- Следующий шаг: Enter paste bug fix (P1 roadmap #1) или P2
+- Добавлен SberAI/GigaChat как движок форматирования (модель GigaChat-2). Ключ — авторизационный (base64 client_id:secret) из кабинета developers.sber.ru
+- Исправлены баги «закрытия/зависания» и «не транскрибирует»: причины пустого результата, paste_text, сетевой чек, s.play
+- Удалён мёртвый код (streaming.rs, useAudioRecorder, мёртвые события, тумблер «Стриминг»)
+- Синхронизированы промпты: docs/AI_PROMPTS.md зеркалит prompts.rs
+- Следующий шаг: тестирование GigaChat с реальным ключом (`bun run tauri dev`), затем коммит в dev
 
 ## Что стабильно работает (не трогать без причины)
-- STT pipeline (Whisper, Deepgram, Groq)
-- AI formatting (Gemini, DeepSeek, Qwen)
-- Автопаста через enigo
+- STT pipeline (Whisper, Deepgram, Groq, Gemini)
+- AI formatting (Gemini, DeepSeek, Qwen, Groq, GigaChat)
+- Автопаста через CGEvent (с проверкой Accessibility и возвратом статуса)
 - Шифрование API-ключей (AES-256-GCM)
 - Noise Gate
 - Audio Gain (configurable, 1.0-5.0, default 2.0)
@@ -28,12 +29,14 @@
 
 ## Известные проблемы / баги
 - Whisper turbo: обработка ~60s на некоторых фразах (требует расследования — возможно memory pressure)
-- Enter paste bug: race condition — paste_text не ждёт выполнения Cmd+V (root cause найден, фиксы предложены)
+- GigaChat: не тестировался с реальным ключом — нужна проверка OAuth-флоу и выбора модели
+- `libc::_exit(0)` при выходе сохранён (необходим для избежания ggml crash), но перед ним добавлен flush данных
 
 ## Технический долг (осознанный)
 - macOS only — архитектурное решение, не баг
 
 ## Что сделано
+- **Сессия 6 (STT Quality):** Исправлены 3 бага распознавания речи: (1) Groq не отправлял параметр language при mixed → Whisper默认ал на английский; (2) Gemini всегда получал "auto" вместо "mixed" из-за отсутствия GeminiLanguage state; (3) Deepgram использовал "multi" вместо "ru" для mixed-режима. Добавлен GeminiLanguage state (state.rs, lib.rs, settings.rs, audio.rs). Удалён нестабильный "auto" режим из всех движков (types.ts, EnginesTab.tsx, SettingsPanel.tsx, useSettings.ts, whisper/transcribe.rs, streaming.rs, prompts.rs). Улучшено обрезание промпта Groq (по границе слова). clippy 0 warnings, tsc --noEmit pass.
 - **Сессия 5 (Final):** Финальная верификация: clippy 0 warnings, cargo test 74 pass, bun test 60 pass, bun build success. Обновлён CHANGELOG (Unreleased section с 6 блоками улучшений).
 - **Сессия 4 (Tests):** Frontend: установлен vitest, создано 3 тест-файла (60 тестов). Backend: добавлены тесты в ai_provider.rs (4), keys.rs (9), history.rs (11). Итого: 74 Rust тестов (было 51), 60 frontend тестов (было 0). clippy 0 warnings.
 - **Сессия 3 (SettingsPanel + GeneralTab):** Исправлены P2 проблемы. Созданы Toast и ConfirmDialog компоненты. Заменены 10× alert()/confirm() на UI-компоненты. Исправлен stale closure в setSavedStatus. Sequential invokes → Promise.all. useEffect deps без лишних ре-рендеров. Удалены debug console.error.
@@ -65,6 +68,8 @@
 11. **CI/CD pipeline** — GitHub Actions: clippy + test + build при PR
 
 ## Журнал сессий (кратко, последние 5-10 записей, старое можно удалять)
+- [2026-08-05] **Сессия 7 (Аудит + GigaChat)**: Исправлены баги стабильности и транскрипции, добавлен SberAI/GigaChat. **Стабильность:** `paste_text` проверяет Accessibility, возвращает реальный статус, показывает окно при ошибке (нет «скрытого окна без вставки»); сетевой чек кэшируется 5с (был блок 1.5с); ошибки `s.play()` эмитят `recording-error` и сбрасывают флаг; `quit_app_safely` делает flush settings.json/history.json перед `_exit`. **Транскрипция:** причины пустого результата (тихо/коротко/нет звука) через `recording-error` (локализовано); `triggerStart` не стирает прошлый текст до подтверждения старта; убрана двойная очистка на фронте; auto-paste не зависает в processing. **GigaChat:** `gigachat.rs` (OAuth-токен 30 мин с кэшем, автоключ base64(client_id:secret) из кабинета Сбера, модель GigaChat-2), Service::Gigachat, кнопка в EnginesTab + поле ключа в KeysTab. **Чистка:** удалены useAudioRecorder.ts, streaming.rs, мёртвые события, нерабочий тумблер «Стриминг»; `setupEvents` с catch; vitest исключён из e2e. Проверки: cargo test 80 pass, clippy 0 warnings, bun test 60 pass, lint/build/tsc чистые. Ветка `dev`, main не трогали.
+- [2026-08-05] **Сессия чистки**: Удалены build-артефакты и хлам (~9.2 ГБ): `src-tauri/target/` (9 ГБ), `.next/`, `out/`, `playwright-report/`, `test-results/`, `tsconfig.tsbuildinfo`, `window_debug.log`, `.DS_Store` (4 шт). Добавлен `.commandcode/` в .gitignore (служебная папка ассистента). Структурированы `docs/_reports/`: создан индекс `README.md` со статусами актуальности — все отчёты от 2026-07-07, задачи выполнены. Обновлён docs/README.md (ссылки на основные доки).
 - [2026-07-08] **Сессия P1 завершена**: 4 задачи решены параллельно через субагентов. ESLint чист (0 ошибок), Audio Gain вынесен в настройки (слайдер 1.0-5.0), Playwright E2E настроен (3 теста), Enter paste bug расследован (root cause найден, фикс в roadmap). Документация обновлена: state.md, tags/v1.2.0/release.md, tags/history.md. Коммит `7e3a607`. Следующий шаг: Enter paste bug fix (P1 #1) или P2.
 - [2026-07-08] Audio Gain настройка: Вынесен захардкоженный AUDIO_GAIN (2.0) в конфигурируемую настройку. Backend: AudioGain state (Mutex<f32>), set_audio_gain command (clamp 1.0-5.0), загрузка из store при старте. Все три движка (whisper/recording.rs, deepgram.rs, ai_provider.rs) теперь принимают gain параметр вместо константы. Frontend: слайдер в GeneralTab (range 1.0-5.0, step 0.5, default 2.0), переводы en/ru. cargo check, cargo clippy, bun build — всё проходит.
 - [2026-07-08] ESLint верификация: `npx eslint src/` — 0 ошибок, exit code 0. state.md обновлён: удалены упоминания "219 ESLint ошибок" из known problems, tech debt и roadmap. Предыдущее заявление в state.md о 219 ошибках было устаревшим — кодовая база чистая. bun build success.

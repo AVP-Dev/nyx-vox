@@ -20,6 +20,7 @@ pub async fn refine_transcription(
         keys::Service::Deepseek => deepseek::refine_text(_app.clone(), text, key, instruction).await,
         keys::Service::Groq => ai_provider::groq_refine_text(_app.clone(), text, key, instruction).await,
         keys::Service::Qwen => qwen::refine_text(_app.clone(), text, key, instruction).await,
+        keys::Service::Gigachat => crate::gigachat::refine_text(_app.clone(), text, key, instruction).await,
         _ => Err("Unsupported service".to_string()),
     }
 }

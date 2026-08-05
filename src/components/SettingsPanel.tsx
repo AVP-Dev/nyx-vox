@@ -19,8 +19,9 @@ import { HistoryTab } from './settings/HistoryTab';
 import { InfoTab } from './settings/InfoTab';
 import { ToastContainer, useToast } from './ui/Toast';
 import { ConfirmDialog, useConfirm } from './ui/ConfirmDialog';
+import type { FormattingMode } from '@/lib/types';
 
-type SttLanguage = 'auto' | 'mixed' | 'ru' | 'en';
+type SttLanguage = 'mixed' | 'ru' | 'en';
 
 export const APP_VERSION = '1.2.0';
 
@@ -37,6 +38,7 @@ const ENGINE_HELP: Record<string, Record<string, EngineHelpItem>> = {
         groq: { title: 'Groq', badge: 'Free', type: 'Cloud', desc: 'Whisper на стероидах. Бесплатно и очень быстро.' },
         gemini: { title: 'Gemini', badge: 'Soto', type: 'Multimodal', desc: 'Google AI. Высочайшая точность + стиль.' },
         whisper: { title: 'Local', badge: 'Privasi', type: 'Offline', desc: '100% приватно. Работает без интернета.' },
+        gigachat: { title: 'GigaChat', badge: 'Сбер', type: 'LLM', desc: 'SberAI. Российская нейросеть, доступна без VPN.' },
         formatting: { title: 'Formatting', badge: 'AI', type: 'LLM', desc: '✨ AI режим: автоматически исправляет ошибки, убирает "эээ" и расставляет абзацы.' }
     },
     en: {
@@ -44,6 +46,7 @@ const ENGINE_HELP: Record<string, Record<string, EngineHelpItem>> = {
         groq: { title: 'Groq', badge: 'FREE', type: 'Cloud', desc: 'Blazing fast Whisper LPU. Best value.' },
         gemini: { title: 'Gemini', badge: 'SOTA', type: 'Multimodal', desc: 'Google AI. Premium accuracy and formatting.' },
         whisper: { title: 'Local', badge: 'PRIVACY', type: 'Offline', desc: '100% private. Works without internet.' },
+        gigachat: { title: 'GigaChat', badge: 'SBER', type: 'LLM', desc: 'SberAI. Russian neural network, works without VPN.' },
         formatting: { title: 'Formatting', badge: 'AI', type: 'LLM', desc: '✨ AI mode: fixes typos, removes filler words, and structures text into paragraphs.' }
     }
 };
@@ -73,14 +76,12 @@ interface SettingsPanelProps {
     onSetWhisperLanguage: (l: SttLanguage) => void;
     groqLanguage: SttLanguage;
     onSetGroqLanguage: (l: SttLanguage) => void;
-    formattingMode: 'none' | 'gemini' | 'deepseek' | 'qwen' | 'groq';
-    onSetFormattingMode: (m: 'none' | 'gemini' | 'deepseek' | 'qwen' | 'groq') => void;
+    formattingMode: FormattingMode;
+    onSetFormattingMode: (m: FormattingMode) => void;
     noiseGate: number;
     onSetNoiseGate: (v: number) => void;
     audioGain: number;
     onSetAudioGain: (v: number) => void;
-    streamingEnabled: boolean;
-    onToggleStreaming: (v: boolean) => void;
 }
 
 export const SettingsPanel: React.FC<SettingsPanelProps> = ({ 
@@ -97,7 +98,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     formattingMode, onSetFormattingMode,
     noiseGate, onSetNoiseGate,
     audioGain, onSetAudioGain,
-    streamingEnabled, onToggleStreaming
 }) => {
     const [tab, setTab] = useState('general');
     const [showHelp, setShowHelp] = useState<string | null>(null);
@@ -119,6 +119,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     const [geminiApiKey, setGeminiApiKey] = useState('');
     const [qwenApiKey, setQwenApiKey] = useState('');
     const [deepseekApiKey, setDeepseekApiKey] = useState('');
+    const [gigachatApiKey, setGigachatApiKey] = useState('');
     const [showKeys, setShowKeys] = useState<Record<string, boolean>>({});
     const [savedStatus, setSavedStatus] = useState<Record<string, boolean>>({});
     const [accGranted, setAccGranted] = useState<boolean | null>(null);
@@ -193,7 +194,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
                 const wm = await invoke<'small' | 'medium' | 'turbo'>('get_whisper_model_type'); setWhisperModel(wm);
 
-                const services = ['deepgram', 'groq', 'gemini', 'qwen', 'deepseek'] as const;
+                const services = ['deepgram', 'groq', 'gemini', 'qwen', 'deepseek', 'gigachat'] as const;
                 const apiKeys = await Promise.all(
                     services.map(s => invoke<string>('get_api_key', { service: s }))
                 );
@@ -202,6 +203,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 setGeminiApiKey(apiKeys[2]);
                 setQwenApiKey(apiKeys[3]);
                 setDeepseekApiKey(apiKeys[4]);
+                setGigachatApiKey(apiKeys[5]);
 
                 const hist = await invoke<[boolean, string]>('get_history_settings');
                 setHistorySmartCleanup(hist[0]);
@@ -249,7 +251,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         else if (sttMode === 'groq') { onSetGroqLanguage(l); await invoke('set_groq_language', { lang: l }); }
     };
 
-    const handleFormattingModeChange = async (m: 'none' | 'gemini' | 'deepseek' | 'qwen' | 'groq') => {
+    const handleFormattingModeChange = async (m: FormattingMode) => {
         onSetFormattingMode(m);
         await invoke('set_formatting_mode', { mode: m });
     };
@@ -322,6 +324,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
             else if (service === 'gemini') setGeminiApiKey('');
             else if (service === 'qwen') setQwenApiKey('');
             else if (service === 'deepseek') setDeepseekApiKey('');
+            else if (service === 'gigachat') setGigachatApiKey('');
         }
     };
 
@@ -453,8 +456,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                                             audioGain={audioGain} onSetAudioGain={onSetAudioGain}
                                             micGranted={micGranted}
                                             accGranted={accGranted}
-                                            streamingEnabled={streamingEnabled}
-                                            onToggleStreaming={onToggleStreaming}
                                             addToast={addToast}
                                         />
                                     )}
@@ -475,6 +476,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                                             c={c} dgApiKey={dgApiKey} setDgApiKey={setDgApiKey} groqApiKey={groqApiKey} setGroqApiKey={setGroqApiKey}
                                             geminiApiKey={geminiApiKey} setGeminiApiKey={setGeminiApiKey} qwenApiKey={qwenApiKey} setQwenApiKey={setQwenApiKey}
                                             deepseekApiKey={deepseekApiKey} setDeepseekApiKey={setDeepseekApiKey}
+                                            gigachatApiKey={gigachatApiKey} setGigachatApiKey={setGigachatApiKey}
                                             showKeys={showKeys} setShowKeys={setShowKeys} handleSaveKey={handleSaveKey} handleDeleteKey={handleDeleteKey}
                                             savedStatus={savedStatus} setTab={setTab}
                                         />

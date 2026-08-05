@@ -196,6 +196,20 @@ pub async fn get_groq_language(state: State<'_, GroqLanguage>) -> Result<String,
 }
 
 #[tauri::command]
+pub async fn set_gemini_language(lang: String, state: State<'_, GeminiLanguage>, app: AppHandle) -> Result<(), String> {
+    let store = app.store("settings.json").map_err(|e: tauri_plugin_store::Error| e.to_string())?;
+    store.set("gemini_language", serde_json::json!(lang));
+    store.save().map_err(|e: tauri_plugin_store::Error| e.to_string())?;
+    *state.0.lock().map_err(|e| e.to_string())? = lang;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn get_gemini_language(state: State<'_, GeminiLanguage>) -> Result<String, String> {
+    Ok(state.0.lock().map_err(|e| e.to_string())?.clone())
+}
+
+#[tauri::command]
 pub async fn set_auto_pause(pause: bool, auto_pause: State<'_, AutoPause>, app: AppHandle) -> Result<(), String> {
     let store = app.store("settings.json").map_err(|e: tauri_plugin_store::Error| e.to_string())?;
     store.set("auto_pause", serde_json::json!(pause));

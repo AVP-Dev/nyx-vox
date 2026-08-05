@@ -6,6 +6,30 @@
 
 ## 📅 Unreleased (Post-1.2.0 Quality Improvements)
 
+### 🆕 SberAI / GigaChat Formatting Engine
+- Added GigaChat (SberAI) as a text formatting engine (model: `GigaChat-2`)
+- OAuth access token (30-min TTL) is fetched automatically from the authorization key (`base64(client_id:client_secret)`) and cached; auto-refresh on 401/403
+- New "GigaChat" button in EnginesTab (formatting) and API-key field in KeysTab
+- Works in Russia without a VPN (unlike Gemini)
+
+### 🛠️ Stability Fixes
+- `paste_text` now checks Accessibility before hiding the window, returns a real status, and re-shows the window on failure — no more "hidden window with no paste"
+- Network reachability check cached for 5s (was blocking up to 1.5s per recording start)
+- Microphone stream start failures (`s.play()`) now emit `recording-error` and reset the recording flag instead of spinning forever
+- `quit_app_safely` flushes `settings.json` and `history.json` before `_exit` — no data loss on quit
+
+### 🎤 Transcription Reliability
+- Recording rejection now shows the user a human-readable reason ("Too quiet", "Too short", "No sound captured") via `recording-error` event
+- `triggerStart` no longer wipes the previous transcript before the backend confirms recording started
+- Removed duplicate frontend text cleanup (backend is the single source of truth)
+- Auto-paste no longer leaves the UI stuck in `processing` when the paste fails
+
+### 🧹 Cleanup
+- Removed dead code: `useAudioRecorder.ts`, `streaming.rs`, dead events (`transcript-partial`, `deepgram-final`, `deepgram-error`), and the non-functional "Streaming" toggle
+- `setupEvents` now catches subscription failures instead of silently breaking the hotkey
+- `handleCancel` surfaces unexpected stop errors
+- Fixed Vitest picking up Playwright E2E specs (`e2e/` now excluded)
+
 ### 🎤 Audio Sensitivity & Processing Fixes
 
 #### 1. **Software Gain Amplification** ✅

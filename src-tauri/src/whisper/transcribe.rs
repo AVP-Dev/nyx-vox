@@ -174,7 +174,6 @@ fn configure_params<'a>(language: &'a str, samples: &'a [f32]) -> FullParams<'a,
     let mut params = FullParams::new(whisper_rs::SamplingStrategy::Greedy { best_of: 1 });
 
     let lang_code = match language {
-        "auto" => None,
         "mixed" => Some("ru"),
         _ => Some(language),
     };
@@ -184,12 +183,14 @@ fn configure_params<'a>(language: &'a str, samples: &'a [f32]) -> FullParams<'a,
     params.set_print_timestamps(false);
     params.set_suppress_blank(true);
     params.set_suppress_nst(true);
-    params.set_single_segment(true);
     params.set_split_on_word(false);
     params.set_no_context(true);
     params.set_translate(false);
     params.set_temperature(0.0);
-    params.set_temperature_inc(0.2);
+    // Keep a single decoding pass: temperature_inc(0.0) prevents Whisper from
+    // re-decoding with raised temperatures on uncertain audio, which is the
+    // main source of multi-second delays on short dictation clips.
+    params.set_temperature_inc(0.0);
     params.set_entropy_thold(2.4);
     params.set_logprob_thold(-1.0);
     params.set_max_initial_ts(1.0);
@@ -222,10 +223,6 @@ fn build_initial_prompt(language: &str) -> String {
         "mixed" => format!(
             "Русская речь с английскими техническими терминами. {}",
             crate::prompts::MIXED_RU_EN_STT_PROMPT
-        ),
-        "auto" => format!(
-            "Точная транскрипция речи на русском или английском языке. Термины: {}",
-            VOCAB_HINT
         ),
         _ => format!(
             "Точная транскрипция русской речи. Сохраняйте английские технические термины. Словарь: {}",

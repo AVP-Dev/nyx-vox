@@ -30,12 +30,6 @@ Keep original spoken form if uncertain.
 Examples: 'нужно задеплоить API' 'React компонент' 'PostgreSQL база' 'установить npm пакет'.
 English IT terms: GitHub, pull request, branch, endpoint, deploy, token, API, cache, React, TypeScript, Node.js, Next.js, Docker, CLI, JSON, SQL, Rust, Python, Bun, npm, Tauri, Linux, macOS";
 
-/// Deepgram auto-detect: bilingual hint.
-pub const DEEPGRAM_AUTO_PROMPT: &str = "Transcribe in the detected language. Preserve technical terms in English (GitHub, Node, API, etc.) even in Russian speech. DO NOT translate. If Russian speech contains English IT terms, keep them in English.";
-
-/// Deepgram forced Russian: allow English tech terms inline.
-pub const DEEPGRAM_RU_PROMPT: &str = "Русская речь с английскими техническими терминами. Пиши по-русски, но сохраняй английские термины как есть: GitHub, Node, Bun, API, TypeScript, React, Docker и другие. НЕ переводи.";
-
 // ── Refinement / Formatting Prompts ──────────────────────────────────────────
 // CORE PRINCIPLE: Format-only. Do NOT change words. Do NOT translate.
 // Add punctuation, fix capitalization, add paragraph breaks where needed.

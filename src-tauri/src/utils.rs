@@ -262,10 +262,17 @@ pub fn remove_hallucinations(text: &str) -> String {
             .collect()
     });
 
+    // Counting hallucination: "1, 2, 3, 4, 5, 6, 7, 8, 9, 10" or "1 2 3 4 5..."
+    static RE_COUNTING: OnceLock<Regex> = OnceLock::new();
+    let re_counting = RE_COUNTING.get_or_init(|| {
+        Regex::new(r"(?:\d{1,3}[, ]*){5,}").unwrap()
+    });
+
     let mut cleaned = text.to_string();
     for re in res {
         cleaned = re.replace_all(&cleaned, "").to_string();
     }
+    cleaned = re_counting.replace_all(&cleaned, "").to_string();
     re_spaces.replace_all(cleaned.trim(), " ").to_string()
 }
 
@@ -358,6 +365,77 @@ pub fn strip_filler_phrases(text: &str) -> String {
     }
 
     cleaned
+}
+
+// ── Recording skip reasons ─────────────────────────────────────────────────
+
+/// Why a recording was rejected before transcription, so the user can be told
+/// instead of silently getting an empty result.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RecordingSkipReason {
+    NoSamples,
+    TooShort,
+    TooQuiet,
+}
+
+impl RecordingSkipReason {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            RecordingSkipReason::NoSamples => "no_samples",
+            RecordingSkipReason::TooShort => "too_short",
+            RecordingSkipReason::TooQuiet => "too_quiet",
+        }
+    }
+}
+
+/// Human-readable message for a skip reason, localized to the app language.
+pub fn skip_reason_message(reason: RecordingSkipReason, app_lang: &str) -> String {
+    match reason {
+        RecordingSkipReason::NoSamples => {
+            if app_lang == "ru" {
+                "Микрофон не захватил звук. Проверьте микрофон.".to_string()
+            } else {
+                "The microphone didn't capture any sound. Check your microphone.".to_string()
+            }
+        }
+        RecordingSkipReason::TooShort => {
+            if app_lang == "ru" {
+                "Запись слишком короткая. Говорите дольше.".to_string()
+            } else {
+                "The recording is too short. Speak a bit longer.".to_string()
+            }
+        }
+        RecordingSkipReason::TooQuiet => {
+            if app_lang == "ru" {
+                "Запись слишком тихая. Говорите громче.".to_string()
+            } else {
+                "The recording is too quiet. Speak up.".to_string()
+            }
+        }
+    }
+}
+
+/// Logs a skip reason and emits a 'recording-error' event with a human-readable
+/// message, so the user sees why the recording produced no transcript.
+pub fn emit_skip_reason<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    reason: RecordingSkipReason,
+    app_lang: &str,
+) {
+    use tauri::Emitter;
+    let msg = skip_reason_message(reason, app_lang);
+    log::debug!("Recording skipped: {} ({})", reason.as_str(), msg);
+    let _ = app.emit("recording-error", &msg);
+}
+
+/// Current UI language ("ru" or "en") from app state, defaulting to "ru".
+pub fn app_language<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> String {
+    use tauri::Manager;
+    app.state::<crate::state::AppLanguage>()
+        .0
+        .lock()
+        .map(|l| l.clone())
+        .unwrap_or_else(|_| "ru".to_string())
 }
 
 #[cfg(test)]

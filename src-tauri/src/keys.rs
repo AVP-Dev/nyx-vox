@@ -21,15 +21,18 @@ pub enum Service {
     Deepgram,
     #[serde(rename = "qwen", alias = "Qwen")]
     Qwen,
+    #[serde(rename = "gigachat", alias = "GigaChat")]
+    Gigachat,
 }
 
 impl Service {
-    pub const ALL: [Service; 5] = [
+    pub const ALL: [Service; 6] = [
         Service::Gemini,
         Service::Deepseek,
         Service::Groq,
         Service::Deepgram,
         Service::Qwen,
+        Service::Gigachat,
     ];
 
     pub fn store_key(&self) -> &'static str {
@@ -39,6 +42,7 @@ impl Service {
             Service::Groq => "groq_api_key",
             Service::Deepgram => "deepgram_api_key",
             Service::Qwen => "qwen_api_key",
+            Service::Gigachat => "gigachat_api_key",
         }
     }
 }
@@ -258,7 +262,7 @@ mod tests {
     }
 
     #[test]
-    fn service_all_contains_five_variants() {
-        assert_eq!(Service::ALL.len(), 5);
+    fn service_all_contains_six_variants() {
+        assert_eq!(Service::ALL.len(), 6);
     }
 }

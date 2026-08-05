@@ -1,7 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { useStore } from '@/store/useStore';
-import { cleanHallucinations } from '@/lib/text';
 import type { Phase, AppLanguage } from '@/lib/types';
 
 export interface UseRecordingOptions {
@@ -31,15 +30,29 @@ export function useRecording(opts: UseRecordingOptions) {
     const appLanguageRef = useRef(opts.appLanguage);
     useEffect(() => { appLanguageRef.current = opts.appLanguage; }, [opts.appLanguage]);
 
-    const triggerStart = useCallback(() => {
-        setTranscript('');
-        setAiStatus('');
-        setPhase('recording');
-        invoke('start_recording').catch(err => {
-            setTranscript(`Ошибка: ${err}`);
-            setPhase('result');
-        });
-    }, [setTranscript]);
+    const triggerStart = useCallback(async () => {
+        // Start recording first; only clear the previous text once the
+        // backend confirmed recording actually started, so a failed start
+        // (no network/key/model) doesn't destroy the existing transcript.
+        try {
+            await invoke('start_recording');
+            setTranscript('');
+            setAiStatus('');
+            setPhase('recording');
+        } catch (err) {
+            console.error('start_recording failed:', err);
+            const msg = `Ошибка: ${err}`;
+            // Keep the previous transcript if there is one — surface the
+            // failure through the status area instead of wiping the text.
+            if (transcriptText) {
+                setAiStatus(msg);
+                setPhase('result');
+            } else {
+                setTranscript(msg);
+                setPhase('result');
+            }
+        }
+    }, [setTranscript, setAiStatus, setPhase, transcriptText]);
 
     const triggerStop = useCallback(async () => {
         setPhase('processing');
@@ -47,6 +60,9 @@ export function useRecording(opts: UseRecordingOptions) {
         try {
             const rawText = await invoke<string>('stop_recording');
 
+            // Parse engine responses shaped like { "content": "..." }.
+            // Text cleanup already happens on the backend (commands/audio.rs),
+            // so no frontend hallucination cleaning is needed here.
             let processedText = rawText;
             if (rawText && (rawText.startsWith('{') || rawText.startsWith('['))) {
                 try {
@@ -58,16 +74,14 @@ export function useRecording(opts: UseRecordingOptions) {
             }
 
             if (processedText) {
-                const cleanedText = cleanHallucinations(processedText);
-                if (cleanedText) {
-                    setTranscript(cleanedText);
-                    if (autoPasteRef.current) {
-                        handlePaste(cleanedText);
-                        return;
-                    }
-                    setPhase('result');
+                setTranscript(processedText);
+                if (autoPasteRef.current) {
+                    // handlePaste owns the phase transition (idle on success,
+                    // result with an error message on failure) — no return here
+                    // so the paste flow can never leave the UI stuck in 'processing'.
+                    await handlePaste(processedText);
                 } else {
-                    setPhase('idle');
+                    setPhase('result');
                 }
             } else {
                 setPhase('idle');
@@ -99,6 +113,7 @@ export function useRecording(opts: UseRecordingOptions) {
             console.error(err);
             const msg = appLanguageRef.current === 'ru' ? 'Ошибка вставки' : 'Paste error';
             setTranscript(`[${msg}: ${err}]`);
+            setPhase('result');
         } finally {
             setProcessing(false);
         }
