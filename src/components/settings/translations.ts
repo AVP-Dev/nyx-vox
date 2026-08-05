@@ -34,7 +34,7 @@ export const DICTIONARY = {
             missionText: 'Создать бесшовный процесс, где голос становится основным способом ввода. Без лишних кликов — только вы и ваши идеи.',
             stack: 'Стек технологий',
             future: 'В планах',
-            futureItems: ['Голосовые команды и управление', 'Поддержка других платформ', 'Новые модели ИИ', '💛 Донаты — поддержите проект!']
+            futureItems: ['Транскрипция аудиофайлов (drag & drop)', 'Запись системного аудио (звонки/созвоны) с ролевой транскрипцией', 'Кастомные горячие клавиши', 'Экспорт истории (TXT/MD/JSON)', 'Выбор микрофона', 'Автообновление', 'Пользовательский словарь', 'Детекция активности речи', 'Кроссплатформенность (Linux)', '💛 Донаты — поддержите проект!']
         },
         settings: {
             title: 'Настройка',
@@ -258,7 +258,7 @@ export const DICTIONARY = {
             missionText: 'To create a seamless workflow where your voice is the primary input method.',
             stack: 'Tech Stack',
             future: 'Coming Soon',
-            futureItems: ['Voice commands & control', 'Multi-platform support', 'New AI engines', '💛 Donations']
+            futureItems: ['Audio file transcription (drag & drop)', 'System audio capture (calls) with speaker-diarized transcription', 'Custom global shortcuts', 'History export (TXT/MD/JSON)', 'Microphone selection', 'Auto-updates', 'Custom dictionary', 'Speech activity detection', 'Cross-platform (Linux)', '💛 Donations']
         },
         settings: {
             title: 'Settings',

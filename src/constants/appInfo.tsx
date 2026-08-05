@@ -26,15 +26,27 @@ export const MISSION = {
 
 export const FUTURE_ITEMS = {
     ru: [
-        'Голосовые команды и управление',
-        'Мультиплатформенность',
-        'Поддержка новых движков',
+        'Транскрипция аудиофайлов (drag & drop)',
+        'Запись системного аудио (звонки/созвоны) с ролевой транскрипцией',
+        'Кастомные горячие клавиши',
+        'Экспорт истории (TXT/MD/JSON)',
+        'Выбор микрофона',
+        'Автообновление',
+        'Пользовательский словарь',
+        'Детекция активности речи',
+        'Кроссплатформенность (Linux)',
         '💛 Донаты — поддержите проект!'
     ],
     en: [
-        'Voice commands & Mac control',
-        'Multi-platform support',
-        'New engine support',
+        'Audio file transcription (drag & drop)',
+        'System audio capture (calls) with speaker-diarized transcription',
+        'Custom global shortcuts',
+        'History export (TXT/MD/JSON)',
+        'Microphone selection',
+        'Auto-updates',
+        'Custom dictionary',
+        'Speech activity detection',
+        'Cross-platform (Linux)',
         '💛 Donations — support the project!'
     ]
 };
