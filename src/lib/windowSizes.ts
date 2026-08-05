@@ -3,6 +3,7 @@ import type { Phase } from './types';
 /** Static window size presets [width, height] by UI state */
 export const WINDOW_SIZES = {
     idle: [150, 48] as const,
+    compactIdle: [48, 48] as const,
     recording: [260, 48] as const,
     quickMenu: [200, 230] as const,
     editing: [400, 360] as const,
@@ -59,6 +60,6 @@ export function resolveWindowSize(params: WindowSizeParams): [number, number] {
     if (phase === 'result' && !isCompact) {
         return [WINDOW_SIZES.resultBase[0], computeResultHeight(transcriptTextLength)];
     }
-    if (isIdle) return compactResultWindow ? [48, 48] : [...WINDOW_SIZES.idle];
+    if (isIdle) return compactResultWindow ? [...WINDOW_SIZES.compactIdle] : [...WINDOW_SIZES.idle];
     return [...WINDOW_SIZES.recording];
 }

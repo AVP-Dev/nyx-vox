@@ -91,7 +91,7 @@ describe('resolveWindowSize', () => {
 
     it('returns compact 48x48 when compactResultWindow is true and idle', () => {
         const result = resolveWindowSize({ ...baseParams, compactResultWindow: true });
-        expect(result).toEqual([48, 48]);
+        expect(result).toEqual([...WINDOW_SIZES.compactIdle]);
     });
 
     it('ignores compactResultWindow when quickMenu is open', () => {
