@@ -15,11 +15,15 @@ export const windowEntrance: Variants = {
 /**
  * Build the container shape-variants keyed by logical state.
  * Requires the computed result height for the "result" key.
+ * `compactIdle` shrinks the idle pill into a round mic bubble.
  */
-export function buildContainerVariants(transcriptTextLength: number): Variants {
+export function buildContainerVariants(
+    transcriptTextLength: number,
+    compactIdle = false,
+): Variants {
     const resultH = computeResultHeight(transcriptTextLength);
     return {
-        idle:       { width: WINDOW_SIZES.idle[0],       height: WINDOW_SIZES.idle[1],       borderRadius: 24 },
+        idle:       { width: compactIdle ? 48 : WINDOW_SIZES.idle[0], height: 48, borderRadius: compactIdle ? 24 : 24 },
         quickMenu:  { width: WINDOW_SIZES.quickMenu[0],  height: WINDOW_SIZES.quickMenu[1],  borderRadius: 24 },
         recording:  { width: WINDOW_SIZES.recording[0],  height: WINDOW_SIZES.recording[1],  borderRadius: 24 },
         result:     { width: WINDOW_SIZES.resultBase[0], height: resultH,                    borderRadius: 24 },

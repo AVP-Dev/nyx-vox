@@ -2,6 +2,7 @@
 
 import React, { Suspense, lazy, useCallback } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { Mic } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 
 // Hooks
@@ -134,7 +135,8 @@ export default function Home() {
     // --- Derived values ---
     const lang = settings.appLanguage;
     const resultTextLen = transcriptText?.length || 0;
-    const containerVariants = buildContainerVariants(resultTextLen);
+    const isCompactIdle = compactResultWindow && rec.isIdle && !settings.showQuickMenu;
+    const containerVariants = buildContainerVariants(resultTextLen, isCompactIdle);
 
     return (
         <main className="w-screen h-screen flex flex-col items-center justify-start bg-transparent font-sans antialiased overflow-hidden pointer-events-none z-[9999]">
@@ -207,6 +209,20 @@ export default function Home() {
                                             />
                                         </Suspense>
                                     </motion.div>
+                                ) : isCompactIdle ? (
+                                    /* Compact idle bubble — a round mic button only */
+                                    <motion.button
+                                        key="compact-idle"
+                                        initial={{ opacity: 0, scale: 0.8 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        exit={{ opacity: 0, scale: 0.8 }}
+                                        transition={{ type: "spring", stiffness: 350, damping: 28 }}
+                                        onMouseDown={(e) => { e.stopPropagation(); void triggerStart(); }}
+                                        title={lang === 'ru' ? 'Начать запись' : 'Start recording'}
+                                        className="w-10 h-10 m-1 rounded-full flex items-center justify-center bg-white/5 hover:bg-white/10 text-white/70 hover:text-white border border-white/10 transition-all active:scale-90"
+                                    >
+                                        <Mic size={16} />
+                                    </motion.button>
                                 ) : (
                                     <motion.div key="main-pill" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, transition: { duration: 0.3 } }} className="w-full h-full flex flex-col relative px-1 py-1">
                                         <HeaderBar
@@ -245,6 +261,13 @@ export default function Home() {
                                                     <div className="flex-1 rounded-[12px] border border-white/5 overflow-hidden bg-white/[0.03] p-4 pt-1.5">
                                                         <textarea
                                                             autoFocus value={transcriptText} onChange={e => setTranscript(e.target.value)}
+                                                            onKeyDown={(e) => {
+                                                                // Plain Enter sends the edited text; Escape exits editing.
+                                                                if (e.key === 'Enter') {
+                                                                    e.preventDefault();
+                                                                    void rec.handlePaste();
+                                                                }
+                                                            }}
                                                             className="w-full h-full bg-transparent text-[13px] text-white/95 leading-relaxed resize-none focus:outline-none custom-scrollbar" spellCheck={false}
                                                         />
                                                     </div>
