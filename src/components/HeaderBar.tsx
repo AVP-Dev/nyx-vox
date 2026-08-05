@@ -53,7 +53,16 @@ export function HeaderBar(props: HeaderBarProps) {
 
     const handleCancel = async () => {
         if (phase === 'recording') {
-            await invoke('stop_recording').catch(() => {});
+            try {
+                await invoke('stop_recording');
+            } catch (err) {
+                // ALREADY_IDLE/ALREADY_PROCESSING mean the backend already
+                // transitioned — that's fine, we just reset the UI. Other
+                // errors should surface so the user isn't left in limbo.
+                if (err !== 'ALREADY_IDLE' && err !== 'ALREADY_PROCESSING') {
+                    console.error('stop_recording failed during cancel:', err);
+                }
+            }
         } else if (phase === 'processing') {
             onSetProcessing(false);
         }

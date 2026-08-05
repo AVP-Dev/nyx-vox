@@ -28,8 +28,6 @@ interface GeneralTabProps {
     onSetNoiseGate: (v: number) => void;
     audioGain: number;
     onSetAudioGain: (v: number) => void;
-    streamingEnabled: boolean;
-    onToggleStreaming: (v: boolean) => void;
     addToast: (message: string, type?: ToastType) => void;
 }
 
@@ -38,7 +36,7 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({
     startMinimized, onToggleStartMinimized, autoPauseMedia, handleToggleAutoPauseMedia,
     alwaysOnTop, onToggleAlwaysOnTop, lang,
     formattingStyle, onSetFormattingStyle, micGranted, accGranted,
-    noiseGate, onSetNoiseGate, audioGain, onSetAudioGain, streamingEnabled, onToggleStreaming,
+    noiseGate, onSetNoiseGate, audioGain, onSetAudioGain,
     addToast
 }) => {
     const [resetting, setResetting] = React.useState(false);
@@ -105,23 +103,6 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({
                             </div>
                         </div>
                         <Toggle checked={autoPaste} onChange={onToggleAutoPaste} />
-                    </div>
-
-                    <div className="flex items-center justify-between p-3.5 rounded-xl bg-blue-500/5 border border-blue-500/10">
-                        <div className="flex items-center gap-2.5">
-                            <div className="p-1.5 rounded-lg bg-blue-500/10 border border-blue-500/10 text-blue-400">
-                                <ExternalLink className="w-3.5 h-3.5" />
-                            </div>
-                            <div>
-                                <div className="text-[13px] font-bold text-white/90">
-                                    {lang === 'ru' ? 'Стриминг' : 'Streaming'}
-                                </div>
-                                <div className="text-[10px] text-muted leading-none mt-0.5">
-                                    {lang === 'ru' ? 'Текст появляется во время записи (Groq/Deepgram)' : 'Text appears during recording (Groq/Deepgram)'}
-                                </div>
-                            </div>
-                        </div>
-                        <Toggle checked={streamingEnabled} onChange={onToggleStreaming} />
                     </div>
 
                     <div className="flex flex-col p-3.5 rounded-xl bg-surface border border-subtle gap-2">

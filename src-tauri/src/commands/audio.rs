@@ -8,6 +8,36 @@ use tauri::{AppHandle, Emitter, Manager, State};
 #[cfg(target_os = "macos")]
 use macos_accessibility_client::accessibility::application_is_trusted_with_prompt;
 
+/// Cached online status: once checked, reused for up to 5 seconds to avoid
+/// blocking `start_recording` on a slow TCP connect for every invocation.
+fn is_online() -> bool {
+    use std::sync::atomic::AtomicU64;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    static LAST_CHECK_MS: AtomicU64 = AtomicU64::new(0);
+    static CACHED_ONLINE: AtomicU64 = AtomicU64::new(0);
+
+    let now_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0);
+    let last = LAST_CHECK_MS.load(Ordering::Relaxed);
+    if now_ms.saturating_sub(last) < 5000 {
+        return CACHED_ONLINE.load(Ordering::Relaxed) == 1;
+    }
+
+    let online = tokio::task::block_in_place(|| {
+        std::net::TcpStream::connect_timeout(
+            &"8.8.8.8:53".parse().unwrap(),
+            std::time::Duration::from_millis(500),
+        )
+        .is_ok()
+    });
+    LAST_CHECK_MS.store(now_ms, Ordering::Relaxed);
+    CACHED_ONLINE.store(online as u64, Ordering::Relaxed);
+    online
+}
+
 #[tauri::command]
 pub async fn check_microphone_permission() -> Result<bool, String> {
     tokio::task::spawn_blocking(|| {
@@ -73,6 +103,7 @@ pub async fn start_recording(
     whisper_lang: State<'_, WhisperLanguage>,
     whisper_model: State<'_, WhisperModel>,
     groq_lang: State<'_, GroqLanguage>,
+    gemini_lang: State<'_, GeminiLanguage>,
 ) -> Result<(), String> {
     let mode = stt_mode.0.lock().map_err(|e| e.to_string())?.clone();
     let ap = *auto_pause.0.lock().map_err(|e| e.to_string())?;
@@ -90,11 +121,7 @@ pub async fn start_recording(
     let model_type = *whisper_model.0.lock().map_err(|e| e.to_string())?;
 
     if final_mode == "deepgram" || final_mode == "groq" {
-        let is_online = std::net::TcpStream::connect_timeout(
-            &"8.8.8.8:53".parse().unwrap(),
-            std::time::Duration::from_millis(1500),
-        )
-        .is_ok();
+        let is_online = is_online();
 
         if !is_online {
             if whisper::is_model_available(model_type) {
@@ -124,7 +151,8 @@ pub async fn start_recording(
         "deepgram" => dg_lang.0.lock().map_err(|e| e.to_string())?.clone(),
         "whisper" => whisper_lang.0.lock().map_err(|e| e.to_string())?.clone(),
         "groq" => groq_lang.0.lock().map_err(|e| e.to_string())?.clone(),
-        _ => "auto".to_string(),
+        "gemini" => gemini_lang.0.lock().map_err(|e| e.to_string())?.clone(),
+        _ => "mixed".to_string(),
     };
 
     if final_mode == "deepgram" {
@@ -229,6 +257,7 @@ pub async fn stop_recording(
     whisper_lang: State<'_, WhisperLanguage>,
     whisper_model: State<'_, WhisperModel>,
     groq_lang: State<'_, GroqLanguage>,
+    gemini_lang: State<'_, GeminiLanguage>,
     noise_gate: State<'_, NoiseGateThreshold>,
     audio_gain: State<'_, AudioGain>,
 ) -> Result<String, String> {
@@ -263,7 +292,8 @@ pub async fn stop_recording(
         "deepgram" => dg_lang.0.lock().map_err(|e| e.to_string())?.clone(),
         "whisper" => whisper_lang.0.lock().map_err(|e| e.to_string())?.clone(),
         "groq" => groq_lang.0.lock().map_err(|e| e.to_string())?.clone(),
-        _ => "auto".to_string(),
+        "gemini" => gemini_lang.0.lock().map_err(|e| e.to_string())?.clone(),
+        _ => "mixed".to_string(),
     };
 
     let threshold = *noise_gate.0.lock().map_err(|e| e.to_string())?;
@@ -282,6 +312,7 @@ pub async fn stop_recording(
             .flatten()
             .unwrap_or_default();
         deepgram::stop_recording(
+            &app,
             Arc::clone(&dg_state),
             Arc::clone(&recording_flag.0),
             api_key,
@@ -293,6 +324,7 @@ pub async fn stop_recording(
     } else if mode == "whisper" {
         log::debug!("stop_recording: calling Whisper...");
         whisper::stop_recording(
+            &app,
             Arc::clone(&state),
             Arc::clone(&recording_flag.0),
             &lang,
@@ -376,6 +408,7 @@ pub async fn stop_recording(
                 "qwen" => keys::Service::Qwen,
                 "deepseek" => keys::Service::Deepseek,
                 "groq" => keys::Service::Groq,
+                "gigachat" => keys::Service::Gigachat,
                 _ => keys::Service::Gemini,
             };
 
@@ -422,6 +455,10 @@ pub async fn stop_recording(
                         }
                         keys::Service::Groq => {
                             ai_provider::groq_refine_text(app.clone(), final_text.clone(), k, None)
+                                .await
+                        }
+                        keys::Service::Gigachat => {
+                            crate::gigachat::refine_text(app.clone(), final_text.clone(), k, None)
                                 .await
                         }
                         _ => Ok(final_text.clone()),
@@ -495,6 +532,15 @@ pub async fn paste_text(app: AppHandle, text: String) -> Result<(), String> {
         }
     }
 
+    // Abort early if Accessibility isn't granted — the synthetic Cmd+V would
+    // silently do nothing, leaving the user's window hidden for nothing.
+    #[cfg(target_os = "macos")]
+    if !macos_accessibility_client::accessibility::application_is_trusted() {
+        return Err(
+            "Не предоставлен доступ к Универсальному доступу (Accessibility). Откройте Настройки → Доступность и добавьте NYX Vox.".to_string(),
+        );
+    }
+
     // Hide window FIRST so focus transfers to the target app before Cmd+V
     #[cfg(target_os = "macos")]
     {
@@ -512,47 +558,79 @@ pub async fn paste_text(app: AppHandle, text: String) -> Result<(), String> {
     tokio::time::sleep(std::time::Duration::from_millis(400)).await;
 
     let app_handle = app.clone();
+    let (tx, rx) = tokio::sync::oneshot::channel::<Result<(), String>>();
+
     tauri::async_runtime::spawn(async move {
         let _ = app_handle.run_on_main_thread(move || {
-            #[cfg(target_os = "macos")]
-            {
-                use core_graphics::event::{CGEvent, CGEventFlags, CGEventTapLocation, CGKeyCode};
-                use core_graphics::event_source::{CGEventSource, CGEventSourceStateID};
-                if let Ok(source) = CGEventSource::new(CGEventSourceStateID::HIDSystemState) {
+            let result = (|| {
+                #[cfg(target_os = "macos")]
+                {
+                    use core_graphics::event::{CGEvent, CGEventFlags, CGEventTapLocation, CGKeyCode};
+                    use core_graphics::event_source::{CGEventSource, CGEventSourceStateID};
+                    let source = CGEventSource::new(CGEventSourceStateID::HIDSystemState)
+                        .map_err(|_| "CGEventSource init failed".to_string())?;
                     let k_cmd: CGKeyCode = 55;
                     let k_v: CGKeyCode = 9;
-                    if let (Ok(c_dn), Ok(c_up), Ok(v_dn), Ok(v_up)) = (
-                        CGEvent::new_keyboard_event(source.clone(), k_cmd, true),
-                        CGEvent::new_keyboard_event(source.clone(), k_cmd, false),
-                        CGEvent::new_keyboard_event(source.clone(), k_v, true),
-                        CGEvent::new_keyboard_event(source.clone(), k_v, false),
-                    ) {
-                        v_dn.set_flags(CGEventFlags::CGEventFlagCommand);
-                        v_up.set_flags(CGEventFlags::CGEventFlagCommand);
-                        c_dn.post(CGEventTapLocation::HID);
-                        std::thread::sleep(std::time::Duration::from_millis(30));
-                        v_dn.post(CGEventTapLocation::HID);
-                        std::thread::sleep(std::time::Duration::from_millis(50));
-                        v_up.post(CGEventTapLocation::HID);
-                        std::thread::sleep(std::time::Duration::from_millis(30));
-                        c_up.post(CGEventTapLocation::HID);
+                    let (c_dn, c_up, v_dn, v_up) = (
+                        CGEvent::new_keyboard_event(source.clone(), k_cmd, true)
+                            .map_err(|_| "CGEvent cmd-down failed".to_string())?,
+                        CGEvent::new_keyboard_event(source.clone(), k_cmd, false)
+                            .map_err(|_| "CGEvent cmd-up failed".to_string())?,
+                        CGEvent::new_keyboard_event(source.clone(), k_v, true)
+                            .map_err(|_| "CGEvent v-down failed".to_string())?,
+                        CGEvent::new_keyboard_event(source.clone(), k_v, false)
+                            .map_err(|_| "CGEvent v-up failed".to_string())?,
+                    );
+                    v_dn.set_flags(CGEventFlags::CGEventFlagCommand);
+                    v_up.set_flags(CGEventFlags::CGEventFlagCommand);
+                    c_dn.post(CGEventTapLocation::HID);
+                    std::thread::sleep(std::time::Duration::from_millis(30));
+                    v_dn.post(CGEventTapLocation::HID);
+                    std::thread::sleep(std::time::Duration::from_millis(50));
+                    v_up.post(CGEventTapLocation::HID);
+                    std::thread::sleep(std::time::Duration::from_millis(30));
+                    c_up.post(CGEventTapLocation::HID);
+                }
+                #[cfg(target_os = "windows")]
+                {
+                    if let Some(enigo_state) = app_handle.try_state::<EnigoState>() {
+                        if let Ok(mut enigo) = enigo_state.0.lock() {
+                            use enigo::{Direction, Key, Keyboard};
+                            enigo
+                                .0
+                                .key(Key::Control, Direction::Press)
+                                .map_err(|e| e.to_string())?;
+                            enigo
+                                .0
+                                .key(Key::Unicode('v'), Direction::Click)
+                                .map_err(|e| e.to_string())?;
+                            enigo
+                                .0
+                                .key(Key::Control, Direction::Release)
+                                .map_err(|e| e.to_string())?;
+                        }
                     }
                 }
-            }
-            #[cfg(target_os = "windows")]
-            {
-                if let Some(enigo_state) = app_handle.try_state::<EnigoState>() {
-                    if let Ok(mut enigo) = enigo_state.0.lock() {
-                        use enigo::{Direction, Key, Keyboard};
-                        let _ = enigo.0.key(Key::Control, Direction::Press);
-                        let _ = enigo.0.key(Key::Unicode('v'), Direction::Click);
-                        let _ = enigo.0.key(Key::Control, Direction::Release);
-                    }
-                }
-            }
+                Ok(())
+            })();
+            let _ = tx.send(result);
         });
     });
-    Ok(())
+
+    match tokio::time::timeout(std::time::Duration::from_secs(2), rx).await {
+        Ok(Ok(Ok(()))) => Ok(()),
+        Ok(Ok(Err(e))) => {
+            // Paste failed after the window was hidden — bring it back so the
+            // user isn't left staring at nothing.
+            #[cfg(target_os = "macos")]
+            if let Some(w) = app.get_webview_window("main") {
+                let _ = w.show();
+            }
+            Err(e)
+        }
+        Ok(Err(_)) => Err("Paste task was dropped".to_string()),
+        Err(_) => Err("Paste timed out".to_string()),
+    }
 }
 
 #[tauri::command]

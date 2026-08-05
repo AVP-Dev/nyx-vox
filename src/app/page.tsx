@@ -55,13 +55,13 @@ export default function Home() {
     const rawTriggerStart = rec.triggerStart;
 
     // Wrapper that also clears formatting status on start
-    const triggerStart = useCallback(() => {
+    const triggerStart = useCallback(async () => {
         setFormattingStatus(null);
-        rawTriggerStart();
+        await rawTriggerStart();
     }, [rawTriggerStart]);
 
     // --- Initial Settings Load ---
-    const { showWelcome, setShowWelcome, isVisible } = useInitialSettings({
+    const { showWelcome, setShowWelcome, isVisible, permsMissing } = useInitialSettings({
         setSttMode: settings.setSttMode,
         setDgLanguage: settings.setDgLanguage,
         setWhisperLanguage: settings.setWhisperLanguage,
@@ -211,8 +211,6 @@ export default function Home() {
                                                 onSetNoiseGate={(v) => { settings.setNoiseGate(v); import('@tauri-apps/api/core').then(({ invoke }) => invoke('set_noise_gate', { value: v })); }}
                                                 audioGain={settings.audioGain}
                                                 onSetAudioGain={(v) => { settings.setAudioGain(v); import('@tauri-apps/api/core').then(({ invoke }) => invoke('set_audio_gain', { gain: v })); }}
-                                                streamingEnabled={settings.streamingEnabled}
-                                                onToggleStreaming={(v) => { settings.setStreamingEnabled(v); import('@tauri-apps/api/core').then(({ invoke }) => invoke('set_streaming_enabled', { enabled: v })); }}
                                             />
                                         </Suspense>
                                     </motion.div>
@@ -223,6 +221,7 @@ export default function Home() {
                                                 onClose={() => setShowWelcome(false)}
                                                 appLanguage={lang}
                                                 onLanguageToggle={settings.handleLanguageToggle}
+                                                initialTab={permsMissing ? 'perms' : undefined}
                                             />
                                         </Suspense>
                                     </motion.div>

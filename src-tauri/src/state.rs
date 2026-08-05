@@ -49,6 +49,7 @@ pub struct DeepgramLanguage(pub Mutex<String>);
 pub struct WhisperLanguage(pub Mutex<String>);
 pub struct WhisperModel(pub Mutex<WhisperModelType>);
 pub struct GroqLanguage(pub Mutex<String>);
+pub struct GeminiLanguage(pub Mutex<String>);
 
 // Auto-Pause Media flag
 pub struct AutoPause(pub Mutex<bool>);
@@ -91,9 +92,3 @@ pub struct EnigoState(pub Arc<Mutex<EnigoWrapper>>);
 
 // Semaphore to limit concurrent AI API calls
 pub struct AiSemaphore(pub tokio::sync::Semaphore);
-
-// Streaming toggle
-pub struct StreamingEnabled(#[allow(dead_code)] pub Mutex<bool>);
-
-// Final result from streaming task
-pub struct StreamingResult(#[allow(dead_code)] pub Mutex<Option<String>>);

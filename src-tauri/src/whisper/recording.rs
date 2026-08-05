@@ -151,10 +151,22 @@ fn spawn_capture_thread(
             None,
         );
 
-        if let Ok(s) = stream {
-            s.play().ok();
-            while flag_cpal.load(Ordering::SeqCst) {
-                std::thread::sleep(std::time::Duration::from_millis(MIC_POLL_INTERVAL_MS));
+        match stream {
+            Ok(s) => {
+                if let Err(e) = s.play() {
+                    log::error!("Failed to start microphone stream: {}", e);
+                    let _ = app_stream.emit("recording-error", "Не удалось запустить микрофон");
+                    flag_cpal.store(false, Ordering::SeqCst);
+                    return;
+                }
+                while flag_cpal.load(Ordering::SeqCst) {
+                    std::thread::sleep(std::time::Duration::from_millis(MIC_POLL_INTERVAL_MS));
+                }
+            }
+            Err(e) => {
+                log::error!("Failed to build microphone stream: {}", e);
+                let _ = app_stream.emit("recording-error", "Не удалось запустить микрофон");
+                flag_cpal.store(false, Ordering::SeqCst);
             }
         }
     });
@@ -163,7 +175,8 @@ fn spawn_capture_thread(
 // ── Stop recording & transcribe ─────────────────────────────────────────────
 
 /// Stops recording, waits for audio tail, resamples to 16kHz, and runs Whisper.
-pub async fn stop_recording(
+pub async fn stop_recording<R: Runtime>(
+    app: &AppHandle<R>,
     state: SharedState,
     recording_flag: Arc<AtomicBool>,
     language: &str,
@@ -186,8 +199,11 @@ pub async fn stop_recording(
         (tail, rate)
     };
 
+    let app_lang = crate::utils::app_language(app);
+
     if raw_samples.is_empty() {
         log::debug!("No audio samples captured");
+        crate::utils::emit_skip_reason(app, crate::utils::RecordingSkipReason::NoSamples, &app_lang);
         return Ok(String::new());
     }
 
@@ -200,6 +216,7 @@ pub async fn stop_recording(
             min_samples,
             src_rate
         );
+        crate::utils::emit_skip_reason(app, crate::utils::RecordingSkipReason::TooShort, &app_lang);
         return Ok(String::new());
     }
 
@@ -215,6 +232,7 @@ pub async fn stop_recording(
             rms,
             threshold
         );
+        crate::utils::emit_skip_reason(app, crate::utils::RecordingSkipReason::TooQuiet, &app_lang);
         return Ok(String::new());
     }
 

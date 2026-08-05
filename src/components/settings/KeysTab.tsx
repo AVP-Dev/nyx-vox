@@ -11,6 +11,7 @@ interface KeysTabProps {
             geminiApiKeyLabel: string;
             qwenApiKeyLabel: string;
             deepseekApiKeyLabel: string;
+            gigachatApiKeyLabel: string;
             apiKeysTitle: string;
             howToChoose: string;
             apiKeyHowTo: string;
@@ -24,6 +25,7 @@ interface KeysTabProps {
     geminiApiKey: string; setGeminiApiKey: (v: string) => void;
     qwenApiKey: string; setQwenApiKey: (v: string) => void;
     deepseekApiKey: string; setDeepseekApiKey: (v: string) => void;
+    gigachatApiKey: string; setGigachatApiKey: (v: string) => void;
     showKeys: Record<string, boolean>;
     setShowKeys: (v: React.SetStateAction<Record<string, boolean>>) => void;
     handleSaveKey: (service: string, key: string) => void;
@@ -34,7 +36,7 @@ interface KeysTabProps {
 
 export const KeysTab: React.FC<KeysTabProps> = ({
     c, dgApiKey, setDgApiKey, groqApiKey, setGroqApiKey, geminiApiKey, setGeminiApiKey,
-    qwenApiKey, setQwenApiKey, deepseekApiKey, setDeepseekApiKey,
+    qwenApiKey, setQwenApiKey, deepseekApiKey, setDeepseekApiKey, gigachatApiKey, setGigachatApiKey,
     showKeys, setShowKeys, handleSaveKey, handleDeleteKey, savedStatus, setTab
 }) => {
     const [copied, setCopied] = React.useState<string | null>(null);
@@ -52,6 +54,7 @@ export const KeysTab: React.FC<KeysTabProps> = ({
         { id: 'gemini', label: c.settings.geminiApiKeyLabel, value: geminiApiKey, setter: setGeminiApiKey, url: 'https://aistudio.google.com/app/apikey' },
         { id: 'qwen', label: c.settings.qwenApiKeyLabel, value: qwenApiKey, setter: setQwenApiKey, url: 'https://dashscope.console.aliyun.com/apiKey' },
         { id: 'deepseek', label: c.settings.deepseekApiKeyLabel, value: deepseekApiKey, setter: setDeepseekApiKey, url: 'https://platform.deepseek.com' },
+        { id: 'gigachat', label: c.settings.gigachatApiKeyLabel, value: gigachatApiKey, setter: setGigachatApiKey, url: 'https://developers.sber.ru' },
     ];
 
     return (

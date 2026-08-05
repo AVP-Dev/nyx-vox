@@ -3,6 +3,7 @@ mod whisper;
 mod ai_provider;
 mod deepseek;
 mod qwen;
+mod gigachat;
 mod keys;
 mod prompts;
 mod state;
@@ -13,7 +14,6 @@ mod tray;
 mod commands;
 mod diag;
 mod history;
-mod streaming;
 
 use std::sync::{Arc, Mutex};
 use tauri::{tray::TrayIconBuilder, tray::TrayIconEvent, Manager, Emitter};
@@ -33,6 +33,18 @@ fn quit_app_safely(app_handle: &tauri::AppHandle) {
     }
 
     whisper::unload_all_models();
+
+    // Flush persisted stores (settings.json, history.json) BEFORE terminating,
+    // because `_exit` below skips normal teardown and would otherwise drop any
+    // unsaved writes made since the last automatic store save.
+    {
+        use tauri_plugin_store::StoreExt;
+        for key in ["settings.json", "history.json"] {
+            if let Ok(store) = app_handle.store(key) {
+                let _ = store.save();
+            }
+        }
+    }
 
     #[cfg(target_os = "macos")]
     {
@@ -103,6 +115,7 @@ pub fn run() {
             app.manage(WhisperLanguage(Mutex::new("mixed".to_string())));
             app.manage(WhisperModel(Mutex::new(WhisperModelType::default())));
             app.manage(GroqLanguage(Mutex::new("mixed".to_string())));
+            app.manage(GeminiLanguage(Mutex::new("mixed".to_string())));
             app.manage(AutoPause(Mutex::new(false)));
             app.manage(AutoPaste(Mutex::new(true)));
             app.manage(NoiseGateThreshold(Mutex::new(0.002)));
@@ -112,8 +125,6 @@ pub fn run() {
             app.manage(AppLanguage(Mutex::new(sys_lang.to_string())));
             app.manage(keys::ApiKeys::default());
             app.manage(AiSemaphore(tokio::sync::Semaphore::new(1)));
-            app.manage(StreamingEnabled(Mutex::new(false)));
-            app.manage(StreamingResult(Mutex::new(None)));
 
             #[cfg(target_os = "windows")]
             {
@@ -165,6 +176,7 @@ pub fn run() {
                     }
 
                     load_str_setting!("groq_language", GroqLanguage);
+                    load_str_setting!("gemini_language", GeminiLanguage);
 
                     if let Some(l) = store.get("app_language").and_then(|v: serde_json::Value| v.as_str().map(|s| s.to_string())) {
                         initial_app_lang = l;
@@ -367,6 +379,8 @@ pub fn run() {
             commands::get_whisper_model_type,
             commands::set_groq_language,
             commands::get_groq_language,
+            commands::set_gemini_language,
+            commands::get_gemini_language,
             commands::get_target_app,
             commands::update_target_app,
             tray::update_tray_lang,

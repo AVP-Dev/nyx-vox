@@ -120,6 +120,71 @@ fn table() -> &'static Vec<TranslitEntry> {
     ])
 }
 
+/// Fix Latin letters that appear inside predominantly Cyrillic words.
+/// e.g. "Nужно" → "Нужно", "Hастроить" → "Настроить"
+fn fix_mixed_script(text: &str) -> String {
+    let mut result = String::with_capacity(text.len());
+    let mut word_start = 0;
+    let chars: Vec<char> = text.chars().collect();
+
+    for (i, &ch) in chars.iter().enumerate() {
+        let is_boundary = !ch.is_alphanumeric() && ch != '-';
+        if is_boundary || i == chars.len() - 1 {
+            let word_end = if is_boundary { i } else { i + 1 };
+            if word_end > word_start {
+                let word: String = chars[word_start..word_end].iter().collect();
+                result.push_str(&fix_word_mixed_script(&word));
+            }
+            if is_boundary {
+                result.push(ch);
+            }
+            word_start = i + 1;
+        }
+    }
+
+    result
+}
+
+fn fix_word_mixed_script(word: &str) -> String {
+    let cyrillic_count = word.chars().filter(|c| is_cyrillic(*c)).count();
+    let latin_count = word.chars().filter(|c| c.is_ascii_alphabetic()).count();
+
+    // Only fix if word is predominantly Cyrillic with a few Latin chars mixed in
+    if cyrillic_count == 0 || latin_count == 0 || latin_count > cyrillic_count {
+        return word.to_string();
+    }
+
+    let mut result = String::with_capacity(word.len());
+    for ch in word.chars() {
+        if ch.is_ascii_alphabetic() && is_cyrillic_lookalike(ch) {
+            result.push(cyrillic_replacement(ch));
+        } else {
+            result.push(ch);
+        }
+    }
+    result
+}
+
+fn is_cyrillic(ch: char) -> bool {
+    matches!(ch, '\u{0400}'..='\u{04FF}' | '\u{0500}'..='\u{052F}')
+}
+
+fn is_cyrillic_lookalike(ch: char) -> bool {
+    static MAP: &[char] = &['A','B','C','E','H','K','M','N','O','P','S','T','X','Y','a','c','e','o','p','x','y'];
+    MAP.contains(&ch)
+}
+
+fn cyrillic_replacement(ch: char) -> char {
+    match ch {
+        'A' => 'А', 'B' => 'В', 'C' => 'С', 'E' => 'Е', 'H' => 'Н',
+        'K' => 'К', 'M' => 'М', 'N' => 'Н', 'O' => 'О', 'P' => 'Р',
+        'S' => 'С', 'T' => 'Т', 'X' => 'Х', 'Y' => 'У',
+        'a' => 'а', 'c' => 'с', 'e' => 'е', 'o' => 'о',
+        'p' => 'р', 'x' => 'х', 'y' => 'у',
+        _ => ch,
+    }
+}
+
 pub fn fix_transliterations(text: &str) -> String {
     let text_lower = text.to_lowercase();
     let mut result = text.to_string();
@@ -137,6 +202,9 @@ pub fn fix_transliterations(text: &str) -> String {
             }
         }
     }
+
+    // Fix mixed Latin/Cyrillic characters in words
+    result = fix_mixed_script(&result);
 
     result
 }
@@ -181,5 +249,22 @@ mod tests {
     fn test_term_chain() {
         let result = fix_transliterations("нужно задеплоить апи endpoint на нода с PostgreSQL");
         assert_eq!(result, "нужно задеплоить API endpoint на Node.js с PostgreSQL");
+    }
+
+    #[test]
+    fn test_mixed_script_fix() {
+        assert_eq!(fix_transliterations("Nужно упростить"), "Нужно упростить");
+    }
+
+    #[test]
+    fn test_mixed_script_preserves_english_words() {
+        // Should NOT change pure English words
+        assert_eq!(fix_transliterations("Hello world"), "Hello world");
+    }
+
+    #[test]
+    fn test_mixed_script_preserves_tech_terms() {
+        // Should NOT change tech terms (they go through transliteration table)
+        assert_eq!(fix_transliterations("React компонент"), "React компонент");
     }
 }

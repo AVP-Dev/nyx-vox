@@ -1,10 +1,10 @@
 export type Phase = 'idle' | 'recording' | 'processing' | 'result' | 'editing';
 
-export type FormattingMode = 'none' | 'gemini' | 'deepseek' | 'qwen' | 'groq';
+export type FormattingMode = 'none' | 'gemini' | 'deepseek' | 'qwen' | 'groq' | 'gigachat';
 
 export type SttMode = 'deepgram' | 'whisper' | 'groq' | 'gemini';
 
-export type Language = 'auto' | 'mixed' | 'ru' | 'en';
+export type Language = 'mixed' | 'ru' | 'en';
 
 export type AppLanguage = 'ru' | 'en';
 

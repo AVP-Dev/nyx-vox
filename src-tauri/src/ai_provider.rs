@@ -35,7 +35,12 @@ fn build_refinement_user_content(instruction: Option<String>, text: &str) -> Str
     )
 }
 
-fn take_recording_wav(state: &SharedAiState, threshold: f32, gain: f32) -> Result<Option<Vec<u8>>, String> {
+fn take_recording_wav<R: Runtime>(
+    app: &AppHandle<R>,
+    state: &SharedAiState,
+    threshold: f32,
+    gain: f32,
+) -> Result<Option<Vec<u8>>, String> {
     let (samples, src_rate) = {
         let mut lock = state.lock().map_err(|e| e.to_string())?;
         let tail = lock.samples.clone();
@@ -44,14 +49,18 @@ fn take_recording_wav(state: &SharedAiState, threshold: f32, gain: f32) -> Resul
         (tail, rate)
     };
 
+    let app_lang = crate::utils::app_language(app);
+
     if samples.is_empty() {
         log::debug!("Groq/Gemini: no audio samples captured");
+        crate::utils::emit_skip_reason(app, crate::utils::RecordingSkipReason::NoSamples, &app_lang);
         return Ok(None);
     }
 
     let min_samples = (src_rate as f64 * 0.3) as usize;
     if samples.len() < min_samples {
         log::debug!("Groq/Gemini: audio too short: {} samples (need {}), src_rate={}", samples.len(), min_samples, src_rate);
+        crate::utils::emit_skip_reason(app, crate::utils::RecordingSkipReason::TooShort, &app_lang);
         return Ok(None);
     }
 
@@ -61,9 +70,11 @@ fn take_recording_wav(state: &SharedAiState, threshold: f32, gain: f32) -> Resul
     let rms = (samples.iter().map(|s| s * s).sum::<f32>() / samples.len() as f32).sqrt();
     if rms < threshold {
         log::debug!("Groq/Gemini: audio too quiet (RMS: {:.6} < threshold: {:.6}), skipping", rms, threshold);
+        crate::utils::emit_skip_reason(app, crate::utils::RecordingSkipReason::TooQuiet, &app_lang);
         return Ok(None);
     }
-    log::debug!("Groq/Gemini: processing {} samples (RMS: {:.6}, src_rate: {})", samples.len(), rms, src_rate);
+    log::info!("Groq/Gemini audio: {} samples, RMS: {:.6}, threshold: {:.6}, gain: {:.1}, src_rate: {}, duration: {:.1}s",
+        samples.len(), rms, threshold, gain, src_rate, samples.len() as f64 / src_rate as f64);
 
     let processed_samples = crate::utils::resample_to_16k(&samples, src_rate, 16000);
     let mut wav_cursor = Cursor::new(Vec::new());
@@ -157,6 +168,7 @@ pub fn start_recording<R: Runtime>(
 
         let samples_ref = Arc::clone(&sample_store);
         let flag_inner = Arc::clone(&flag_cpal);
+        let emit_handle = app_stream.clone();
 
         let stream = device.build_input_stream(
             &config.into(),
@@ -181,7 +193,7 @@ pub fn start_recording<R: Runtime>(
 
                 let last = LAST_EMIT_MS.load(Ordering::Relaxed);
                 if now_ms - last > 50 {
-                    let _ = app_stream.emit("audio-level", level);
+                    let _ = emit_handle.emit("audio-level", level);
                     LAST_EMIT_MS.store(now_ms, Ordering::Relaxed);
                 }
 
@@ -193,10 +205,22 @@ pub fn start_recording<R: Runtime>(
             None,
         );
 
-        if let Ok(s) = stream {
-            s.play().ok();
-            while flag_cpal.load(Ordering::SeqCst) {
-                std::thread::sleep(std::time::Duration::from_millis(50));
+        match stream {
+            Ok(s) => {
+                if let Err(e) = s.play() {
+                    log::error!("Failed to start microphone stream: {}", e);
+                    let _ = app_stream.emit("recording-error", "Не удалось запустить микрофон");
+                    flag_cpal.store(false, Ordering::SeqCst);
+                    return;
+                }
+                while flag_cpal.load(Ordering::SeqCst) {
+                    std::thread::sleep(std::time::Duration::from_millis(50));
+                }
+            }
+            Err(e) => {
+                log::error!("Failed to build microphone stream: {}", e);
+                let _ = app_stream.emit("recording-error", "Не удалось запустить микрофон");
+                flag_cpal.store(false, Ordering::SeqCst);
             }
         }
     });
@@ -214,16 +238,19 @@ pub async fn stop_recording<R: Runtime>(
     threshold: f32,
     gain: f32,
 ) -> Result<String, String> {
-    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
     recording_flag.store(false, Ordering::SeqCst);
 
-    // 1. Acquisition of Semaphore
+    // 1. Acquisition of Semaphore — with a timeout so a stuck previous request
+    // (e.g. one that hit the network timeout) can't block transcription forever.
     let semaphore = app.state::<AiSemaphore>();
-    let _permit = semaphore
-        .0
-        .acquire()
-        .await
-        .map_err(|e| format!("Semaphore error: {}", e))?;
+    let _permit = tokio::time::timeout(
+        std::time::Duration::from_secs(5),
+        semaphore.0.acquire(),
+    )
+    .await
+    .map_err(|_| "Предыдущий запрос к ИИ не завершился. Попробуйте ещё раз.".to_string())?
+    .map_err(|e| format!("Semaphore error: {}", e))?;
     let lang_pref = app
         .state::<crate::state::AppLanguage>()
         .0
@@ -239,7 +266,7 @@ pub async fn stop_recording<R: Runtime>(
         },
     );
 
-    let Some(wav_data) = take_recording_wav(&state, threshold, gain)? else {
+    let Some(wav_data) = take_recording_wav(&app, &state, threshold, gain)? else {
         return Ok(String::new());
     };
 
@@ -263,35 +290,46 @@ pub async fn stop_recording<R: Runtime>(
         .mime_str("audio/wav")
         .map_err(|e| e.to_string())?;
 
-    let stt_prompt = if language == "auto" || language == "mixed" {
+    let stt_prompt = if language == "mixed" {
         format!("{}\n\nVocabulary: {}", crate::prompts::MIXED_RU_EN_STT_PROMPT, crate::prompts::GROQ_STT_PROMPT)
     } else {
         crate::prompts::GROQ_STT_PROMPT.to_string()
     };
+    // Truncate at word boundary to avoid cutting mid-sentence
     let stt_prompt = if stt_prompt.len() > 896 {
-        stt_prompt[..896].to_string()
+        let truncated = &stt_prompt[..896];
+        match truncated.rfind(' ') {
+            Some(pos) => truncated[..pos].to_string(),
+            None => truncated.to_string(),
+        }
     } else {
         stt_prompt
     };
-    let mut form = reqwest::multipart::Form::new()
+    // For "mixed" mode, send "ru" as base language (Russian with occasional English)
+    let effective_lang = if language == "mixed" { "ru" } else { language };
+    log::info!("Groq STT: language={}, effective_lang={}, prompt_len={}", language, effective_lang, stt_prompt.len());
+    log::debug!("Groq STT prompt: {}", stt_prompt);
+
+    let form = reqwest::multipart::Form::new()
         .part("file", part)
         .text("model", GROQ_STT_MODEL)
-        .text("prompt", stt_prompt);
+        .text("prompt", stt_prompt)
+        .text("language", effective_lang.to_string());
 
-    if language != "auto" && language != "mixed" {
-        form = form.text("language", language.to_string());
-    }
-
-    let res = client
-        .post("https://api.groq.com/openai/v1/audio/transcriptions")
-        .header("Authorization", format!("Bearer {}", api_key))
-        .multipart(form)
-        .send()
-        .await
-        .map_err(|e| {
-            log::error!("Groq STT Network Error: {}", e);
-            format!("Network error: {}", e)
-        })?;
+    let res = tokio::time::timeout(
+        std::time::Duration::from_secs(30),
+        client
+            .post("https://api.groq.com/openai/v1/audio/transcriptions")
+            .header("Authorization", format!("Bearer {}", api_key))
+            .multipart(form)
+            .send(),
+    )
+    .await
+    .map_err(|_| "Groq STT: таймаут запроса (30с). Попробуйте ещё раз.".to_string())?
+    .map_err(|e| {
+        log::error!("Groq STT Network Error: {}", e);
+        format!("Network error: {}", e)
+    })?;
 
     let status = res.status();
     let body = res.text().await.map_err(|e| format!("Body error: {}", e))?;
@@ -303,6 +341,7 @@ pub async fn stop_recording<R: Runtime>(
     let json: serde_json::Value =
         serde_json::from_str(&body).map_err(|e| format!("JSON parse error: {}", e))?;
     let text = json["text"].as_str().unwrap_or("").to_string();
+    log::info!("Groq STT raw response: {}", text.chars().take(200).collect::<String>());
     let cleaned = crate::utils::clean_repetitive_phrases(&text);
 
     // Унифицируем ответ для фронтенда
@@ -316,7 +355,7 @@ pub async fn gemini_stop_recording<R: Runtime>(
     state: SharedAiState,
     recording_flag: Arc<AtomicBool>,
     api_key: String,
-    _language: &str,
+    language: &str,
     threshold: f32,
     gain: f32,
 ) -> Result<String, String> {
@@ -344,7 +383,7 @@ pub async fn gemini_stop_recording<R: Runtime>(
         },
     );
 
-    let Some(wav_data) = take_recording_wav(&state, threshold, gain)? else {
+    let Some(wav_data) = take_recording_wav(&app, &state, threshold, gain)? else {
         return Ok(String::new());
     };
 
@@ -375,7 +414,7 @@ pub async fn gemini_stop_recording<R: Runtime>(
         "contents": [{
             "role": "user",
             "parts": [
-                { "text": if _language == "mixed" { crate::prompts::MIXED_RU_EN_STT_PROMPT } else { "Transcribe this audio. Return only the transcript text." } },
+                { "text": if language == "mixed" { crate::prompts::MIXED_RU_EN_STT_PROMPT } else { "Transcribe this audio. Return only the transcript text." } },
                 { "inlineData": { "mimeType": "audio/wav", "data": audio_b64 } }
             ]
         }],
@@ -386,12 +425,13 @@ pub async fn gemini_stop_recording<R: Runtime>(
         }
     });
 
-    let res = client
-        .post(&url)
-        .json(&body)
-        .send()
-        .await
-        .map_err(|e| format!("Gemini STT request failed: {}", e))?;
+    let res = tokio::time::timeout(
+        std::time::Duration::from_secs(30),
+        client.post(&url).json(&body).send(),
+    )
+    .await
+    .map_err(|_| "Gemini STT: таймаут запроса (30с). Попробуйте ещё раз.".to_string())?
+    .map_err(|e| format!("Gemini STT request failed: {}", e))?;
 
     let status = res.status();
     let body_text = res.text().await.unwrap_or_default();
@@ -417,13 +457,16 @@ pub async fn groq_refine_text<R: Runtime>(
     instruction: Option<String>,
 ) -> Result<String, String> {
     let _ = app.emit("ai-status", "✨ Форматирование...");
-    // 1. Acquisition of Semaphore
+    // 1. Acquisition of Semaphore — with a timeout so a stuck previous request
+    // (e.g. one that hit the network timeout) can't block transcription forever.
     let semaphore = app.state::<AiSemaphore>();
-    let _permit = semaphore
-        .0
-        .acquire()
-        .await
-        .map_err(|e| format!("Semaphore error: {}", e))?;
+    let _permit = tokio::time::timeout(
+        std::time::Duration::from_secs(5),
+        semaphore.0.acquire(),
+    )
+    .await
+    .map_err(|_| "Предыдущий запрос к ИИ не завершился. Попробуйте ещё раз.".to_string())?
+    .map_err(|e| format!("Semaphore error: {}", e))?;
     let api_key = api_key
         .trim_matches('"')
         .trim_matches('\'')
