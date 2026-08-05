@@ -6,16 +6,17 @@
 
 ## Последнее обновление
 Дата: 2026-08-05
-Кто/что обновило: Командный агент (GigaChat STT + фиксы после код-ревью)
+Кто/что обновило: Командный агент (фиксы Enter/компактного режима + релизная документация)
 
 ## Версии (важно)
 - Последний ПУБЛИЧНЫЙ релиз на GitHub — **v1.1.0** (13.05.2026, .dmg + .app)
 - Тег `v1.2.0` есть в git (входит в `main`), но **сборка v1.2.0 никогда не публиковалась** в GitHub Releases
 - Следующий публичный релиз обязан называться **v1.2.0** (НЕ 1.3.0), иначе пользователи увидят «прыжок» с 1.1 на 1.3
-- Текущая разработка идёт в ветке `dev` (9 коммитов впереди `main`: GigaChat, P1, тесты, аудит)
+- Текущая разработка идёт в ветке `dev` (11 коммитов впереди `main`: GigaChat, P1, тесты, аудит, багфиксы UI)
 
 ## Что сейчас в работе
 - **Подготовка релиза v1.2.0** из ветки `dev` (последний опубликованный — v1.1.0)
+- Релизные заметки v1.2.0 актуализированы (убраны Mixed/Enter-неточности, добавлены GigaChat/Whisper/стабильность)
 - **GigaChat добавлен как STT-движок** (кнопка «GigaChat Pro» в EnginesTab):
   - Модели: форматирование — `GigaChat-2`, STT — `GigaChat-2-Pro` (multimodal, аудио)
   - OAuth на `ngw.devices.sberbank.ru:9443` (сертификат Минцифры), токен 30 мин с кешем и рефрешем по 401/403
@@ -40,13 +41,13 @@
 ## Известные проблемы / баги
 - GigaChat: не тестировался с реальным ключом — нужна проверка OAuth-флоу и выбора модели
 - `libc::_exit(0)` при выходе сохранён (необходим для избежания ggml crash), но перед ним добавлен flush данных
-- (решено в Сессии 10) Enter paste в editing и компактный режим — исправлены, см. Журнал
 
 ## Технический долг (осознанный)
 - macOS only — архитектурное решение, не баг
 
 ## Что сделано
-- **Сессия 10 (Багфиксы + подготовка релиза v1.2.0):** Исправлены две регрессии: (1) Enter paste в editing — в useKeyboardShortcuts простой Enter теперь отправляет текст в обоих фазах (result и editing), раньше в editing нужен был Cmd/Ctrl+Enter; (2) компактный режим — `compactResultWindow` снова влияет на размер окна в idle (48×48 вместо 150×48): добавлен в `resolveWindowSize()`, проброшен через `useWindowManager` и `page.tsx`, покрыт тестами. Актуализированы AGENTS.md, .claude/agents/backend-docs.md и frontend-docs.md (переведены на английский, исправлены устаревшие данные: whisper.rs→whisper/, удалён streaming.rs, добавлен gigachat.rs, тесты 80/60/3, hooks/, lib/). Переведены SESSION-START/END и PROMPT-TEMPLATE. Проверки: bun test 62 pass, eslint 0.
+- **Сессия 10 (финальные фиксы UI):** (1) Enter paste — корень был в stale closure: `useKeyboardShortcuts` регистрировал обработчик один раз и держал первую версию `handlePaste` с пустым `transcriptText`, а `handlePaste` при пустом тексте молча выходил → Enter «не работал». Исправлено: свежий `handlePaste` через ref, слушатель в capture-фазе, свой Enter-обработчик на textarea. (2) Компактный режим — окно 48×48, но внутри рендерился полный HeaderBar (обрезался). Теперь при компактном idle рендерится круглый бабл с кнопкой-микрофоном; анимации синхронизированы (`buildContainerVariants(compactIdle)`), `WINDOW_SIZES.compactIdle`. Проверки: bun test 62 pass, eslint 0, bun build success.
+- **Сессия 10 (документация):** Актуализированы AGENTS.md (англ.), .claude/agents/*, SESSION-*, релизные заметки v1.2.0 (убраны Mixed/Enter-неточности, добавлены GigaChat/Whisper/стабильность, помечен статус «не опубликован»), CHANGELOG/tags/README/architecture/overview синхронизированы.
 - **Сессия 6 (STT Quality):** Исправлены 3 бага распознавания речи: (1) Groq не отправлял параметр language при mixed → Whisper默认ал на английский; (2) Gemini всегда получал "auto" вместо "mixed" из-за отсутствия GeminiLanguage state; (3) Deepgram использовал "multi" вместо "ru" для mixed-режима. Добавлен GeminiLanguage state (state.rs, lib.rs, settings.rs, audio.rs). Удалён нестабильный "auto" режим из всех движков (types.ts, EnginesTab.tsx, SettingsPanel.tsx, useSettings.ts, whisper/transcribe.rs, streaming.rs, prompts.rs). Улучшено обрезание промпта Groq (по границе слова). clippy 0 warnings, tsc --noEmit pass.
 - **Сессия 5 (Final):** Финальная верификация: clippy 0 warnings, cargo test 74 pass, bun test 60 pass, bun build success. Обновлён CHANGELOG (Unreleased section с 6 блоками улучшений).
 - **Сессия 4 (Tests):** Frontend: установлен vitest, создано 3 тест-файла (60 тестов). Backend: добавлены тесты в ai_provider.rs (4), keys.rs (9), history.rs (11). Итого: 74 Rust тестов (было 51), 60 frontend тестов (было 0). clippy 0 warnings.
@@ -79,6 +80,7 @@
 11. **CI/CD pipeline** — GitHub Actions: clippy + test + build при PR
 
 ## Журнал сессий (кратко, последние 5-10 записей, старое можно удалять)
+- [2026-08-05] **Сессия 10b (финальные фиксы UI)**: Повторная проверка выявила: (1) Enter по-прежнему не вставлял текст — корень в stale closure `useKeyboardShortcuts` (обработчик держал первую версию `handlePaste` с пустым `transcriptText`, который молча выходил). Исправлено: актуальный `handlePaste` через ref, capture-фаза, свой Enter-обработчик на textarea в editing. (2) Компактный режим обрезал полный HeaderBar вместо кружка — теперь при compact idle рендерится круглый бабл с микрофоном (клик = старт записи), анимации `buildContainerVariants(compactIdle)` и пресет `WINDOW_SIZES.compactIdle`. Коммиты `4112181`, `1a336a4` (dev). Проверки: bun test 62 pass, eslint 0, bun build success.
 - [2026-08-05] **Сессия 10 (Багфиксы + подготовка релиза v1.2.0)**: Исправлены 2 регрессии. **Enter paste:** в `useKeyboardShortcuts` простой Enter теперь paste-ит в фазах result И editing (раньше в editing только Cmd/Ctrl+Enter). **Компактный режим:** `compactResultWindow` снова работает — добавлен в `resolveWindowSize()` (idle → 48×48), проброшен через `useWindowManager` (интерфейс + deps) и `page.tsx`, покрыт тестами (windowSizes.test.ts: +2 теста). **Документация:** AGENTS.md (CLAUDE.md симлинк), .claude/agents/*, SESSION-START/END, PROMPT-TEMPLATE — переведены на английский и актуализированы (whisper.rs→whisper/, gigachat.rs, тесты 80/60/3, hooks/, lib/). Установлен факт: последний публичный релиз — v1.1.0, v1.2.0 не публиковался → следующий релиз называется v1.2.0. Проверки: bun test 62 pass, eslint 0.
 - [2026-08-05] **Сессия 9 (Удаление выбора языка)**: Убран выбор языка распознавания из UI — движки сами определяют язык (Whisper: `auto` → `set_language(None)`, Deepgram: `multi`, Groq: `ru`, Gemini: `mixed`). Удалены `DeepgramLanguage`/`WhisperLanguage`/`GroqLanguage`/`GeminiLanguage` (state.rs), 8 команд set/get_*_language (settings.rs), manage/load в lib.rs, языковые пропсы в useSettings/useInitialSettings/SettingsPanel/EnginesTab/HeaderBar/page.tsx, `useTrayLanguage`, `Language`/`SttLanguage` типы, языковой селектор и индикатор языка. Захардкожено в audio.rs (start/stop). Проверки: clippy 0 warnings, cargo test 80 pass, tsc clean, eslint 0, bun build success. Vitest: 49 pass / 2 fail (pre-existing, `vi.stubGlobal` не работает — не связано).
 - [2026-08-05] **Сессия 8 (Whisper ускорение)**: Найдена и исправлена причина медленной транскрипции (~30-60s на фразу). Регрессия после рефакторинга 17f46cd: `WhisperState` перестал кэшироваться (в `b292ed1` был, при разбиении whisper.rs → whisper/ потерялся) — `create_state()` вызывался на каждый инференс, а в whisper.cpp это reinit бэкендов + загрузка Core ML encoder (~секунды). Исправлено: (1) `WhisperState` возвращён в `WhisperModel` и переиспользуется (whisper.cpp очищает `result_all` в начале `whisper_full_with_state`, состояние безопасно переиспользовать); (2) pre-warm теперь на закэшированном state, а не на выбрасываемом временном; (3) включён `flash_attn` в контексте (ускорение attention на ggml-metal). clippy 0 warnings, cargo test 80 pass. Обновлён docs/state.md (убрана проблема 60s).
