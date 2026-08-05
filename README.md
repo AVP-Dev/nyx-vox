@@ -90,16 +90,15 @@ NYX Vox requires **Accessibility** (for auto-pasting text) and **Microphone** pe
 - [x] Encrypted API keys (AES-256-GCM, bound to machine-id)
 - [x] Compact Mode (idle window shrinks to a round mic bubble)
 
-**Planned (next releases):**
-- [ ] Custom Global Shortcuts (rebindable hotkeys)
-- [ ] History Export (TXT / MD / JSON) & full-text search
-- [ ] Custom dictionary / technical vocabulary (user-defined terms)
-- [ ] Whisper transcription progress bar
-- [ ] Streaming for Deepgram (WebSocket instead of batch REST)
-- [ ] Voice Commands & App Control
-- [ ] Error boundary + structured logging (frontend)
-- [ ] CI/CD pipeline: clippy + test + build on every PR
-- [ ] Multi-Language Translation (long-term)
+**Planned:**
+- [ ] **Audio file transcription** — drag & drop an audio file into the app (or pick one via a dialog) → automatic transcription and text output
+- [ ] **Custom global shortcuts** — rebindable hotkeys
+- [ ] **History export** — save transcriptions to TXT / MD / JSON
+- [ ] **Microphone selection** — choose an input device in Settings (currently the system default is used)
+- [ ] **Auto-updates** — an update check already exists; automatic download & install comes next
+- [ ] **Custom dictionary** — user-defined terms, names, technical vocabulary
+- [ ] **Speech activity detection** — auto-pause recording when you stop talking
+- [ ] **Cross-platform** — Linux support
 
 > [!TIP]
 > **API Transparency & Accessibility**: NYX Vox utilizes modern, free, or freemium API models. We specifically choose engines like **Groq** and **Deepgram** because they provide high-tier performance while remaining accessible for individual developers and power users without high entry costs.
