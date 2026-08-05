@@ -55,6 +55,8 @@ This release is a comprehensive audit-driven overhaul of NYX Vox: critical secur
 *   **Bug Fix: Settings Not Saving**: Fixed stale closure in settings panel that prevented saving.
 *   **UX: Improved Microphone Sensitivity**: Added 2x software gain before noise gate. Speech at arm's length is now recognized.
 *   **UX: Shorter Phrase Detection**: Reduced minimum duration from 0.8s to 0.3s. Short phrases like "yes", "hello" are no longer lost.
+*   **UI: Compact Mode Bubble**: With Compact Mode enabled, the idle window is now a round mic-only bubble (48×48) — click it to start recording. Previously the full header was clipped into the small window.
+*   **Bug Fix: Enter Paste**: Pressing Enter now reliably pastes the text into the target app in both the result and editing views. The keyboard handler previously captured a stale reference to the paste function, which silently did nothing on empty text — fixed via a live ref + capture-phase listener + textarea handler.
 
 ### ⚠️ Known Issues
 *   **GigaChat STT not tested with a real key**: OAuth flow and model selection need a live verification with an actual SberAI account key.
@@ -129,6 +131,8 @@ This release is a comprehensive audit-driven overhaul of NYX Vox: critical secur
 *   **Исправление бага: Настройки не сохранялись**: Исправлен stale closure в панели настроек, из-за которого настройки не сохранялись.
 *   **UX: Улучшена чувствительность микрофона**: Добавлено усиление 2x перед noise gate. Речь на расстоянии вытянутой руки теперь распознается.
 *   **UX: Короткие фразы**: Минимальная длительность снижена с 0.8s до 0.3s. Короткие фразы ("да", "привет") больше не теряются.
+*   **UI: Компактный режим**: При включённом компактном режиме idle-окно теперь — круглый бабл с микрофоном (48×48), клик запускает запись. Раньше в маленькое окно просто обрезалась полная шапка.
+*   **Исправление бага: Вставка по Enter**: Нажатие Enter теперь надёжно вставляет текст в целевое приложение и в режиме результата, и в редакторе. Раньше обработчик клавиш держал устаревшую ссылку на функцию вставки, которая молча ничего не делала при пустом тексте — исправлено через живой ref, capture-фазу слушателя и обработчик на textarea.
 
 ### ⚠️ Известные проблемы
 *   **GigaChat STT не тестировался с реальным ключом**: OAuth-флоу и выбор модели нужно проверить вживую с реальным ключом кабинета SberAI.
