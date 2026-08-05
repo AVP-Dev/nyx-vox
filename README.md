@@ -4,6 +4,8 @@
 
   [![Скачать](https://img.shields.io/github/v/release/AVP-Dev/nyx-vox?label=Download%20Latest&style=for-the-badge&color=orange)](https://github.com/AVP-Dev/nyx-vox/releases/latest)
 
+  **Current release: v1.1.0** &nbsp;·&nbsp; **Next release: v1.2.0** (in `dev`, not yet published)
+
   <p>
     <a href="https://avp-dev.github.io/nyx-vox/" target="_blank" rel="noopener noreferrer">🌐 Landing Page</a> &nbsp;|&nbsp;
     <a href="./README.ru.md">🇷🇺 Russian Version</a> &nbsp;|&nbsp;
@@ -34,7 +36,22 @@ NYX Vox brings fast, offline-capable and cloud-accelerated voice transcription d
    3. Go to "API Keys" section and generate a new key.
    </details>
 
-3. **OFFLINE (whisper-rs):** Runs locally on your Mac using `ggml-small.bin`. Ultimate privacy, no internet required.
+3. **CLOUD (Gemini):** Google AI. Premium accuracy for Russian + English dictation, works well as a fallback engine.
+   <details>
+   <summary><b>How to get Gemini API Key</b></summary>
+   1. Go to <a href="https://aistudio.google.com/apikey">Google AI Studio</a>.<br/>
+   2. Create an API key and copy it.
+   </details>
+
+4. **CLOUD (GigaChat by SberAI):** Russian neural network. Works in Russia without a VPN, ideal for Russian dictation.
+   <details>
+   <summary><b>How to get GigaChat API Key</b></summary>
+   1. Create a developer account at <a href="https://developers.sber.ru/">developers.sber.ru</a>.<br/>
+   2. Get `client_id` and `client_secret` in the SberAI developer console.<br/>
+   3. Paste them in Settings → Keys (the app builds the Base64 auth key automatically).
+   </details>
+
+5. **OFFLINE (whisper-rs):** Runs locally on your Mac (Small/Medium/Turbo models, Metal/Core ML accelerated). Ultimate privacy, no internet required.
 
 ## 📦 Installation & Setup
 
@@ -61,14 +78,28 @@ NYX Vox requires **Accessibility** (for auto-pasting text) and **Microphone** pe
 > Because the app is distributed without a paid developer signature, macOS may revoke "Accessibility" rights during every manual update. If auto-paste stops working, simply use the **Reset** button or manually remove `NYX Vox` from System Settings -> Privacy & Security -> Accessibility and restart the app.
 
 ## 🚀 Roadmap
-- [x] Basic Speech-to-Text Pipeline (Whisper/Groq/Deepgram)
+
+**Shipped:**
+- [x] Speech-to-Text Pipeline (Whisper offline / Groq / Deepgram / Gemini / GigaChat)
 - [x] Glassmorphism UI & Dynamic Windows
-- [x] Native HID Auto-Paste (MacOS)
-- [ ] Custom Global Shortcuts
+- [x] Native HID Auto-Paste (macOS) with Accessibility check & status
 - [x] Local Transcription History & Search
-- [x] **Intelligent AI Formatting**: LLM models (Gemini, Qwen, DeepSeek) for grammar, punctuation, and style refinement.
-- [ ] Voice Commands & App Control (Planned)
-- [ ] Multi-Language Translation (Planned)
+- [x] **Intelligent AI Formatting**: LLM models (Gemini, DeepSeek, Qwen, Groq, GigaChat) for grammar, punctuation, and style refinement (Casual / Professional)
+- [x] Noise Gate & Configurable Microphone Gain
+- [x] Media Auto-Pause while dictating
+- [x] Encrypted API keys (AES-256-GCM, bound to machine-id)
+- [x] Compact Mode (idle window shrinks to a round mic bubble)
+
+**Planned (next releases):**
+- [ ] Custom Global Shortcuts (rebindable hotkeys)
+- [ ] History Export (TXT / MD / JSON) & full-text search
+- [ ] Custom dictionary / technical vocabulary (user-defined terms)
+- [ ] Whisper transcription progress bar
+- [ ] Streaming for Deepgram (WebSocket instead of batch REST)
+- [ ] Voice Commands & App Control
+- [ ] Error boundary + structured logging (frontend)
+- [ ] CI/CD pipeline: clippy + test + build on every PR
+- [ ] Multi-Language Translation (long-term)
 
 > [!TIP]
 > **API Transparency & Accessibility**: NYX Vox utilizes modern, free, or freemium API models. We specifically choose engines like **Groq** and **Deepgram** because they provide high-tier performance while remaining accessible for individual developers and power users without high entry costs.

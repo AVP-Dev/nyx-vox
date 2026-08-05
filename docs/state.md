@@ -79,6 +79,10 @@
 10. **Structured logging** (frontend) — tauri-plugin-log
 11. **CI/CD pipeline** — GitHub Actions: clippy + test + build при PR
 
+### ⏳ Долгосрочные
+12. **Голосовые команды и управление Mac** — управление приложением голосом
+13. **Мультиязычный перевод** — перевод распознанного текста (долгосрочно)
+
 ## Журнал сессий (кратко, последние 5-10 записей, старое можно удалять)
 - [2026-08-05] **Сессия 10b (финальные фиксы UI)**: Повторная проверка выявила: (1) Enter по-прежнему не вставлял текст — корень в stale closure `useKeyboardShortcuts` (обработчик держал первую версию `handlePaste` с пустым `transcriptText`, который молча выходил). Исправлено: актуальный `handlePaste` через ref, capture-фаза, свой Enter-обработчик на textarea в editing. (2) Компактный режим обрезал полный HeaderBar вместо кружка — теперь при compact idle рендерится круглый бабл с микрофоном (клик = старт записи), анимации `buildContainerVariants(compactIdle)` и пресет `WINDOW_SIZES.compactIdle`. Коммиты `4112181`, `1a336a4` (dev). Проверки: bun test 62 pass, eslint 0, bun build success.
 - [2026-08-05] **Сессия 10 (Багфиксы + подготовка релиза v1.2.0)**: Исправлены 2 регрессии. **Enter paste:** в `useKeyboardShortcuts` простой Enter теперь paste-ит в фазах result И editing (раньше в editing только Cmd/Ctrl+Enter). **Компактный режим:** `compactResultWindow` снова работает — добавлен в `resolveWindowSize()` (idle → 48×48), проброшен через `useWindowManager` (интерфейс + deps) и `page.tsx`, покрыт тестами (windowSizes.test.ts: +2 теста). **Документация:** AGENTS.md (CLAUDE.md симлинк), .claude/agents/*, SESSION-START/END, PROMPT-TEMPLATE — переведены на английский и актуализированы (whisper.rs→whisper/, gigachat.rs, тесты 80/60/3, hooks/, lib/). Установлен факт: последний публичный релиз — v1.1.0, v1.2.0 не публиковался → следующий релиз называется v1.2.0. Проверки: bun test 62 pass, eslint 0.
