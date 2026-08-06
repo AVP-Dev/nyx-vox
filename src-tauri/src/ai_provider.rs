@@ -46,23 +46,39 @@ pub(crate) fn take_recording_wav<R: Runtime>(
 
     if samples.is_empty() {
         log::debug!("Groq/Gemini: no audio samples captured");
-        crate::utils::emit_skip_reason(app, crate::utils::RecordingSkipReason::NoSamples, &app_lang);
+        crate::utils::emit_skip_reason(
+            app,
+            crate::utils::RecordingSkipReason::NoSamples,
+            &app_lang,
+        );
         return Ok(None);
     }
 
     let min_samples = (src_rate as f64 * 0.3) as usize;
     if samples.len() < min_samples {
-        log::debug!("Groq/Gemini: audio too short: {} samples (need {}), src_rate={}", samples.len(), min_samples, src_rate);
+        log::debug!(
+            "Groq/Gemini: audio too short: {} samples (need {}), src_rate={}",
+            samples.len(),
+            min_samples,
+            src_rate
+        );
         crate::utils::emit_skip_reason(app, crate::utils::RecordingSkipReason::TooShort, &app_lang);
         return Ok(None);
     }
 
     // Apply software gain to boost quiet microphone signals
-    let samples: Vec<f32> = samples.iter().map(|s| (s * gain).clamp(-1.0, 1.0)).collect();
+    let samples: Vec<f32> = samples
+        .iter()
+        .map(|s| (s * gain).clamp(-1.0, 1.0))
+        .collect();
 
     let rms = (samples.iter().map(|s| s * s).sum::<f32>() / samples.len() as f32).sqrt();
     if rms < threshold {
-        log::debug!("Groq/Gemini: audio too quiet (RMS: {:.6} < threshold: {:.6}), skipping", rms, threshold);
+        log::debug!(
+            "Groq/Gemini: audio too quiet (RMS: {:.6} < threshold: {:.6}), skipping",
+            rms,
+            threshold
+        );
         crate::utils::emit_skip_reason(app, crate::utils::RecordingSkipReason::TooQuiet, &app_lang);
         return Ok(None);
     }
@@ -210,13 +226,10 @@ pub async fn stop_recording<R: Runtime>(
     // 1. Acquisition of Semaphore — with a timeout so a stuck previous request
     // (e.g. one that hit the network timeout) can't block transcription forever.
     let semaphore = app.state::<AiSemaphore>();
-    let _permit = tokio::time::timeout(
-        std::time::Duration::from_secs(5),
-        semaphore.0.acquire(),
-    )
-    .await
-    .map_err(|_| "Предыдущий запрос к ИИ не завершился. Попробуйте ещё раз.".to_string())?
-    .map_err(|e| format!("Semaphore error: {}", e))?;
+    let _permit = tokio::time::timeout(std::time::Duration::from_secs(5), semaphore.0.acquire())
+        .await
+        .map_err(|_| "Предыдущий запрос к ИИ не завершился. Попробуйте ещё раз.".to_string())?
+        .map_err(|e| format!("Semaphore error: {}", e))?;
     let lang_pref = app
         .state::<crate::state::AppLanguage>()
         .0
@@ -257,7 +270,11 @@ pub async fn stop_recording<R: Runtime>(
         .map_err(|e| e.to_string())?;
 
     let stt_prompt = if language == "mixed" {
-        format!("{}\n\nVocabulary: {}", crate::prompts::MIXED_RU_EN_STT_PROMPT, crate::prompts::GROQ_STT_PROMPT)
+        format!(
+            "{}\n\nVocabulary: {}",
+            crate::prompts::MIXED_RU_EN_STT_PROMPT,
+            crate::prompts::GROQ_STT_PROMPT
+        )
     } else {
         crate::prompts::GROQ_STT_PROMPT.to_string()
     };
@@ -273,7 +290,12 @@ pub async fn stop_recording<R: Runtime>(
     };
     // For "mixed" mode, send "ru" as base language (Russian with occasional English)
     let effective_lang = if language == "mixed" { "ru" } else { language };
-    log::info!("Groq STT: language={}, effective_lang={}, prompt_len={}", language, effective_lang, stt_prompt.len());
+    log::info!(
+        "Groq STT: language={}, effective_lang={}, prompt_len={}",
+        language,
+        effective_lang,
+        stt_prompt.len()
+    );
     log::debug!("Groq STT prompt: {}", stt_prompt);
 
     let form = reqwest::multipart::Form::new()
@@ -315,7 +337,10 @@ pub async fn stop_recording<R: Runtime>(
     let json: serde_json::Value =
         serde_json::from_str(&body).map_err(|e| format!("JSON parse error: {}", e))?;
     let text = json["text"].as_str().unwrap_or("").to_string();
-    log::info!("Groq STT raw response: {}", text.chars().take(200).collect::<String>());
+    log::info!(
+        "Groq STT raw response: {}",
+        text.chars().take(200).collect::<String>()
+    );
     let cleaned = crate::utils::clean_repetitive_phrases(&text);
 
     // Унифицируем ответ для фронтенда
@@ -408,7 +433,10 @@ pub async fn gemini_stop_recording<R: Runtime>(
     .map_err(|e| format!("Gemini STT request failed: {}", e))?;
 
     let status = res.status();
-    let body_text = res.text().await.map_err(|e| format!("Gemini STT read body: {}", e))?;
+    let body_text = res
+        .text()
+        .await
+        .map_err(|e| format!("Gemini STT read body: {}", e))?;
     if !status.is_success() {
         return Err(format!("Gemini STT Failed ({}): {}", status, body_text));
     }
@@ -447,13 +475,10 @@ pub async fn groq_refine_text<R: Runtime>(
     // 1. Acquisition of Semaphore — with a timeout so a stuck previous request
     // (e.g. one that hit the network timeout) can't block transcription forever.
     let semaphore = app.state::<AiSemaphore>();
-    let _permit = tokio::time::timeout(
-        std::time::Duration::from_secs(5),
-        semaphore.0.acquire(),
-    )
-    .await
-    .map_err(|_| "Предыдущий запрос к ИИ не завершился. Попробуйте ещё раз.".to_string())?
-    .map_err(|e| format!("Semaphore error: {}", e))?;
+    let _permit = tokio::time::timeout(std::time::Duration::from_secs(5), semaphore.0.acquire())
+        .await
+        .map_err(|_| "Предыдущий запрос к ИИ не завершился. Попробуйте ещё раз.".to_string())?
+        .map_err(|e| format!("Semaphore error: {}", e))?;
     let api_key = api_key
         .trim_matches('"')
         .trim_matches('\'')
@@ -552,13 +577,10 @@ pub async fn gemini_refine_text<R: Runtime>(
         },
     );
     let semaphore = app.state::<AiSemaphore>();
-    let _permit = tokio::time::timeout(
-        std::time::Duration::from_secs(5),
-        semaphore.0.acquire(),
-    )
-    .await
-    .map_err(|_| "Предыдущий запрос к ИИ не завершился. Попробуйте ещё раз.".to_string())?
-    .map_err(|e| format!("Semaphore error: {}", e))?;
+    let _permit = tokio::time::timeout(std::time::Duration::from_secs(5), semaphore.0.acquire())
+        .await
+        .map_err(|_| "Предыдущий запрос к ИИ не завершился. Попробуйте ещё раз.".to_string())?
+        .map_err(|e| format!("Semaphore error: {}", e))?;
     let api_key = api_key
         .trim_matches('"')
         .trim_matches('\'')
@@ -647,10 +669,8 @@ mod tests {
 
     #[test]
     fn build_refinement_with_custom_instruction() {
-        let result = build_refinement_user_content(
-            Some("Clean this text".to_string()),
-            "hello world",
-        );
+        let result =
+            build_refinement_user_content(Some("Clean this text".to_string()), "hello world");
         assert!(result.starts_with("Clean this text"));
         assert!(result.contains("hello world"));
         assert!(result.contains(crate::prompts::REFINEMENT_USER_DELIMITER));

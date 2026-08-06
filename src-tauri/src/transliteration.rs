@@ -1,5 +1,5 @@
-use std::sync::OnceLock;
 use regex::Regex;
+use std::sync::OnceLock;
 
 struct TranslitEntry {
     patterns: &'static [&'static str],
@@ -9,115 +9,413 @@ struct TranslitEntry {
 static TRANSLIT_TABLE: OnceLock<Vec<TranslitEntry>> = OnceLock::new();
 
 fn table() -> &'static Vec<TranslitEntry> {
-    TRANSLIT_TABLE.get_or_init(|| vec![
-        // ── Cloud / AI API services ────────────────────────────────────────
-        TranslitEntry { patterns: &["groq", "грок"], replacement: "Groq" },
-        TranslitEntry { patterns: &["deepgram", "дипграм", "дипгрэм"], replacement: "Deepgram" },
-        TranslitEntry { patterns: &["whisper", "виспер", "уиспер"], replacement: "Whisper" },
-        TranslitEntry { patterns: &["gemini", "джемини", "гемини", "гэмини", "джэмини"], replacement: "Gemini" },
-        TranslitEntry { patterns: &["openai", "опенэй", "опенай", "опен-ай"], replacement: "OpenAI" },
-        TranslitEntry { patterns: &["claude", "клод"], replacement: "Claude" },
-
-        // ── Languages & runtimes ───────────────────────────────────────────
-        TranslitEntry { patterns: &["node.js", "node js", "нод джей эс", "нод-джей-эс", "нода", "ноджс", "нод"], replacement: "Node.js" },
-        TranslitEntry { patterns: &["next.js", "next js", "нэкст джей эс", "нэкст-джей-эс", "нэкст"], replacement: "Next.js" },
-        TranslitEntry { patterns: &["react", "реакт", "реакт"], replacement: "React" },
-        TranslitEntry { patterns: &["typescript", "тайпскрипт", "типскрипт", "type script"], replacement: "TypeScript" },
-        TranslitEntry { patterns: &["javascript", "джэйва скрипт", "джава скрипт", "ява скрипт", "java script"], replacement: "JavaScript" },
-        TranslitEntry { patterns: &["python", "питон", "пайтон"], replacement: "Python" },
-        TranslitEntry { patterns: &["rust", "раст"], replacement: "Rust" },
-        TranslitEntry { patterns: &["bun", "бан"], replacement: "Bun" },
-        TranslitEntry { patterns: &["deno", "дено"], replacement: "Deno" },
-        TranslitEntry { patterns: &["swift", "свифт"], replacement: "Swift" },
-        TranslitEntry { patterns: &["kotlin", "котлин"], replacement: "Kotlin" },
-        TranslitEntry { patterns: &["dart", "дарт"], replacement: "Dart" },
-
-        // ── Frameworks & libraries ─────────────────────────────────────────
-        TranslitEntry { patterns: &["tailwind", "тейлвинд", "таилвинд"], replacement: "Tailwind" },
-        TranslitEntry { patterns: &["prisma", "призма"], replacement: "Prisma" },
-        TranslitEntry { patterns: &["supabase", "супрабэйс", "супра база", "супабейс"], replacement: "Supabase" },
-        TranslitEntry { patterns: &["docker", "дакер", "докер"], replacement: "Docker" },
-        TranslitEntry { patterns: &["kubernetes", "кубернетес", "куб"], replacement: "Kubernetes" },
-        TranslitEntry { patterns: &["tauri", "таури"], replacement: "Tauri" },
-        TranslitEntry { patterns: &["vue", "вью"], replacement: "Vue" },
-        TranslitEntry { patterns: &["angular", "ангуляр", "ангулар"], replacement: "Angular" },
-        TranslitEntry { patterns: &["express", "экспресс"], replacement: "Express" },
-        TranslitEntry { patterns: &["redux", "редакс"], replacement: "Redux" },
-        TranslitEntry { patterns: &["mongoose", "мангуст", "монгус"], replacement: "Mongoose" },
-        TranslitEntry { patterns: &["sequelize", "сиквелайз", "сиквелиз"], replacement: "Sequelize" },
-        TranslitEntry { patterns: &["django", "джанго"], replacement: "Django" },
-        TranslitEntry { patterns: &["flask", "фласк", "фласк"], replacement: "Flask" },
-        TranslitEntry { patterns: &["spring", "спринг"], replacement: "Spring" },
-        TranslitEntry { patterns: &["nestjs", "нест джей эс", "нест", "nest js"], replacement: "NestJS" },
-
-        // ── Data & databases ───────────────────────────────────────────────
-        TranslitEntry { patterns: &["postgresql", "постгрес кюэль", "постгрес", "постгри"], replacement: "PostgreSQL" },
-        TranslitEntry { patterns: &["sql", "эс кю эль", "сиквел"], replacement: "SQL" },
-        TranslitEntry { patterns: &["redis", "редис"], replacement: "Redis" },
-        TranslitEntry { patterns: &["mongodb", "монгодэ", "монго"], replacement: "MongoDB" },
-        TranslitEntry { patterns: &["graphql", "граф кюэль", "граф"], replacement: "GraphQL" },
-        TranslitEntry { patterns: &["mysql", "май эс кю эль", "май сиквел", "май-сиквел"], replacement: "MySQL" },
-        TranslitEntry { patterns: &["sqlite", "эс кю лайт", "сиквел лайт", "сиквел-лайт"], replacement: "SQLite" },
-        TranslitEntry { patterns: &["dynamodb", "динамо дэ", "дайнамо"], replacement: "DynamoDB" },
-        TranslitEntry { patterns: &["firebase", "файербейс", "фаербейс", "файрбейс"], replacement: "Firebase" },
-
-        // ── DevOps & tools ─────────────────────────────────────────────────
-        TranslitEntry { patterns: &["github", "гит хаб", "гит", "гитхаб", "гит-хаб"], replacement: "GitHub" },
-        TranslitEntry { patterns: &["gitlab", "гит лаб", "гитлаб", "гит-лаб"], replacement: "GitLab" },
-        TranslitEntry { patterns: &["nginx", "энжин икс", "нжинкс", "энгинкс"], replacement: "Nginx" },
-        TranslitEntry { patterns: &["vscode", "ви-эс-код", "визуал студио код", "вижуал студио"], replacement: "VS Code" },
-        TranslitEntry { patterns: &["cursor", "курсор"], replacement: "Cursor" },
-        TranslitEntry { patterns: &["webpack", "вебпак", "веб пак"], replacement: "Webpack" },
-        TranslitEntry { patterns: &["vite", "вит", "вите"], replacement: "Vite" },
-        TranslitEntry { patterns: &["eslint", "эс-линт", "ес линт"], replacement: "ESLint" },
-        TranslitEntry { patterns: &["prettier", "преттиер", "преттир"], replacement: "Prettier" },
-
-        // ── OS & platforms ─────────────────────────────────────────────────
-        TranslitEntry { patterns: &["macos", "мак ос", "макос"], replacement: "macOS" },
-        TranslitEntry { patterns: &["linux", "линукс"], replacement: "Linux" },
-        TranslitEntry { patterns: &["ios", "ай-ос", "айос", "айос"], replacement: "iOS" },
-        TranslitEntry { patterns: &["android", "андроид"], replacement: "Android" },
-        TranslitEntry { patterns: &["windows", "виндовс", "виндоус"], replacement: "Windows" },
-        TranslitEntry { patterns: &["aws", "а-вэ-эс", "амазон"], replacement: "AWS" },
-        TranslitEntry { patterns: &["gcp", "гэ-цэ-пэ", "гугл клауд"], replacement: "GCP" },
-        TranslitEntry { patterns: &["azure", "ажур", "эйжур"], replacement: "Azure" },
-
-        // ── General tech terms ─────────────────────────────────────────────
-        TranslitEntry { patterns: &["api", "апи", "эй-пи-ай", "эпейай"], replacement: "API" },
-        TranslitEntry { patterns: &["cli", "си-эль-ай", "кли"], replacement: "CLI" },
-        TranslitEntry { patterns: &["ui", "ю-ай", "уи", "юай"], replacement: "UI" },
-        TranslitEntry { patterns: &["ux", "ю-икс", "юай-икс", "юэкс"], replacement: "UX" },
-        TranslitEntry { patterns: &["json", "джейсон", "джэйсон"], replacement: "JSON" },
-        TranslitEntry { patterns: &["base64", "бейз сиксуэль"], replacement: "Base64" },
-        TranslitEntry { patterns: &["jwt", "джей дабл ю ти", "джот"], replacement: "JWT" },
-        TranslitEntry { patterns: &["html", "эйч-ти-эм-эль", "хтэмэль"], replacement: "HTML" },
-        TranslitEntry { patterns: &["css", "си-эс-эс", "цэ-эс-эс"], replacement: "CSS" },
-        TranslitEntry { patterns: &["yaml", "я-мэ-эль", "йамл"], replacement: "YAML" },
-        TranslitEntry { patterns: &["sdk", "эс-дэ-ка", "эс дэ ка"], replacement: "SDK" },
-        TranslitEntry { patterns: &["ide", "ай-ди-и", "идэ"], replacement: "IDE" },
-        TranslitEntry { patterns: &["npm", "эн-пэ-эм"], replacement: "npm" },
-        TranslitEntry { patterns: &["yarn", "ярн"], replacement: "Yarn" },
-        TranslitEntry { patterns: &["pnpm", "пэ-эн-пэ-эм"], replacement: "pnpm" },
-        TranslitEntry { patterns: &["push", "пуш"], replacement: "push" },
-        TranslitEntry { patterns: &["pull", "пул"], replacement: "pull" },
-        TranslitEntry { patterns: &["commit", "коммит"], replacement: "commit" },
-        TranslitEntry { patterns: &["merge", "мердж", "мерж"], replacement: "merge" },
-        TranslitEntry { patterns: &["branch", "бранч"], replacement: "branch" },
-        TranslitEntry { patterns: &["deploy", "диплой", "деплой"], replacement: "deploy" },
-        TranslitEntry { patterns: &["endpoint", "ендпойнт", "эндпойнт"], replacement: "endpoint" },
-        TranslitEntry { patterns: &["token", "токен"], replacement: "token" },
-        TranslitEntry { patterns: &["cache", "кэш", "кеш"], replacement: "cache" },
-        TranslitEntry { patterns: &["debug", "дибаг", "дебаг"], replacement: "debug" },
-        TranslitEntry { patterns: &["error", "эррор"], replacement: "error" },
-        TranslitEntry { patterns: &["server", "сёрвер", "сервер"], replacement: "server" },
-        TranslitEntry { patterns: &["client", "клейент", "клиент"], replacement: "client" },
-        TranslitEntry { patterns: &["webhook", "вебхук", "веб хук"], replacement: "webhook" },
-        TranslitEntry { patterns: &["middleware", "мидлвэр", "миддлвэр"], replacement: "middleware" },
-        TranslitEntry { patterns: &["frontend", "фронтенд"], replacement: "frontend" },
-        TranslitEntry { patterns: &["backend", "бекенд", "бэкенд"], replacement: "backend" },
-        TranslitEntry { patterns: &["authentication", "аутентификация"], replacement: "authentication" },
-        TranslitEntry { patterns: &["authorization", "авторизация"], replacement: "authorization" },
-    ])
+    TRANSLIT_TABLE.get_or_init(|| {
+        vec![
+            // ── Cloud / AI API services ────────────────────────────────────────
+            TranslitEntry {
+                patterns: &["groq", "грок"],
+                replacement: "Groq",
+            },
+            TranslitEntry {
+                patterns: &["deepgram", "дипграм", "дипгрэм"],
+                replacement: "Deepgram",
+            },
+            TranslitEntry {
+                patterns: &["whisper", "виспер", "уиспер"],
+                replacement: "Whisper",
+            },
+            TranslitEntry {
+                patterns: &["gemini", "джемини", "гемини", "гэмини", "джэмини"],
+                replacement: "Gemini",
+            },
+            TranslitEntry {
+                patterns: &["openai", "опенэй", "опенай", "опен-ай"],
+                replacement: "OpenAI",
+            },
+            TranslitEntry {
+                patterns: &["claude", "клод"],
+                replacement: "Claude",
+            },
+            // ── Languages & runtimes ───────────────────────────────────────────
+            TranslitEntry {
+                patterns: &[
+                    "node.js",
+                    "node js",
+                    "нод джей эс",
+                    "нод-джей-эс",
+                    "нода",
+                    "ноджс",
+                    "нод",
+                ],
+                replacement: "Node.js",
+            },
+            TranslitEntry {
+                patterns: &[
+                    "next.js",
+                    "next js",
+                    "нэкст джей эс",
+                    "нэкст-джей-эс",
+                    "нэкст",
+                ],
+                replacement: "Next.js",
+            },
+            TranslitEntry {
+                patterns: &["react", "реакт", "реакт"],
+                replacement: "React",
+            },
+            TranslitEntry {
+                patterns: &["typescript", "тайпскрипт", "типскрипт", "type script"],
+                replacement: "TypeScript",
+            },
+            TranslitEntry {
+                patterns: &[
+                    "javascript",
+                    "джэйва скрипт",
+                    "джава скрипт",
+                    "ява скрипт",
+                    "java script",
+                ],
+                replacement: "JavaScript",
+            },
+            TranslitEntry {
+                patterns: &["python", "питон", "пайтон"],
+                replacement: "Python",
+            },
+            TranslitEntry {
+                patterns: &["rust", "раст"],
+                replacement: "Rust",
+            },
+            TranslitEntry {
+                patterns: &["bun", "бан"],
+                replacement: "Bun",
+            },
+            TranslitEntry {
+                patterns: &["deno", "дено"],
+                replacement: "Deno",
+            },
+            TranslitEntry {
+                patterns: &["swift", "свифт"],
+                replacement: "Swift",
+            },
+            TranslitEntry {
+                patterns: &["kotlin", "котлин"],
+                replacement: "Kotlin",
+            },
+            TranslitEntry {
+                patterns: &["dart", "дарт"],
+                replacement: "Dart",
+            },
+            // ── Frameworks & libraries ─────────────────────────────────────────
+            TranslitEntry {
+                patterns: &["tailwind", "тейлвинд", "таилвинд"],
+                replacement: "Tailwind",
+            },
+            TranslitEntry {
+                patterns: &["prisma", "призма"],
+                replacement: "Prisma",
+            },
+            TranslitEntry {
+                patterns: &["supabase", "супрабэйс", "супра база", "супабейс"],
+                replacement: "Supabase",
+            },
+            TranslitEntry {
+                patterns: &["docker", "дакер", "докер"],
+                replacement: "Docker",
+            },
+            TranslitEntry {
+                patterns: &["kubernetes", "кубернетес", "куб"],
+                replacement: "Kubernetes",
+            },
+            TranslitEntry {
+                patterns: &["tauri", "таури"],
+                replacement: "Tauri",
+            },
+            TranslitEntry {
+                patterns: &["vue", "вью"],
+                replacement: "Vue",
+            },
+            TranslitEntry {
+                patterns: &["angular", "ангуляр", "ангулар"],
+                replacement: "Angular",
+            },
+            TranslitEntry {
+                patterns: &["express", "экспресс"],
+                replacement: "Express",
+            },
+            TranslitEntry {
+                patterns: &["redux", "редакс"],
+                replacement: "Redux",
+            },
+            TranslitEntry {
+                patterns: &["mongoose", "мангуст", "монгус"],
+                replacement: "Mongoose",
+            },
+            TranslitEntry {
+                patterns: &["sequelize", "сиквелайз", "сиквелиз"],
+                replacement: "Sequelize",
+            },
+            TranslitEntry {
+                patterns: &["django", "джанго"],
+                replacement: "Django",
+            },
+            TranslitEntry {
+                patterns: &["flask", "фласк", "фласк"],
+                replacement: "Flask",
+            },
+            TranslitEntry {
+                patterns: &["spring", "спринг"],
+                replacement: "Spring",
+            },
+            TranslitEntry {
+                patterns: &["nestjs", "нест джей эс", "нест", "nest js"],
+                replacement: "NestJS",
+            },
+            // ── Data & databases ───────────────────────────────────────────────
+            TranslitEntry {
+                patterns: &["postgresql", "постгрес кюэль", "постгрес", "постгри"],
+                replacement: "PostgreSQL",
+            },
+            TranslitEntry {
+                patterns: &["sql", "эс кю эль", "сиквел"],
+                replacement: "SQL",
+            },
+            TranslitEntry {
+                patterns: &["redis", "редис"],
+                replacement: "Redis",
+            },
+            TranslitEntry {
+                patterns: &["mongodb", "монгодэ", "монго"],
+                replacement: "MongoDB",
+            },
+            TranslitEntry {
+                patterns: &["graphql", "граф кюэль", "граф"],
+                replacement: "GraphQL",
+            },
+            TranslitEntry {
+                patterns: &["mysql", "май эс кю эль", "май сиквел", "май-сиквел"],
+                replacement: "MySQL",
+            },
+            TranslitEntry {
+                patterns: &["sqlite", "эс кю лайт", "сиквел лайт", "сиквел-лайт"],
+                replacement: "SQLite",
+            },
+            TranslitEntry {
+                patterns: &["dynamodb", "динамо дэ", "дайнамо"],
+                replacement: "DynamoDB",
+            },
+            TranslitEntry {
+                patterns: &["firebase", "файербейс", "фаербейс", "файрбейс"],
+                replacement: "Firebase",
+            },
+            // ── DevOps & tools ─────────────────────────────────────────────────
+            TranslitEntry {
+                patterns: &["github", "гит хаб", "гит", "гитхаб", "гит-хаб"],
+                replacement: "GitHub",
+            },
+            TranslitEntry {
+                patterns: &["gitlab", "гит лаб", "гитлаб", "гит-лаб"],
+                replacement: "GitLab",
+            },
+            TranslitEntry {
+                patterns: &["nginx", "энжин икс", "нжинкс", "энгинкс"],
+                replacement: "Nginx",
+            },
+            TranslitEntry {
+                patterns: &["vscode", "ви-эс-код", "визуал студио код", "вижуал студио"],
+                replacement: "VS Code",
+            },
+            TranslitEntry {
+                patterns: &["cursor", "курсор"],
+                replacement: "Cursor",
+            },
+            TranslitEntry {
+                patterns: &["webpack", "вебпак", "веб пак"],
+                replacement: "Webpack",
+            },
+            TranslitEntry {
+                patterns: &["vite", "вит", "вите"],
+                replacement: "Vite",
+            },
+            TranslitEntry {
+                patterns: &["eslint", "эс-линт", "ес линт"],
+                replacement: "ESLint",
+            },
+            TranslitEntry {
+                patterns: &["prettier", "преттиер", "преттир"],
+                replacement: "Prettier",
+            },
+            // ── OS & platforms ─────────────────────────────────────────────────
+            TranslitEntry {
+                patterns: &["macos", "мак ос", "макос"],
+                replacement: "macOS",
+            },
+            TranslitEntry {
+                patterns: &["linux", "линукс"],
+                replacement: "Linux",
+            },
+            TranslitEntry {
+                patterns: &["ios", "ай-ос", "айос", "айос"],
+                replacement: "iOS",
+            },
+            TranslitEntry {
+                patterns: &["android", "андроид"],
+                replacement: "Android",
+            },
+            TranslitEntry {
+                patterns: &["windows", "виндовс", "виндоус"],
+                replacement: "Windows",
+            },
+            TranslitEntry {
+                patterns: &["aws", "а-вэ-эс", "амазон"],
+                replacement: "AWS",
+            },
+            TranslitEntry {
+                patterns: &["gcp", "гэ-цэ-пэ", "гугл клауд"],
+                replacement: "GCP",
+            },
+            TranslitEntry {
+                patterns: &["azure", "ажур", "эйжур"],
+                replacement: "Azure",
+            },
+            // ── General tech terms ─────────────────────────────────────────────
+            TranslitEntry {
+                patterns: &["api", "апи", "эй-пи-ай", "эпейай"],
+                replacement: "API",
+            },
+            TranslitEntry {
+                patterns: &["cli", "си-эль-ай", "кли"],
+                replacement: "CLI",
+            },
+            TranslitEntry {
+                patterns: &["ui", "ю-ай", "уи", "юай"],
+                replacement: "UI",
+            },
+            TranslitEntry {
+                patterns: &["ux", "ю-икс", "юай-икс", "юэкс"],
+                replacement: "UX",
+            },
+            TranslitEntry {
+                patterns: &["json", "джейсон", "джэйсон"],
+                replacement: "JSON",
+            },
+            TranslitEntry {
+                patterns: &["base64", "бейз сиксуэль"],
+                replacement: "Base64",
+            },
+            TranslitEntry {
+                patterns: &["jwt", "джей дабл ю ти", "джот"],
+                replacement: "JWT",
+            },
+            TranslitEntry {
+                patterns: &["html", "эйч-ти-эм-эль", "хтэмэль"],
+                replacement: "HTML",
+            },
+            TranslitEntry {
+                patterns: &["css", "си-эс-эс", "цэ-эс-эс"],
+                replacement: "CSS",
+            },
+            TranslitEntry {
+                patterns: &["yaml", "я-мэ-эль", "йамл"],
+                replacement: "YAML",
+            },
+            TranslitEntry {
+                patterns: &["sdk", "эс-дэ-ка", "эс дэ ка"],
+                replacement: "SDK",
+            },
+            TranslitEntry {
+                patterns: &["ide", "ай-ди-и", "идэ"],
+                replacement: "IDE",
+            },
+            TranslitEntry {
+                patterns: &["npm", "эн-пэ-эм"],
+                replacement: "npm",
+            },
+            TranslitEntry {
+                patterns: &["yarn", "ярн"],
+                replacement: "Yarn",
+            },
+            TranslitEntry {
+                patterns: &["pnpm", "пэ-эн-пэ-эм"],
+                replacement: "pnpm",
+            },
+            TranslitEntry {
+                patterns: &["push", "пуш"],
+                replacement: "push",
+            },
+            TranslitEntry {
+                patterns: &["pull", "пул"],
+                replacement: "pull",
+            },
+            TranslitEntry {
+                patterns: &["commit", "коммит"],
+                replacement: "commit",
+            },
+            TranslitEntry {
+                patterns: &["merge", "мердж", "мерж"],
+                replacement: "merge",
+            },
+            TranslitEntry {
+                patterns: &["branch", "бранч"],
+                replacement: "branch",
+            },
+            TranslitEntry {
+                patterns: &["deploy", "диплой", "деплой"],
+                replacement: "deploy",
+            },
+            TranslitEntry {
+                patterns: &["endpoint", "ендпойнт", "эндпойнт"],
+                replacement: "endpoint",
+            },
+            TranslitEntry {
+                patterns: &["token", "токен"],
+                replacement: "token",
+            },
+            TranslitEntry {
+                patterns: &["cache", "кэш", "кеш"],
+                replacement: "cache",
+            },
+            TranslitEntry {
+                patterns: &["debug", "дибаг", "дебаг"],
+                replacement: "debug",
+            },
+            TranslitEntry {
+                patterns: &["error", "эррор"],
+                replacement: "error",
+            },
+            TranslitEntry {
+                patterns: &["server", "сёрвер", "сервер"],
+                replacement: "server",
+            },
+            TranslitEntry {
+                patterns: &["client", "клейент", "клиент"],
+                replacement: "client",
+            },
+            TranslitEntry {
+                patterns: &["webhook", "вебхук", "веб хук"],
+                replacement: "webhook",
+            },
+            TranslitEntry {
+                patterns: &["middleware", "мидлвэр", "миддлвэр"],
+                replacement: "middleware",
+            },
+            TranslitEntry {
+                patterns: &["frontend", "фронтенд"],
+                replacement: "frontend",
+            },
+            TranslitEntry {
+                patterns: &["backend", "бекенд", "бэкенд"],
+                replacement: "backend",
+            },
+            TranslitEntry {
+                patterns: &["authentication", "аутентификация"],
+                replacement: "authentication",
+            },
+            TranslitEntry {
+                patterns: &["authorization", "авторизация"],
+                replacement: "authorization",
+            },
+        ]
+    })
 }
 
 /// Fix Latin letters that appear inside predominantly Cyrillic words.
@@ -170,17 +468,36 @@ fn is_cyrillic(ch: char) -> bool {
 }
 
 fn is_cyrillic_lookalike(ch: char) -> bool {
-    static MAP: &[char] = &['A','B','C','E','H','K','M','N','O','P','S','T','X','Y','a','c','e','o','p','x','y'];
+    static MAP: &[char] = &[
+        'A', 'B', 'C', 'E', 'H', 'K', 'M', 'N', 'O', 'P', 'S', 'T', 'X', 'Y', 'a', 'c', 'e', 'o',
+        'p', 'x', 'y',
+    ];
     MAP.contains(&ch)
 }
 
 fn cyrillic_replacement(ch: char) -> char {
     match ch {
-        'A' => 'А', 'B' => 'В', 'C' => 'С', 'E' => 'Е', 'H' => 'Н',
-        'K' => 'К', 'M' => 'М', 'N' => 'Н', 'O' => 'О', 'P' => 'Р',
-        'S' => 'С', 'T' => 'Т', 'X' => 'Х', 'Y' => 'У',
-        'a' => 'а', 'c' => 'с', 'e' => 'е', 'o' => 'о',
-        'p' => 'р', 'x' => 'х', 'y' => 'у',
+        'A' => 'А',
+        'B' => 'В',
+        'C' => 'С',
+        'E' => 'Е',
+        'H' => 'Н',
+        'K' => 'К',
+        'M' => 'М',
+        'N' => 'Н',
+        'O' => 'О',
+        'P' => 'Р',
+        'S' => 'С',
+        'T' => 'Т',
+        'X' => 'Х',
+        'Y' => 'У',
+        'a' => 'а',
+        'c' => 'с',
+        'e' => 'е',
+        'o' => 'о',
+        'p' => 'р',
+        'x' => 'х',
+        'y' => 'у',
         _ => ch,
     }
 }
@@ -215,7 +532,10 @@ mod tests {
 
     #[test]
     fn test_api_transliteration() {
-        assert_eq!(fix_transliterations("нужно задеплоить апи"), "нужно задеплоить API");
+        assert_eq!(
+            fix_transliterations("нужно задеплоить апи"),
+            "нужно задеплоить API"
+        );
     }
 
     #[test]
@@ -225,12 +545,18 @@ mod tests {
 
     #[test]
     fn test_github() {
-        assert_eq!(fix_transliterations("запушить на гитхаб"), "запушить на GitHub");
+        assert_eq!(
+            fix_transliterations("запушить на гитхаб"),
+            "запушить на GitHub"
+        );
     }
 
     #[test]
     fn test_nodejs() {
-        assert_eq!(fix_transliterations("установить нода"), "установить Node.js");
+        assert_eq!(
+            fix_transliterations("установить нода"),
+            "установить Node.js"
+        );
     }
 
     #[test]
@@ -248,7 +574,10 @@ mod tests {
     #[test]
     fn test_term_chain() {
         let result = fix_transliterations("нужно задеплоить апи endpoint на нода с PostgreSQL");
-        assert_eq!(result, "нужно задеплоить API endpoint на Node.js с PostgreSQL");
+        assert_eq!(
+            result,
+            "нужно задеплоить API endpoint на Node.js с PostgreSQL"
+        );
     }
 
     #[test]

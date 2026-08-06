@@ -80,8 +80,8 @@ async fn ensure_root_ca<R: Runtime>(app: &AppHandle<R>) -> Result<std::path::Pat
 async fn client_with_ca<R: Runtime>(app: &AppHandle<R>) -> Result<reqwest::Client, String> {
     let ca_path = ensure_root_ca(app).await?;
     let ca_pem = std::fs::read(&ca_path).map_err(|e| format!("Read root CA: {}", e))?;
-    let ca = reqwest::Certificate::from_pem(&ca_pem)
-        .map_err(|e| format!("Parse root CA: {}", e))?;
+    let ca =
+        reqwest::Certificate::from_pem(&ca_pem).map_err(|e| format!("Parse root CA: {}", e))?;
 
     reqwest::Client::builder()
         .connect_timeout(Duration::from_secs(8))
@@ -92,7 +92,10 @@ async fn client_with_ca<R: Runtime>(app: &AppHandle<R>) -> Result<reqwest::Clien
 }
 
 /// Returns a valid access token, fetching (or refreshing) it if needed.
-async fn get_access_token<R: Runtime>(app: &AppHandle<R>, auth_key: &str) -> Result<String, String> {
+async fn get_access_token<R: Runtime>(
+    app: &AppHandle<R>,
+    auth_key: &str,
+) -> Result<String, String> {
     // Fast path: cached, still fresh.
     if let Ok(cache) = TOKEN_CACHE.lock() {
         if let Some((token, obtained)) = cache.as_ref() {
@@ -156,8 +159,8 @@ fn build_system_prompt<R: Runtime>(app: &AppHandle<R>) -> String {
 }
 
 fn build_user_content(instruction: Option<String>, text: &str) -> String {
-    let user_instruction =
-        instruction.unwrap_or_else(|| crate::prompts::REFINEMENT_USER_INSTRUCTION_GENERIC.to_string());
+    let user_instruction = instruction
+        .unwrap_or_else(|| crate::prompts::REFINEMENT_USER_INSTRUCTION_GENERIC.to_string());
     format!(
         "{}{}{}{}",
         user_instruction,
@@ -200,8 +203,8 @@ async fn chat_once(
         return Err(format!("{}|{}", status.as_u16(), body_text));
     }
 
-    let json: serde_json::Value = serde_json::from_str(&body_text)
-        .map_err(|e| format!("GigaChat parse error: {}", e))?;
+    let json: serde_json::Value =
+        serde_json::from_str(&body_text).map_err(|e| format!("GigaChat parse error: {}", e))?;
     let content = json["choices"][0]["message"]["content"]
         .as_str()
         .unwrap_or("");
@@ -241,7 +244,8 @@ pub async fn refine_text<R: Runtime>(
                     *cache = None; // invalidate
                 }
                 let token = get_access_token(&app, &auth_key).await?;
-                match chat_once(&client, &token, MODEL_FORMAT, &system_prompt, &user_content).await {
+                match chat_once(&client, &token, MODEL_FORMAT, &system_prompt, &user_content).await
+                {
                     Ok(out) => {
                         let cleaned = crate::utils::clean_repetitive_phrases(&out);
                         return Ok(crate::utils::strip_filler_phrases(&cleaned));
@@ -249,14 +253,19 @@ pub async fn refine_text<R: Runtime>(
                     Err(e2) => {
                         let code2 = e2.split('|').next().unwrap_or("").to_string();
                         if code2 == "429" {
-                            return Err("GigaChat: превышен лимит запросов (429). Попробуйте позже.".to_string());
+                            return Err(
+                                "GigaChat: превышен лимит запросов (429). Попробуйте позже."
+                                    .to_string(),
+                            );
                         }
                         return Err(format!("GigaChat AI Refinement Failed: {}", e2));
                     }
                 }
             }
             if code == "429" {
-                return Err("GigaChat: превышен лимит запросов (429). Попробуйте позже.".to_string());
+                return Err(
+                    "GigaChat: превышен лимит запросов (429). Попробуйте позже.".to_string()
+                );
             }
             Err(format!("GigaChat AI Refinement Failed: {}", e))
         }

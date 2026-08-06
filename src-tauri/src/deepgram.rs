@@ -32,11 +32,17 @@ pub fn start_recording<R: Runtime>(
         let host = cpal::default_host();
         let device = match host.default_input_device() {
             Some(d) => d,
-            None => { let _ = app_stream.emit("recording-error", "Микрофон не найден"); return; }
+            None => {
+                let _ = app_stream.emit("recording-error", "Микрофон не найден");
+                return;
+            }
         };
         let config = match device.default_input_config() {
             Ok(c) => c,
-            Err(e) => { let _ = app_stream.emit("recording-error", e.to_string()); return; }
+            Err(e) => {
+                let _ = app_stream.emit("recording-error", e.to_string());
+                return;
+            }
         };
 
         let channels = config.channels() as usize;
@@ -53,7 +59,9 @@ pub fn start_recording<R: Runtime>(
         let stream = device.build_input_stream(
             &config.into(),
             move |data: &[f32], _: &cpal::InputCallbackInfo| {
-                if !flag_inner.load(Ordering::SeqCst) { return; }
+                if !flag_inner.load(Ordering::SeqCst) {
+                    return;
+                }
 
                 // Mono conversion
                 let mono: Vec<f32> = data
@@ -135,29 +143,51 @@ pub async fn stop_recording<R: Runtime>(
 
     if samples.is_empty() {
         log::debug!("Deepgram: no audio samples captured");
-        crate::utils::emit_skip_reason(app, crate::utils::RecordingSkipReason::NoSamples, &app_lang);
+        crate::utils::emit_skip_reason(
+            app,
+            crate::utils::RecordingSkipReason::NoSamples,
+            &app_lang,
+        );
         return Ok(String::new());
     }
 
     // Minimum duration: ~0.3s of audio at given sample rate
     let min_samples = (src_rate as f64 * 0.3) as usize;
     if samples.len() < min_samples {
-        log::debug!("Deepgram: audio too short: {} samples (need {}), src_rate={}", samples.len(), min_samples, src_rate);
+        log::debug!(
+            "Deepgram: audio too short: {} samples (need {}), src_rate={}",
+            samples.len(),
+            min_samples,
+            src_rate
+        );
         crate::utils::emit_skip_reason(app, crate::utils::RecordingSkipReason::TooShort, &app_lang);
         return Ok(String::new());
     }
 
     // Apply software gain to boost quiet microphone signals
-    let samples: Vec<f32> = samples.iter().map(|s| (s * gain).clamp(-1.0, 1.0)).collect();
+    let samples: Vec<f32> = samples
+        .iter()
+        .map(|s| (s * gain).clamp(-1.0, 1.0))
+        .collect();
 
     // Noise gate check
     let rms = (samples.iter().map(|s| s * s).sum::<f32>() / samples.len() as f32).sqrt();
     if rms < threshold {
-        log::debug!("Deepgram: audio too quiet (RMS: {:.6} < threshold: {:.6}), skipping", rms, threshold);
+        log::debug!(
+            "Deepgram: audio too quiet (RMS: {:.6} < threshold: {:.6}), skipping",
+            rms,
+            threshold
+        );
         crate::utils::emit_skip_reason(app, crate::utils::RecordingSkipReason::TooQuiet, &app_lang);
         return Ok(String::new());
     }
-    log::debug!("Deepgram: processing {} samples (RMS: {:.6}, lang: {}, src_rate: {})", samples.len(), rms, language, src_rate);
+    log::debug!(
+        "Deepgram: processing {} samples (RMS: {:.6}, lang: {}, src_rate: {})",
+        samples.len(),
+        rms,
+        language,
+        src_rate
+    );
 
     // Resample to 16k (Deepgram standard)
     let processed_samples = crate::utils::resample_to_16k(&samples, src_rate, 16000);
@@ -169,14 +199,14 @@ pub async fn stop_recording<R: Runtime>(
         .timeout(std::time::Duration::from_secs(25))
         .build()
         .map_err(|e| format!("Deepgram client init failed: {}", e))?;
-    
+
     // Build query params
     let mut query_params: Vec<(&str, &str)> = vec![
         ("model", "nova-2-general"),
         ("smart_format", "true"),
         ("punctuate", "true"),
     ];
-    
+
     if language == "mixed" {
         // native multilingual code-switching: language=multi handles
         // Russian+English automatically. Using a custom `prompt` here would
@@ -186,7 +216,11 @@ pub async fn stop_recording<R: Runtime>(
         query_params.push(("language", language));
     }
 
-    let api_key = api_key.trim_matches('"').trim_matches('\'').trim().to_string();
+    let api_key = api_key
+        .trim_matches('"')
+        .trim_matches('\'')
+        .trim()
+        .to_string();
     if api_key.is_empty() {
         return Err("API ключ Deepgram не найден. Пожалуйста, проверьте настройки.".to_string());
     }
@@ -245,12 +279,17 @@ pub async fn stop_recording<R: Runtime>(
     };
 
     // Parse JSON: results.channels[0].alternatives[0].transcript
-    let json: serde_json::Value = res.json().await.map_err(|e| format!("Parse json failed: {}", e))?;
+    let json: serde_json::Value = res
+        .json()
+        .await
+        .map_err(|e| format!("Parse json failed: {}", e))?;
     let text = json["results"]["channels"][0]["alternatives"][0]["transcript"]
         .as_str()
         .unwrap_or("")
         .trim()
         .to_string();
 
-    Ok(crate::utils::strip_filler_phrases(&crate::utils::clean_repetitive_phrases(&text)))
+    Ok(crate::utils::strip_filler_phrases(
+        &crate::utils::clean_repetitive_phrases(&text),
+    ))
 }

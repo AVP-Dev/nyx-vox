@@ -1,8 +1,8 @@
+use std::sync::Mutex;
 use tauri::{
     menu::{Menu, MenuItem},
     AppHandle,
 };
-use std::sync::Mutex;
 
 #[tauri::command]
 pub fn update_tray_lang(app: AppHandle, lang: String) {

@@ -1,7 +1,7 @@
-use serde_json::json;
-use reqwest::Client;
-use tauri::{AppHandle, Manager, Runtime};
 use crate::state::{FormattingStyle, FormattingStyleState};
+use reqwest::Client;
+use serde_json::json;
+use tauri::{AppHandle, Manager, Runtime};
 
 pub async fn refine_text<R: Runtime>(
     app: AppHandle<R>,
@@ -27,23 +27,24 @@ pub async fn refine_text<R: Runtime>(
     };
 
     let system_prompt = format!(
-        "{}\n\n{}\n\n{}", 
-        crate::prompts::REFINEMENT_SYSTEM_PROMPT, 
-        style_prompt, 
+        "{}\n\n{}\n\n{}",
+        crate::prompts::REFINEMENT_SYSTEM_PROMPT,
+        style_prompt,
         crate::prompts::FORMAT_STYLE_UNIVERSAL_RULE
     );
 
-    let user_instruction = _instruction.unwrap_or_else(|| crate::prompts::REFINEMENT_USER_INSTRUCTION_GENERIC.to_string());
+    let user_instruction = _instruction
+        .unwrap_or_else(|| crate::prompts::REFINEMENT_USER_INSTRUCTION_GENERIC.to_string());
     let user_content = format!(
-        "{}{}{}{}", 
-        user_instruction, 
-        crate::prompts::REFINEMENT_USER_DELIMITER, 
-        text, 
+        "{}{}{}{}",
+        user_instruction,
+        crate::prompts::REFINEMENT_USER_DELIMITER,
+        text,
         crate::prompts::REFINEMENT_USER_SUFFIX
     );
 
     let body = json!({
-        "model": "qwen3.7-plus", 
+        "model": "qwen3.7-plus",
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_content}
@@ -65,9 +66,14 @@ pub async fn refine_text<R: Runtime>(
         return Err(format!("Qwen API Error: {}", err_text));
     }
 
-    let json: serde_json::Value = res.json().await.map_err(|e| format!("Parse json failed: {}", e))?;
-    
-    let content = json["choices"][0]["message"]["content"].as_str().unwrap_or("");
+    let json: serde_json::Value = res
+        .json()
+        .await
+        .map_err(|e| format!("Parse json failed: {}", e))?;
+
+    let content = json["choices"][0]["message"]["content"]
+        .as_str()
+        .unwrap_or("");
     let cleaned = crate::utils::clean_repetitive_phrases(content);
     let final_text = crate::utils::strip_filler_phrases(&cleaned);
 

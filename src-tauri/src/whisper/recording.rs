@@ -203,7 +203,11 @@ pub async fn stop_recording<R: Runtime>(
 
     if raw_samples.is_empty() {
         log::debug!("No audio samples captured");
-        crate::utils::emit_skip_reason(app, crate::utils::RecordingSkipReason::NoSamples, &app_lang);
+        crate::utils::emit_skip_reason(
+            app,
+            crate::utils::RecordingSkipReason::NoSamples,
+            &app_lang,
+        );
         return Ok(String::new());
     }
 
@@ -222,7 +226,10 @@ pub async fn stop_recording<R: Runtime>(
 
     // Apply software gain to boost quiet microphone signals.
     // This helps speech at arm's distance pass the noise gate threshold.
-    let samples: Vec<f32> = raw_samples.iter().map(|s| (s * gain).clamp(-1.0, 1.0)).collect();
+    let samples: Vec<f32> = raw_samples
+        .iter()
+        .map(|s| (s * gain).clamp(-1.0, 1.0))
+        .collect();
 
     // Noise gate
     let rms = (samples.iter().map(|s| s * s).sum::<f32>() / samples.len() as f32).sqrt();
