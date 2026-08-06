@@ -4,7 +4,7 @@
 
   [![Скачать](https://img.shields.io/github/v/release/AVP-Dev/nyx-vox?label=%D0%A1%D0%BA%D0%B0%D1%87%D0%B0%D1%82%D1%8C&style=for-the-badge&color=orange)](https://github.com/AVP-Dev/nyx-vox/releases/latest)
 
-  **Текущий релиз: v1.1.0** &nbsp;·&nbsp; **Следующий релиз: v1.2.0** (в `dev`, ещё не опубликован)
+  **Текущий релиз: v1.2.0**
 
   <p>
     <a href="https://avp-dev.github.io/nyx-vox/" target="_blank" rel="noopener noreferrer">🌐 Лендинг</a> &nbsp;|&nbsp;

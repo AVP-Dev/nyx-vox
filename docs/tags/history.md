@@ -4,13 +4,9 @@
 
 ## Stable Releases
 
-> **Note:** v1.2.0 is the next release — the tag exists in git, but no v1.2.0
-> build has been published to GitHub Releases yet. The last public release
-> is v1.1.0.
-
 | Version | Date | Focus | Release Notes |
 |---|---|---|---|
-| v1.2.0 | 2026 (unpublished) | Security Hardening, GigaChat & Architecture Overhaul | [v1.2.0](v1.2.0/release.md) |
+| v1.2.0 | 2026-08 | Security Hardening, GigaChat & Architecture Overhaul | [v1.2.0](v1.2.0/release.md) |
 | v1.1.0 | 2026-05 | Transcription Reliability & Tech-Vocab | [v1.1.0](v1.1.0/release.md) |
 | v1.0.0 | 2026-03 | Official Release | [v1.0.0](v1.0.0/release.md) |
 
