@@ -297,9 +297,7 @@ pub fn remove_hallucinations(text: &str) -> String {
 
     // Counting hallucination: "1, 2, 3, 4, 5, 6, 7, 8, 9, 10" or "1 2 3 4 5..."
     static RE_COUNTING: OnceLock<Regex> = OnceLock::new();
-    let re_counting = RE_COUNTING.get_or_init(|| {
-        Regex::new(r"(?:\d{1,3}[, ]*){5,}").unwrap()
-    });
+    let re_counting = RE_COUNTING.get_or_init(|| Regex::new(r"(?:\d{1,3}[, ]*){5,}").unwrap());
 
     let mut cleaned = text.to_string();
     for re in res {
@@ -315,25 +313,45 @@ pub fn clean_repetitive_phrases(text: &str) -> String {
 
     static RE_PREFIX: OnceLock<Regex> = OnceLock::new();
     static RE_PARASITES: OnceLock<Regex> = OnceLock::new();
+    static RE_STUTTER: OnceLock<Regex> = OnceLock::new();
 
     let re_prefix =
         RE_PREFIX.get_or_init(|| Regex::new(r"(?i)([а-яёa-z])\s*-\s+([а-яёa-z])").unwrap());
+    // Longer hesitation/filler sequences: "э-э-э", "а-а", "у-у", "м-м-м", "типо", "короче"
     let re_parasites = RE_PARASITES
         .get_or_init(|| Regex::new(r"(?i)\b(аа+|ээ+|мм+|типо|короче)\b[\s,\.]*").unwrap());
+    // Stuttered syllables joined with hyphens: "э-э", "а-а-а", "у-у", "м-м", "э-э-э-э".
+    // (regex crate has no backreferences, so enumerate the common cases)
+    let re_stutter = RE_STUTTER.get_or_init(|| {
+        Regex::new(r"(?i)\b(?:э(?:-э)+|а(?:-а)+|у(?:-у)+|м(?:-м)+|и(?:-и)+|о(?:-о)+)\b[\s,\.]*")
+            .unwrap()
+    });
 
     let text = remove_hallucinations(text);
     let text = re_prefix.replace_all(&text, "$1 $2").to_string();
     let text = re_parasites.replace_all(&text, " ").to_string();
+    let text = re_stutter.replace_all(&text, " ").to_string();
 
     let words: Vec<&str> = text.split_whitespace().collect();
     if words.is_empty() {
         return text.to_string();
     }
 
-    let mut result = Vec::new();
+    let mut result: Vec<&str> = Vec::new();
     let mut i = 0;
 
     while i < words.len() {
+        // Lone hesitation vowels ("э", "у", "а", "м") between real words are
+        // transcription noise, not words — drop them ("и э вот" -> "и вот").
+        // The check is: drop only if there is any word before and any word
+        // after in the ORIGINAL sequence, so leading/trailing and
+        // single-letter-only text is never eaten.
+        let prev_exists = i > 0;
+        let next_exists = i + 1 < words.len();
+        if prev_exists && next_exists && is_lone_filler(words[i]) {
+            i += 1;
+            continue;
+        }
         result.push(words[i]);
         // Simple case: "word word" -> "word"
         if i + 1 < words.len() && words[i].to_lowercase() == words[i + 1].to_lowercase() {
@@ -343,6 +361,18 @@ pub fn clean_repetitive_phrases(text: &str) -> String {
     }
 
     result.join(" ")
+}
+
+/// A standalone hesitation sound: single/duplicated "э", "а", "у", "о", "и", "м".
+fn is_lone_filler(word: &str) -> bool {
+    let lower = word.to_lowercase();
+    let trimmed = lower.trim_matches(|c: char| !c.is_alphabetic());
+    if trimmed.is_empty() {
+        return false;
+    }
+    trimmed
+        .chars()
+        .all(|c| matches!(c, 'э' | 'а' | 'у' | 'о' | 'и' | 'м'))
 }
 
 pub fn strip_filler_phrases(text: &str) -> String {
@@ -536,6 +566,33 @@ mod tests {
     fn clean_removes_subtitles_pattern() {
         let result = clean_repetitive_phrases("hello world subtitles by amara.org");
         assert_eq!(result, "hello world");
+    }
+
+    #[test]
+    fn clean_removes_stutter_dashes() {
+        // "э-э" is dropped, real words stay untouched
+        let result = clean_repetitive_phrases("э-э форматируется текст");
+        assert_eq!(result, "форматируется текст");
+    }
+
+    #[test]
+    fn clean_removes_stutter_dashes_keeps_words() {
+        let result = clean_repetitive_phrases("мне не нравится то, как э-э форматируется текст");
+        assert_eq!(result, "мне не нравится то, как форматируется текст");
+    }
+
+    #[test]
+    fn clean_removes_loose_filler_words() {
+        let result = clean_repetitive_phrases("и э вот у этот а текст");
+        assert_eq!(result, "и вот этот текст");
+    }
+
+    #[test]
+    fn clean_keeps_short_real_words() {
+        // "и", "на", "у" (preposition) are real words — only single-letter
+        // hesitation sounds between real words are removed.
+        let result = clean_repetitive_phrases("и на у");
+        assert_eq!(result, "и на у");
     }
 
     // ── strip_filler_phrases ─────────────────────────────────────────────────

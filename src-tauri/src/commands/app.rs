@@ -1,5 +1,5 @@
-use tauri::{AppHandle, Manager, Emitter};
 use crate::window::*;
+use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_store::StoreExt;
 
 #[tauri::command]
@@ -29,11 +29,23 @@ pub async fn hide_welcome_window(app: AppHandle) -> Result<(), String> {
 
 #[tauri::command]
 pub async fn fix_quarantine(app: AppHandle) -> Result<(), String> {
-    let app_path = app.path().executable_dir().map_err(|e| e.to_string())?
-        .parent().ok_or("Invalid path")?
-        .parent().ok_or("Invalid path")?
-        .parent().ok_or("Invalid path")?.to_string_lossy().to_string();
-    let _ = std::process::Command::new("xattr").arg("-d").arg("com.apple.quarantine").arg(&app_path).spawn();
+    let app_path = app
+        .path()
+        .executable_dir()
+        .map_err(|e| e.to_string())?
+        .parent()
+        .ok_or("Invalid path")?
+        .parent()
+        .ok_or("Invalid path")?
+        .parent()
+        .ok_or("Invalid path")?
+        .to_string_lossy()
+        .to_string();
+    let _ = std::process::Command::new("xattr")
+        .arg("-d")
+        .arg("com.apple.quarantine")
+        .arg(&app_path)
+        .spawn();
     Ok(())
 }
 
@@ -54,7 +66,9 @@ pub async fn set_update_dismissed_at(app: AppHandle, timestamp: Option<u64>) -> 
 #[tauri::command]
 pub async fn get_ignored_update(app: AppHandle) -> Result<Option<String>, String> {
     let store = app.store("settings.json").map_err(|e| e.to_string())?;
-    Ok(store.get("ignored_update").and_then(|v| v.as_str().map(|s| s.to_string())))
+    Ok(store
+        .get("ignored_update")
+        .and_then(|v| v.as_str().map(|s| s.to_string())))
 }
 
 #[tauri::command]
@@ -105,7 +119,11 @@ pub async fn open_url(_app: AppHandle, url: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub async fn show_update_window(app: AppHandle, version: String, lang: String) -> Result<(), String> {
+pub async fn show_update_window(
+    app: AppHandle,
+    version: String,
+    lang: String,
+) -> Result<(), String> {
     let url = format!("/update?version={}&lang={}", version, lang);
     if let Some(win) = app.get_webview_window("update") {
         let _ = win.show();
@@ -126,7 +144,12 @@ pub async fn show_update_window(app: AppHandle, version: String, lang: String) -
 }
 
 #[tauri::command]
-pub async fn resize_window(app: AppHandle, width: f64, height: f64, center: bool) -> Result<(), String> {
+pub async fn resize_window(
+    app: AppHandle,
+    width: f64,
+    height: f64,
+    center: bool,
+) -> Result<(), String> {
     show_window_at_size(&app, width, height, center);
     Ok(())
 }
@@ -135,7 +158,10 @@ pub async fn resize_window(app: AppHandle, width: f64, height: f64, center: bool
 pub async fn get_welcome_seen(app: AppHandle, version: String) -> Result<bool, String> {
     let store = app.store("settings.json").map_err(|e| e.to_string())?;
     let seen_key = format!("welcome_seen_{}", version.replace('.', "_"));
-    Ok(store.get(seen_key).and_then(|v| v.as_bool()).unwrap_or(false))
+    Ok(store
+        .get(seen_key)
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false))
 }
 
 #[tauri::command]

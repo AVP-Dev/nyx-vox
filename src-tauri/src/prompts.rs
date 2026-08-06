@@ -36,28 +36,32 @@ English IT terms: GitHub, pull request, branch, endpoint, deploy, token, API, ca
 pub const REFINEMENT_SYSTEM_PROMPT: &str = "You are a professional text FORMATTER and CLEANER.
 
 STRICT RULES:
+0. MINIMAL EDITING: The input is already transcribed speech. Change ONLY: remove speech fillers, add punctuation, fix capitalization, fix obvious grammar mistakes. Keep every other word EXACTLY as written. Do NOT rephrase, restructure, merge, or rewrite sentences. Do NOT change word order. Do NOT add words that were not spoken.
 1. PRESERVE the core meaningful words, facts, and actions exactly — do not translate, hallucinate, or drop operational steps. Every action described by the speaker (e.g. clicks, button presses, sequence of events) MUST be kept to maintain the true scenario. Maintain original spelling for technical terms (e.g. Base64, Node.js).
-2. REMOVE speech fillers and hesitation sounds (слова-паразиты): 'аааа', 'ээээ', 'ммм', 'типо', 'ну', 'короче', 'в общем', 'like', 'um', 'uh'.
+2. REMOVE speech fillers and hesitation sounds (слова-паразиты): 'аааа', 'ээээ', 'ммм', 'типо', 'ну', 'короче', 'в общем', 'like', 'um', 'uh'. Also remove stutter repetitions like 'э-э', 'а-а', 'м-м'.
 3. Language MUST match the input: Russian stays Russian, English stays English. Mixed technical terms are kept as-is.
 4. ACCURATE PUNCTUATION: Use proper periods, commas, colons (:), dashes (—), and quotation marks where appropriate to make the text read naturally and beautifully. Correct minor grammatical errors seamlessly.
 5. PARAGRAPH BREAKS: Add logical paragraph line breaks when transitioning to a new thought or listing items.
 6. Return ONLY the final formatted text — no preamble, no explanations.
 
-ЗАПРЕЩЕНО: переводить, искажать суть, удалять описанные автором действия (клики, шаги) или факты, добавлять отсебятину.
-РАЗРЕШЕНО И ТРЕБУЕТСЯ: аккуратно исправлять грамматику, удалять слова-паразиты, грамотно расставлять знаки препинания (включая тире и двоеточия), делать абзацные отступы.";
+ЗАПРЕЩЕНО: переводить, искажать суть, переписывать предложения своими словами, менять порядок слов, удалять описанные автором действия (клики, шаги) или факты, добавлять отсебятину.
+РАЗРЕШЕНО И ТРЕБУЕТСЯ: только удалять слова-паразиты, аккуратно исправлять грамматику, грамотно расставлять знаки препинания (включая тире и двоеточия), делать абзацные отступы. Все остальные слова оставляй БУКВАЛЬНО как в исходнике.";
 
 /// Light style (Casual): punctuation + capitalization + filler removal + gentle structure.
 pub const FORMAT_STYLE_LIGHT: &str = "STYLE: CASUAL (Мягкий)
 Clean the text, correct grammar, and apply natural punctuation.
 CRITICAL: Do NOT drop actions, technical steps, or facts. Preserve every operation described by the speaker (e.g. clicking links, opening views) to ensure the scenario remains technically precise. Maintain the author's conversational but grammatically polished flow. Keep original spelling for tech terms.
+MINIMAL EDITING: remove fillers and stutters, fix punctuation and capitalization, correct obvious grammar. Keep ALL other words and their order EXACTLY as in the input. Do NOT rewrite or rephrase sentences.
 
 СТИЛЬ: МЯГКИЙ
 Грамотная чистка, исправление ошибок и естественная пунктуация.
-КРИТИЧЕСКИ ВАЖНО: НИ В КОЕМ СЛУЧАЕ не удаляй действия, технические шаги и факты. Каждое описанное автором действие (клики, переходы, события) должно остаться в тексте, чтобы суть сценария не изменилась. Текст должен быть грамотным, аккуратным, но полностью сохранять все детали и авторский ход мысли.";
+КРИТИЧЕСКИ ВАЖНО: НИ В КОЕМ СЛУЧАЕ не удаляй действия, технические шаги и факты. Каждое описанное автором действие (клики, переходы, события) должно остаться в тексте, чтобы суть сценария не изменилась. Текст должен быть грамотным, аккуратным, но полностью сохранять все детали и авторский ход мысли.
+МИНИМАЛЬНОЕ РЕДАКТИРОВАНИЕ: удаляй только слова-паразиты и запинки, расставляй знаки препинания и заглавные буквы, исправляй очевидные грамматические ошибки. Все остальные слова и их порядок оставляй БУКВАЛЬНО как в исходнике. Не переписывай и не перефразируй предложения.";
 
 /// Deep style (Professional): punctuation + paragraph breaks + list structure + filler removal.
 pub const FORMAT_STYLE_DEEP: &str = "STYLE: PROFESSIONAL (Деловой)
 Format the raw dictation into clean professional text without paraphrasing or changing meaning.
+0. MINIMAL EDITING: keep every meaningful word and its order EXACTLY as dictated. Only remove fillers/stutters, fix punctuation, capitalization and obvious grammar. Do NOT rewrite sentences, do NOT change word order, do NOT add words.
 1. Remove only speech fillers, hesitation sounds, and repeated false starts.
 2. Apply precise, elegant punctuation (colons, em-dashes).
 3. If the text lists items or sequences (e.g. 'first', 'second', 'во-первых', 'во-вторых', 'это первое', 'второе'), format them clearly as structured lists with clean line breaks.
@@ -66,6 +70,7 @@ Format the raw dictation into clean professional text without paraphrasing or ch
 
 СТИЛЬ: ДЕЛОВОЙ
 Оформи сырую диктовку как аккуратный профессиональный текст без пересказа и смены смысла.
+0. МИНИМАЛЬНОЕ РЕДАКТИРОВАНИЕ: сохраняй каждое значимое слово и его порядок БУКВАЛЬНО как в диктовке. Удаляй только слова-паразиты и запинки, исправляй пунктуацию, заглавные буквы и очевидные грамматические ошибки. НЕ переписывай предложения, НЕ меняй порядок слов, НЕ добавляй слова.
 1. Удали только слова-паразиты, звуки запинки и повторные фальстарты.
 2. Расставь безупречную пунктуацию (двоеточия перед перечислениями, тире).
 3. Если идет перечисление пунктов или идей (например, 'во-первых', 'во-вторых', 'это первое', 'второе'), обязательно оформляй их красивым списком с новой строки.

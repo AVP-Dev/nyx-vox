@@ -228,7 +228,11 @@ mod tests {
     #[test]
     fn encrypted_format_starts_with_v2() {
         let encrypted = ApiKeys::encrypt_key("test").unwrap();
-        assert!(encrypted.starts_with("v2:"), "Expected v2: prefix, got: {}", &encrypted[..encrypted.len().min(10)]);
+        assert!(
+            encrypted.starts_with("v2:"),
+            "Expected v2: prefix, got: {}",
+            &encrypted[..encrypted.len().min(10)]
+        );
     }
 
     #[test]
@@ -249,16 +253,26 @@ mod tests {
         // Nonce is random, so two encryptions of same text should differ
         let e1 = ApiKeys::encrypt_key("same-text").unwrap();
         let e2 = ApiKeys::encrypt_key("same-text").unwrap();
-        assert_ne!(e1, e2, "Two encryptions of same text should differ (random nonce)");
+        assert_ne!(
+            e1, e2,
+            "Two encryptions of same text should differ (random nonce)"
+        );
         // But both should decrypt to the same value
-        assert_eq!(ApiKeys::decrypt_key(&e1).unwrap(), ApiKeys::decrypt_key(&e2).unwrap());
+        assert_eq!(
+            ApiKeys::decrypt_key(&e1).unwrap(),
+            ApiKeys::decrypt_key(&e2).unwrap()
+        );
     }
 
     #[test]
     fn service_store_keys_are_unique() {
         let keys: Vec<&str> = Service::ALL.iter().map(|s| s.store_key()).collect();
         let unique: std::collections::HashSet<&str> = keys.iter().copied().collect();
-        assert_eq!(keys.len(), unique.len(), "store_key() values must be unique");
+        assert_eq!(
+            keys.len(),
+            unique.len(),
+            "store_key() values must be unique"
+        );
     }
 
     #[test]

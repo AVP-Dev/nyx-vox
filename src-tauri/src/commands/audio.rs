@@ -345,7 +345,8 @@ pub async fn stop_recording(
                 .flatten()
                 .unwrap_or_default();
             recording_flag.0.store(false, Ordering::SeqCst);
-            let Some(wav) = ai_provider::take_recording_wav(&app, &ai_state, threshold, gain)? else {
+            let Some(wav) = ai_provider::take_recording_wav(&app, &ai_state, threshold, gain)?
+            else {
                 return Ok(String::new());
             };
             crate::gigachat::transcribe(app.clone(), wav, api_key, lang).await
@@ -396,7 +397,10 @@ pub async fn stop_recording(
     }
 
     let mut final_text = result.clone();
-    log::debug!("stop_recording: raw result: {:?}", final_text.chars().take(200).collect::<String>());
+    log::debug!(
+        "stop_recording: raw result: {:?}",
+        final_text.chars().take(200).collect::<String>()
+    );
     if final_text.trim().starts_with('{') {
         if let Ok(json) = serde_json::from_str::<serde_json::Value>(&final_text) {
             if let Some(content) = json["content"].as_str() {
@@ -404,11 +408,18 @@ pub async fn stop_recording(
             }
         }
     }
-    log::debug!("stop_recording: after JSON unwrap: {:?}", final_text.chars().take(200).collect::<String>());
+    log::debug!(
+        "stop_recording: after JSON unwrap: {:?}",
+        final_text.chars().take(200).collect::<String>()
+    );
 
     let pre_cleanup = final_text.clone();
-    final_text = crate::utils::strip_filler_phrases(&crate::utils::clean_repetitive_phrases(&final_text));
-    log::debug!("stop_recording: after cleanup: {:?}", final_text.chars().take(200).collect::<String>());
+    final_text =
+        crate::utils::strip_filler_phrases(&crate::utils::clean_repetitive_phrases(&final_text));
+    log::debug!(
+        "stop_recording: after cleanup: {:?}",
+        final_text.chars().take(200).collect::<String>()
+    );
     if final_text.trim().is_empty() && !pre_cleanup.trim().is_empty() {
         log::debug!("stop_recording: cleanup stripped all text, falling back to raw");
         final_text = pre_cleanup;
@@ -586,7 +597,9 @@ pub async fn paste_text(app: AppHandle, text: String) -> Result<(), String> {
             let result = (|| {
                 #[cfg(target_os = "macos")]
                 {
-                    use core_graphics::event::{CGEvent, CGEventFlags, CGEventTapLocation, CGKeyCode};
+                    use core_graphics::event::{
+                        CGEvent, CGEventFlags, CGEventTapLocation, CGKeyCode,
+                    };
                     use core_graphics::event_source::{CGEventSource, CGEventSourceStateID};
                     let source = CGEventSource::new(CGEventSourceStateID::HIDSystemState)
                         .map_err(|_| "CGEventSource init failed".to_string())?;
@@ -656,12 +669,7 @@ pub async fn paste_text(app: AppHandle, text: String) -> Result<(), String> {
 
 #[tauri::command]
 pub fn get_target_app(state: State<'_, TargetApp>) -> String {
-    state
-        .0
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .0
-        .clone()
+    state.0.lock().unwrap_or_else(|e| e.into_inner()).0.clone()
 }
 
 #[tauri::command]
@@ -728,21 +736,21 @@ pub async fn request_permissions_auto() -> Result<(), String> {
         // 1. Accessibility Prompt (pops up System Preferences if missing)
         let _ = macos_accessibility_client::accessibility::application_is_trusted_with_prompt();
     }
-    
+
     // 2. Microphone Prompt (pops up the macOS dialog if missing)
     use cpal::traits::{DeviceTrait, HostTrait};
     let host = cpal::default_host();
     if let Some(device) = host.default_input_device() {
-            if let Ok(config) = device.default_input_config() {
-                let _ = device.build_input_stream(
-                    &config.into(),
-                    move |_data: &[f32], _: &_| {},
-                    move |_err| {},
-                    None,
-                );
-            }
+        if let Ok(config) = device.default_input_config() {
+            let _ = device.build_input_stream(
+                &config.into(),
+                move |_data: &[f32], _: &_| {},
+                move |_err| {},
+                None,
+            );
+        }
     }
-    
+
     Ok(())
 }
 
