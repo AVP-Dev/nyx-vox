@@ -3,10 +3,20 @@
 Welcome to the internal documentation for NYX Vox.
 
 ## 📁 Directory Structure
-- [tags/](tags/) - Contains history of release tags and changelogs.
+- [state.md](state.md) - Current project state (what works, what's broken, roadmap). **Start here.**
+- [architecture.md](architecture.md) - Architecture and data flows.
+- [decisions.md](decisions.md) - Architecture Decision Records (ADR).
+- [glossary.md](glossary.md) - Terms and domain concepts.
+- [overview.md](overview.md) - Repository map.
+- [AI_PROMPTS.md](AI_PROMPTS.md) - AI prompts used by the app.
+- [TECHNICAL.md](TECHNICAL.md) - Technical specifications.
+- [CHANGELOG.md](CHANGELOG.md) - Changelog.
+- [tags/](tags/) - Release history and notes.
 - [tags/history.md](tags/history.md) - Full version history and release notes.
+- [_reports/](_reports/) - Point-in-time audit reports (local, gitignored).
 
 ## 🚀 Versioning Policy
 We follow semantic versioning with `-beta` suffices for testing releases.
 Current Stable Branch: `main`
-Current Version: `1.0.0`
+Current Version: `1.2.0` (next public release — the tag exists in git,
+but no v1.2.0 build is published yet; last public release is **v1.1.0**)

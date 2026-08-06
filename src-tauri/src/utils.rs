@@ -2,35 +2,34 @@ pub fn is_media_playing() -> bool {
     #[cfg(target_os = "macos")]
     {
         use std::process::Command;
-        
-        // 1. Check Music app specifically
+
         let music_playing = Command::new("osascript")
             .arg("-e")
             .arg("if application \"Music\" is running then tell application \"Music\" to get player state is playing")
             .output()
             .map(|o| String::from_utf8_lossy(&o.stdout).trim() == "true")
             .unwrap_or(false);
-        if music_playing { return true; }
+        if music_playing {
+            return true;
+        }
 
-        // 2. Check Spotify
         let spotify_playing = Command::new("osascript")
             .arg("-e")
             .arg("if application \"Spotify\" is running then tell application \"Spotify\" to get player state is playing")
             .output()
             .map(|o| String::from_utf8_lossy(&o.stdout).trim() == "true")
             .unwrap_or(false);
-        if spotify_playing { return true; }
+        if spotify_playing {
+            return true;
+        }
 
-        // 3. Check global audio output via pmset assertions (Chrome, Youtube, VLC, etc.)
-        let pmset_output = Command::new("pmset")
-            .arg("-g")
-            .arg("assertions")
-            .output();
-            
+        let pmset_output = Command::new("pmset").arg("-g").arg("assertions").output();
+
         if let Ok(output) = pmset_output {
             let s = String::from_utf8_lossy(&output.stdout);
-            // Look for apps currently holding "Playing audio" or coreaudiod holding "audio-out"
-            if s.contains("Playing audio") { return true; }
+            if s.contains("Playing audio") {
+                return true;
+            }
             if s.contains("audio-out") && s.contains("coreaudiod") {
                 return true;
             }
@@ -47,18 +46,19 @@ pub fn is_media_playing() -> bool {
 pub fn system_media_control(cmd: i32) {
     #[cfg(target_os = "macos")]
     {
-        use libc::{c_void, c_int};
+        use libc::{c_int, c_void};
         use std::ptr;
 
         unsafe {
             let handle = libc::dlopen(
                 c"/System/Library/PrivateFrameworks/MediaRemote.framework/MediaRemote".as_ptr(),
-                libc::RTLD_NOW
+                libc::RTLD_NOW,
             );
             if !handle.is_null() {
                 let sym = libc::dlsym(handle, c"MRMediaRemoteSendCommand".as_ptr());
                 if !sym.is_null() {
-                    let func: extern "C" fn(c_int, *const c_void) -> bool = std::mem::transmute(sym);
+                    let func: extern "C" fn(c_int, *const c_void) -> bool =
+                        std::mem::transmute(sym);
                     func(cmd, ptr::null());
                 }
                 libc::dlclose(handle);
@@ -71,43 +71,91 @@ pub fn resample_to_16k(samples: &[f32], from_rate: u32, to_rate: u32) -> Vec<f32
     if from_rate == to_rate {
         return samples.to_vec();
     }
-    let mut result = Vec::new();
-    let step = from_rate as f32 / to_rate as f32;
-    let mut i = 0.0;
-    while i < samples.len() as f32 {
-        result.push(samples[i as usize]);
-        i += step;
+    let ratio = from_rate as f64 / to_rate as f64;
+    let out_len = (samples.len() as f64 / ratio) as usize;
+    let mut result = Vec::with_capacity(out_len);
+    for i in 0..out_len {
+        let src_pos = i as f64 * ratio;
+        let idx = src_pos as usize;
+        let frac = src_pos - idx as f64;
+        if idx + 1 < samples.len() {
+            let s = samples[idx] as f64 + (samples[idx + 1] as f64 - samples[idx] as f64) * frac;
+            result.push(s as f32);
+        } else if idx < samples.len() {
+            result.push(samples[idx]);
+        }
     }
     result
+}
+
+/// Convert float samples to 16-bit mono WAV bytes in memory.
+pub fn samples_to_wav(samples: &[f32], sample_rate: u32) -> Result<Vec<u8>, String> {
+    use std::io::Cursor;
+
+    let mut wav_cursor = Cursor::new(Vec::new());
+    {
+        let spec = hound::WavSpec {
+            channels: 1,
+            sample_rate,
+            bits_per_sample: 16,
+            sample_format: hound::SampleFormat::Int,
+        };
+        let mut writer = hound::WavWriter::new(&mut wav_cursor, spec)
+            .map_err(|e| format!("WavWriter error: {}", e))?;
+
+        for &sample in samples {
+            let val: f32 = sample * 32767.0;
+            let amplitude = val.clamp(-32768.0, 32767.0) as i16;
+            writer
+                .write_sample(amplitude)
+                .map_err(|e| format!("Write sample error: {}", e))?;
+        }
+        writer
+            .finalize()
+            .map_err(|e| format!("Wav finalize error: {}", e))?;
+    }
+    let wav_data = wav_cursor.into_inner();
+    if wav_data.is_empty() {
+        return Err("WAV data empty".to_string());
+    }
+    Ok(wav_data)
 }
 
 pub fn get_frontmost_app_info() -> (String, String) {
     #[cfg(target_os = "macos")]
     {
-        use core_graphics::display::{CGWindowListCopyWindowInfo, kCGWindowListOptionOnScreenOnly, kCGNullWindowID};
-        use core_foundation::base::TCFType;
         use core_foundation::array::CFArray;
+        use core_foundation::base::TCFType;
         use core_foundation::dictionary::CFDictionary;
-        use core_foundation::string::CFString;
         use core_foundation::number::CFNumber;
+        use core_foundation::string::CFString;
+        use core_graphics::display::{
+            kCGNullWindowID, kCGWindowListOptionOnScreenOnly, CGWindowListCopyWindowInfo,
+        };
 
         // 1. Get all on-screen windows in Z-order (top to bottom)
-        let window_list_ref = unsafe { 
-            CGWindowListCopyWindowInfo(kCGWindowListOptionOnScreenOnly, kCGNullWindowID) 
-        };
+        let window_list_ref =
+            unsafe { CGWindowListCopyWindowInfo(kCGWindowListOptionOnScreenOnly, kCGNullWindowID) };
 
         use core_foundation::base::CFType;
         if !window_list_ref.is_null() {
-            let window_list = unsafe { 
+            let window_list = unsafe {
                 CFArray::<CFDictionary>::wrap_under_create_rule(window_list_ref as *const _)
             };
             let count = window_list.len();
-            
+
             for i in 0..count {
-                let dict_ref = unsafe { core_foundation::array::CFArrayGetValueAtIndex(window_list.as_concrete_TypeRef(), i) };
-                if dict_ref.is_null() { continue; }
-                
-                let dict = unsafe { 
+                let dict_ref = unsafe {
+                    core_foundation::array::CFArrayGetValueAtIndex(
+                        window_list.as_concrete_TypeRef(),
+                        i,
+                    )
+                };
+                if dict_ref.is_null() {
+                    continue;
+                }
+
+                let dict = unsafe {
                     CFDictionary::<CFString, CFType>::wrap_under_get_rule(dict_ref as *const _)
                 };
 
@@ -121,9 +169,12 @@ pub fn get_frontmost_app_info() -> (String, String) {
                 let layer_val = dict.find(layer_key);
 
                 if let (Some(p_ptr), Some(n_ptr), Some(l_ptr)) = (pid_val, name_val, layer_val) {
-                    let pid_num = unsafe { CFNumber::wrap_under_get_rule(p_ptr.as_CFTypeRef() as *const _) };
-                    let layer_num = unsafe { CFNumber::wrap_under_get_rule(l_ptr.as_CFTypeRef() as *const _) };
-                    let owner_name_cf = unsafe { CFString::wrap_under_get_rule(n_ptr.as_CFTypeRef() as *const _) };
+                    let pid_num =
+                        unsafe { CFNumber::wrap_under_get_rule(p_ptr.as_CFTypeRef() as *const _) };
+                    let layer_num =
+                        unsafe { CFNumber::wrap_under_get_rule(l_ptr.as_CFTypeRef() as *const _) };
+                    let owner_name_cf =
+                        unsafe { CFString::wrap_under_get_rule(n_ptr.as_CFTypeRef() as *const _) };
 
                     let pid = pid_num.to_i64().unwrap_or(0);
                     let layer = layer_num.to_i32().unwrap_or(0);
@@ -139,14 +190,18 @@ pub fn get_frontmost_app_info() -> (String, String) {
                         "tell application \"System Events\" to return bundle identifier of first application process whose unix id is {}",
                         pid
                     );
-                    
-                    if let Ok(output) = std::process::Command::new("osascript").arg("-e").arg(&script).output() {
+
+                    if let Ok(output) = std::process::Command::new("osascript")
+                        .arg("-e")
+                        .arg(&script)
+                        .output()
+                    {
                         let bundle_id = String::from_utf8_lossy(&output.stdout).trim().to_string();
                         if !bundle_id.is_empty() {
                             return (owner_name, bundle_id);
                         }
                     }
-                    
+
                     return (owner_name, "Unknown".to_string());
                 }
             }
@@ -156,73 +211,185 @@ pub fn get_frontmost_app_info() -> (String, String) {
 }
 
 pub fn remove_hallucinations(text: &str) -> String {
+    use regex::Regex;
+    use std::sync::OnceLock;
+
+    static RE_SPACES: OnceLock<Regex> = OnceLock::new();
+    let re_spaces = RE_SPACES.get_or_init(|| Regex::new(r"\s+").unwrap());
+
     let patterns = [
-        "DimaTorzok", "Dima Torzok", "Субтитры", "Отредактировано", "Перевод", "Транскрибация",
-        "Подпишитесь", "продолжение следует", "Hoje pursui", "Não mais", "uvoir", "pursui",
-        "тебя отдаю code", "увидеть şunu с", "Today pursui", "Subtitles by", "Amara.org",
-        "для сайта", "специально для", "благодарим за", "автор субтитров",
-        "Продолжение следует", "Спасибо за просмотр", "Подписывайтесь на канал",
-        "редактор субтитров", "кулакова", "игорь негода", "игорь не года",
-        "а. кулаков", "а. кулакова", "диктор", "диктовка", "диктовка.",
-        "субтитры", "перевод", "translated by", "translation", "Translated by", "Transcribed by",
-        "в выпуске", "следующий выпуск", "смотрите далее",
-        "реклама", "спонсор", "партнёр", "sponsor", "Sponsor",
-        "end of transcript", "transcript end", "конец записи", "to be continued", "continued",
-        "тишина", "пауза", "pause", "silence",
-        "неразборчиво", "не разборчиво", "inaudible", "unclear",
-        "аплодисменты", "смех", "laughter", "applause",
-        "music fades", "music plays", "играет музыка",
+        "DimaTorzok",
+        "Dima Torzok",
+        "Субтитры",
+        "Отредактировано",
+        "Перевод",
+        "Транскрибация",
+        "Подпишитесь",
+        "продолжение следует",
+        "Hoje pursui",
+        "Não mais",
+        "uvoir",
+        "pursui",
+        "тебя отдаю code",
+        "увидеть şunu с",
+        "Today pursui",
+        "Subtitles by",
+        "Amara.org",
+        "для сайта",
+        "специально для",
+        "благодарим за",
+        "автор субтитров",
+        "Продолжение следует",
+        "Спасибо за просмотр",
+        "Подписывайтесь на канал",
+        "редактор субтитров",
+        "кулакова",
+        "игорь негода",
+        "игорь не года",
+        "а. кулаков",
+        "а. кулакова",
+        "диктор",
+        "диктовка",
+        "диктовка.",
+        "субтитры",
+        "перевод",
+        "translated by",
+        "translation",
+        "Translated by",
+        "Transcribed by",
+        "в выпуске",
+        "следующий выпуск",
+        "смотрите далее",
+        "реклама",
+        "спонсор",
+        "партнёр",
+        "sponsor",
+        "Sponsor",
+        "end of transcript",
+        "transcript end",
+        "конец записи",
+        "to be continued",
+        "continued",
+        "тишина",
+        "пауза",
+        "pause",
+        "silence",
+        "неразборчиво",
+        "не разборчиво",
+        "inaudible",
+        "unclear",
+        "аплодисменты",
+        "смех",
+        "laughter",
+        "applause",
+        "music fades",
+        "music plays",
+        "играет музыка",
     ];
+
+    static HALLUCINATION_RES: OnceLock<Vec<Regex>> = OnceLock::new();
+    let res = HALLUCINATION_RES.get_or_init(|| {
+        patterns
+            .iter()
+            .filter_map(|p| Regex::new(&format!(r"(?i)\b{}\b", regex::escape(p))).ok())
+            .collect()
+    });
+
+    // Counting hallucination: "1, 2, 3, 4, 5, 6, 7, 8, 9, 10" or "1 2 3 4 5..."
+    static RE_COUNTING: OnceLock<Regex> = OnceLock::new();
+    let re_counting = RE_COUNTING.get_or_init(|| Regex::new(r"(?:\d{1,3}[, ]*){5,}").unwrap());
+
     let mut cleaned = text.to_string();
-    for pattern in patterns {
-        if let Ok(re) = regex::Regex::new(&format!(r"(?i)\b?{}\b?", regex::escape(pattern))) {
-            cleaned = re.replace_all(&cleaned, "").to_string();
-        }
+    for re in res {
+        cleaned = re.replace_all(&cleaned, "").to_string();
     }
-    let re_spaces = regex::Regex::new(r"\s+").unwrap();
+    cleaned = re_counting.replace_all(&cleaned, "").to_string();
     re_spaces.replace_all(cleaned.trim(), " ").to_string()
 }
 
 pub fn clean_repetitive_phrases(text: &str) -> String {
-    let text = remove_hallucinations(text);
-    
-    // 1. Clean up artifacts like "у-ужа" or "у- ежа" -> "у ужа", "у ежа"
-    // Handle single character prefixes followed by dash or dash+space
-    // Fixed regex: match Cyrillic/Latin letter, dash, space(s), followed by a letter.
-    let re_prefix = regex::Regex::new(r"(?i)([а-яёa-z])\s*-\s+([а-яёa-z])").unwrap();
-    let text = re_prefix.replace_all(&text, "$1 $2").to_string();
+    use regex::Regex;
+    use std::sync::OnceLock;
 
-    // Удаление частых слов-паразитов и звуков колебания на уровне регулярок в дополнение к ИИ
-    let re_parasites = regex::Regex::new(r"(?i)\b(аа+|ээ+|мм+|типо|короче)\b[\s,\.]*").unwrap();
+    static RE_PREFIX: OnceLock<Regex> = OnceLock::new();
+    static RE_PARASITES: OnceLock<Regex> = OnceLock::new();
+    static RE_STUTTER: OnceLock<Regex> = OnceLock::new();
+
+    let re_prefix =
+        RE_PREFIX.get_or_init(|| Regex::new(r"(?i)([а-яёa-z])\s*-\s+([а-яёa-z])").unwrap());
+    // Longer hesitation/filler sequences: "э-э-э", "а-а", "у-у", "м-м-м", "типо", "короче"
+    let re_parasites = RE_PARASITES
+        .get_or_init(|| Regex::new(r"(?i)\b(аа+|ээ+|мм+|типо|короче)\b[\s,\.]*").unwrap());
+    // Stuttered syllables joined with hyphens: "э-э", "а-а-а", "у-у", "м-м", "э-э-э-э".
+    // (regex crate has no backreferences, so enumerate the common cases)
+    let re_stutter = RE_STUTTER.get_or_init(|| {
+        Regex::new(r"(?i)\b(?:э(?:-э)+|а(?:-а)+|у(?:-у)+|м(?:-м)+|и(?:-и)+|о(?:-о)+)\b[\s,\.]*")
+            .unwrap()
+    });
+
+    let text = remove_hallucinations(text);
+    let text = re_prefix.replace_all(&text, "$1 $2").to_string();
     let text = re_parasites.replace_all(&text, " ").to_string();
+    let text = re_stutter.replace_all(&text, " ").to_string();
 
     let words: Vec<&str> = text.split_whitespace().collect();
     if words.is_empty() {
         return text.to_string();
     }
 
-    let mut result = Vec::new();
+    let mut result: Vec<&str> = Vec::new();
     let mut i = 0;
-    
+
     while i < words.len() {
+        // Lone hesitation vowels ("э", "у", "а", "м") between real words are
+        // transcription noise, not words — drop them ("и э вот" -> "и вот").
+        // The check is: drop only if there is any word before and any word
+        // after in the ORIGINAL sequence, so leading/trailing and
+        // single-letter-only text is never eaten.
+        let prev_exists = i > 0;
+        let next_exists = i + 1 < words.len();
+        if prev_exists && next_exists && is_lone_filler(words[i]) {
+            i += 1;
+            continue;
+        }
         result.push(words[i]);
         // Simple case: "word word" -> "word"
-        if i + 1 < words.len() && words[i].to_lowercase() == words[i+1].to_lowercase() {
+        if i + 1 < words.len() && words[i].to_lowercase() == words[i + 1].to_lowercase() {
             i += 1;
         }
         i += 1;
     }
-    
+
     result.join(" ")
 }
 
+/// A standalone hesitation sound: single/duplicated "э", "а", "у", "о", "и", "м".
+fn is_lone_filler(word: &str) -> bool {
+    let lower = word.to_lowercase();
+    let trimmed = lower.trim_matches(|c: char| !c.is_alphabetic());
+    if trimmed.is_empty() {
+        return false;
+    }
+    trimmed
+        .chars()
+        .all(|c| matches!(c, 'э' | 'а' | 'у' | 'о' | 'и' | 'м'))
+}
+
 pub fn strip_filler_phrases(text: &str) -> String {
+    use regex::Regex;
+    use std::sync::OnceLock;
+
+    static PREAMBLE_RES: OnceLock<Vec<Regex>> = OnceLock::new();
+
     let fillers = [
-        "Вот исправленный текст:", "Конечно,", "Конечно, вот", "Вот ваш исправленный текст:",
-        "Here's the cleaned text:", "Here you go:", "Sure,", "Sure, here's",
-        "Of course,", "Certainly,", "I've cleaned up", "I cleaned",
-        "Я почистил", "Я исправил", "Вот результат:", "Результат:",
-        "Исправленный текст:", "Отредактированный текст:",
+        "Вот исправленный текст:",
+        "Вот ваш исправленный текст:",
+        "Here's the cleaned text:",
+        "Here you go:",
+        "Вот результат:",
+        "Результат:",
+        "Исправленный текст:",
+        "Отредактированный текст:",
     ];
     let mut cleaned = text.to_string();
     for filler in fillers {
@@ -230,29 +397,253 @@ pub fn strip_filler_phrases(text: &str) -> String {
             cleaned = cleaned.trim().trim_start_matches(filler).trim().to_string();
         }
     }
-    
-    // Remove common AI preamble patterns
+
     let preamble_patterns = [
-        r"^Here is", r"^Here's", r"^I have", r"^I've",
-        r"^Вот", r"^Я ", r"^Как просили",
+        r"^Here is the formatted text:\s*",
+        r"^Here's the formatted text:\s*",
+        r"^Here is the cleaned text:\s*",
+        r"^Here's the cleaned text:\s*",
+        r"^Как просили,? вот (?:отформатированный|исправленный) текст:\s*",
     ];
-    for pattern in preamble_patterns {
-        if let Ok(re) = regex::Regex::new(&format!(r"(?i){}", pattern)) {
-            cleaned = re.replace(&cleaned, "").to_string();
-        }
+    let res = PREAMBLE_RES.get_or_init(|| {
+        preamble_patterns
+            .iter()
+            .filter_map(|p| Regex::new(&format!(r"(?i){}", p)).ok())
+            .collect()
+    });
+    for re in res {
+        cleaned = re.replace(&cleaned, "").to_string();
     }
-    
+
     // If text is only punctuation or very short noise, return empty
     let trimmed = cleaned.trim();
     if trimmed.is_empty() || trimmed.len() < 2 {
         return String::new();
     }
-    
+
     // Check if text is only punctuation/symbols
     let alpha_count = trimmed.chars().filter(|c| c.is_alphabetic()).count();
     if alpha_count == 0 {
         return String::new();
     }
-    
+
     cleaned
+}
+
+// ── Recording skip reasons ─────────────────────────────────────────────────
+
+/// Why a recording was rejected before transcription, so the user can be told
+/// instead of silently getting an empty result.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RecordingSkipReason {
+    NoSamples,
+    TooShort,
+    TooQuiet,
+}
+
+impl RecordingSkipReason {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            RecordingSkipReason::NoSamples => "no_samples",
+            RecordingSkipReason::TooShort => "too_short",
+            RecordingSkipReason::TooQuiet => "too_quiet",
+        }
+    }
+}
+
+/// Human-readable message for a skip reason, localized to the app language.
+pub fn skip_reason_message(reason: RecordingSkipReason, app_lang: &str) -> String {
+    match reason {
+        RecordingSkipReason::NoSamples => {
+            if app_lang == "ru" {
+                "Микрофон не захватил звук. Проверьте микрофон.".to_string()
+            } else {
+                "The microphone didn't capture any sound. Check your microphone.".to_string()
+            }
+        }
+        RecordingSkipReason::TooShort => {
+            if app_lang == "ru" {
+                "Запись слишком короткая. Говорите дольше.".to_string()
+            } else {
+                "The recording is too short. Speak a bit longer.".to_string()
+            }
+        }
+        RecordingSkipReason::TooQuiet => {
+            if app_lang == "ru" {
+                "Запись слишком тихая. Говорите громче.".to_string()
+            } else {
+                "The recording is too quiet. Speak up.".to_string()
+            }
+        }
+    }
+}
+
+/// Logs a skip reason and emits a 'recording-error' event with a human-readable
+/// message, so the user sees why the recording produced no transcript.
+pub fn emit_skip_reason<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    reason: RecordingSkipReason,
+    app_lang: &str,
+) {
+    use tauri::Emitter;
+    let msg = skip_reason_message(reason, app_lang);
+    log::debug!("Recording skipped: {} ({})", reason.as_str(), msg);
+    let _ = app.emit("recording-error", &msg);
+}
+
+/// Current UI language ("ru" or "en") from app state, defaulting to "ru".
+pub fn app_language<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> String {
+    use tauri::Manager;
+    app.state::<crate::state::AppLanguage>()
+        .0
+        .lock()
+        .map(|l| l.clone())
+        .unwrap_or_else(|_| "ru".to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── resample_to_16k ──────────────────────────────────────────────────────
+
+    #[test]
+    fn resample_same_rate_returns_copy() {
+        let input = vec![1.0, 2.0, 3.0, 4.0];
+        let output = resample_to_16k(&input, 16000, 16000);
+        assert_eq!(input, output);
+    }
+
+    #[test]
+    fn resample_empty_input() {
+        let output = resample_to_16k(&[], 44100, 16000);
+        assert!(output.is_empty());
+    }
+
+    #[test]
+    fn resample_44100_to_16000_shortens() {
+        let input = vec![0.0; 44100]; // 1 second at 44.1kHz
+        let output = resample_to_16k(&input, 44100, 16000);
+        assert_eq!(output.len(), 16000);
+    }
+
+    #[test]
+    fn resample_preserves_silence() {
+        let input = vec![0.0; 48000];
+        let output = resample_to_16k(&input, 48000, 16000);
+        assert!(output.iter().all(|&s| s == 0.0));
+    }
+
+    // ── clean_repetitive_phrases ─────────────────────────────────────────────
+
+    #[test]
+    fn clean_removes_duplicate_words() {
+        let result = clean_repetitive_phrases("hello hello world");
+        assert_eq!(result, "hello world");
+    }
+
+    #[test]
+    fn clean_preserves_unique_words() {
+        let result = clean_repetitive_phrases("hello world");
+        assert_eq!(result, "hello world");
+    }
+
+    #[test]
+    fn clean_empty_input() {
+        let result = clean_repetitive_phrases("");
+        assert_eq!(result, "");
+    }
+
+    #[test]
+    fn clean_removes_hallucination_patterns() {
+        // [music] is matched by remove_hallucinations which uses word-boundary regex
+        // Brackets are not word chars, so the pattern must be in the explicit list
+        let result = clean_repetitive_phrases("DimaTorzok hello world");
+        assert_eq!(result, "hello world");
+    }
+
+    #[test]
+    fn clean_removes_subtitles_pattern() {
+        let result = clean_repetitive_phrases("hello world subtitles by amara.org");
+        assert_eq!(result, "hello world");
+    }
+
+    #[test]
+    fn clean_removes_stutter_dashes() {
+        // "э-э" is dropped, real words stay untouched
+        let result = clean_repetitive_phrases("э-э форматируется текст");
+        assert_eq!(result, "форматируется текст");
+    }
+
+    #[test]
+    fn clean_removes_stutter_dashes_keeps_words() {
+        let result = clean_repetitive_phrases("мне не нравится то, как э-э форматируется текст");
+        assert_eq!(result, "мне не нравится то, как форматируется текст");
+    }
+
+    #[test]
+    fn clean_removes_loose_filler_words() {
+        let result = clean_repetitive_phrases("и э вот у этот а текст");
+        assert_eq!(result, "и вот этот текст");
+    }
+
+    #[test]
+    fn clean_keeps_short_real_words() {
+        // "и", "на", "у" (preposition) are real words — only single-letter
+        // hesitation sounds between real words are removed.
+        let result = clean_repetitive_phrases("и на у");
+        assert_eq!(result, "и на у");
+    }
+
+    // ── strip_filler_phrases ─────────────────────────────────────────────────
+
+    #[test]
+    fn strip_removes_russian_preamble() {
+        let result = strip_filler_phrases("Вот исправленный текст: привет мир");
+        assert_eq!(result, "привет мир");
+    }
+
+    #[test]
+    fn strip_removes_english_preamble() {
+        let result = strip_filler_phrases("Here's the cleaned text: hello world");
+        assert_eq!(result, "hello world");
+    }
+
+    #[test]
+    fn strip_preserves_normal_text() {
+        let result = strip_filler_phrases("привет мир");
+        assert_eq!(result, "привет мир");
+    }
+
+    #[test]
+    fn strip_returns_empty_for_short_text() {
+        let result = strip_filler_phrases("a");
+        assert_eq!(result, "");
+    }
+
+    #[test]
+    fn strip_returns_empty_for_punctuation_only() {
+        let result = strip_filler_phrases("...");
+        assert_eq!(result, "");
+    }
+
+    // ── remove_hallucinations ────────────────────────────────────────────────
+
+    #[test]
+    fn hallucination_removes_dima_torzok() {
+        let result = remove_hallucinations("hello DimaTorzok world");
+        assert_eq!(result, "hello world");
+    }
+
+    #[test]
+    fn hallucination_removes_subtitles() {
+        let result = remove_hallucinations("текст Субтитры далее");
+        assert_eq!(result, "текст далее");
+    }
+
+    #[test]
+    fn hallucination_preserves_normal_text() {
+        let result = remove_hallucinations("привет мир");
+        assert_eq!(result, "привет мир");
+    }
 }

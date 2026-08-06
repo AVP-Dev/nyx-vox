@@ -11,6 +11,7 @@ interface KeysTabProps {
             geminiApiKeyLabel: string;
             qwenApiKeyLabel: string;
             deepseekApiKeyLabel: string;
+            gigachatApiKeyLabel: string;
             apiKeysTitle: string;
             howToChoose: string;
             apiKeyHowTo: string;
@@ -24,6 +25,7 @@ interface KeysTabProps {
     geminiApiKey: string; setGeminiApiKey: (v: string) => void;
     qwenApiKey: string; setQwenApiKey: (v: string) => void;
     deepseekApiKey: string; setDeepseekApiKey: (v: string) => void;
+    gigachatApiKey: string; setGigachatApiKey: (v: string) => void;
     showKeys: Record<string, boolean>;
     setShowKeys: (v: React.SetStateAction<Record<string, boolean>>) => void;
     handleSaveKey: (service: string, key: string) => void;
@@ -34,7 +36,7 @@ interface KeysTabProps {
 
 export const KeysTab: React.FC<KeysTabProps> = ({
     c, dgApiKey, setDgApiKey, groqApiKey, setGroqApiKey, geminiApiKey, setGeminiApiKey,
-    qwenApiKey, setQwenApiKey, deepseekApiKey, setDeepseekApiKey,
+    qwenApiKey, setQwenApiKey, deepseekApiKey, setDeepseekApiKey, gigachatApiKey, setGigachatApiKey,
     showKeys, setShowKeys, handleSaveKey, handleDeleteKey, savedStatus, setTab
 }) => {
     const [copied, setCopied] = React.useState<string | null>(null);
@@ -52,6 +54,7 @@ export const KeysTab: React.FC<KeysTabProps> = ({
         { id: 'gemini', label: c.settings.geminiApiKeyLabel, value: geminiApiKey, setter: setGeminiApiKey, url: 'https://aistudio.google.com/app/apikey' },
         { id: 'qwen', label: c.settings.qwenApiKeyLabel, value: qwenApiKey, setter: setQwenApiKey, url: 'https://dashscope.console.aliyun.com/apiKey' },
         { id: 'deepseek', label: c.settings.deepseekApiKeyLabel, value: deepseekApiKey, setter: setDeepseekApiKey, url: 'https://platform.deepseek.com' },
+        { id: 'gigachat', label: c.settings.gigachatApiKeyLabel, value: gigachatApiKey, setter: setGigachatApiKey, url: 'https://developers.sber.ru' },
     ];
 
     return (
@@ -60,7 +63,7 @@ export const KeysTab: React.FC<KeysTabProps> = ({
                 <div className="flex items-center justify-between w-full">
                     {c.settings.apiKeysTitle}
                     <button onClick={() => setTab('engines')} title={c.settings.howToChoose}>
-                        <HelpCircle className="w-4 h-4 text-white/20 hover:text-white/40 cursor-help transition-colors" />
+                        <HelpCircle className="w-4 h-4 text-white/20 hover:text-muted cursor-help transition-colors" />
                     </button>
                 </div>
             </SectionTitle>
@@ -75,7 +78,7 @@ export const KeysTab: React.FC<KeysTabProps> = ({
                             </div>
                             <button 
                                 onClick={() => setOpenGuide(openGuide === service.id ? null : service.id)}
-                                className={`text-[10px] flex items-center gap-1.5 transition-colors font-bold ${openGuide === service.id ? 'text-cyan-400' : 'text-white/20 hover:text-white/40'}`}
+                                className={`text-[10px] flex items-center gap-1.5 transition-colors font-bold ${openGuide === service.id ? 'text-cyan-400' : 'text-white/20 hover:text-muted'}`}
                             >
                                 <HelpCircle className="w-2.5 h-2.5" />
                                 {c.settings.apiKeyHowTo}
@@ -113,13 +116,13 @@ export const KeysTab: React.FC<KeysTabProps> = ({
                                     value={service.value} 
                                     onChange={(e) => service.setter(e.target.value)}
                                     placeholder={c.settings.apiKeyPlaceholder}
-                                    className="w-full bg-white/5 border border-white/10 rounded-xl pl-3 pr-20 py-2.5 text-[12px] text-white placeholder-white/20 focus:outline-none focus:border-white/30 transition-colors font-mono"
+                                    className="w-full bg-surface border border-subtle rounded-xl pl-3 pr-20 py-2.5 text-[12px] text-white placeholder-white/20 focus:outline-none focus:border-white/30 transition-colors font-mono"
                                 />
                                 <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
                                     {service.value && (
                                         <button 
                                             onClick={() => handleCopy(service.value, service.id)} 
-                                            className="text-white/20 hover:text-white/50 transition-colors"
+                                            className="text-white/20 hover:text-muted transition-colors"
                                             title="Copy API Key"
                                         >
                                             {copied === service.id ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
@@ -127,13 +130,13 @@ export const KeysTab: React.FC<KeysTabProps> = ({
                                     )}
                                     <button 
                                         onClick={() => setShowKeys((prev) => ({ ...prev, [service.id]: !prev[service.id] }))} 
-                                        className="text-white/20 hover:text-white/50 transition-colors"
+                                        className="text-white/20 hover:text-muted transition-colors"
                                     >
                                         {showKeys[service.id] ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                                     </button>
                                 </div>
                             </div>
-                            <button onClick={() => handleSaveKey(service.id, service.value)} className={`px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all min-w-[80px] flex justify-center items-center ${savedStatus[service.id] ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-white/10 hover:bg-white/15 text-white/80'}`}>
+                            <button onClick={() => handleSaveKey(service.id, service.value)} className={`px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all min-w-[80px] flex justify-center items-center ${savedStatus[service.id] ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-surface-hover hover:bg-white/15 text-primary'}`}>
                                 {savedStatus[service.id] ? <Check className="w-4 h-4" /> : c.settings.apiKeySave}
                             </button>
                             {service.value && (

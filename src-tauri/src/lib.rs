@@ -1,59 +1,129 @@
-mod deepgram;
-mod whisper;
 mod ai_provider;
+mod commands;
+mod deepgram;
 mod deepseek;
-mod qwen;
+mod diag;
+mod gigachat;
+mod history;
 mod keys;
 mod prompts;
+mod qwen;
 mod state;
-mod utils;
-mod window;
+mod transliteration;
 mod tray;
-mod commands;
-mod diag;
-mod history;
+mod utils;
+mod whisper;
+mod window;
 
 use std::sync::{Arc, Mutex};
-use tauri::{tray::TrayIconBuilder, tray::TrayIconEvent, Manager, Emitter};
+use tauri::{tray::TrayIconBuilder, tray::TrayIconEvent, Emitter, Manager};
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 use tauri_plugin_store::StoreExt;
 
 use crate::state::*;
-use crate::window::*;
 use crate::tray::*;
+use crate::window::*;
+
+fn quit_app_safely(app_handle: &tauri::AppHandle) {
+    if let Some(recording) = app_handle.try_state::<RecordingFlag>() {
+        recording
+            .0
+            .store(false, std::sync::atomic::Ordering::SeqCst);
+    }
+    if let Some(processing) = app_handle.try_state::<ProcessingFlag>() {
+        processing
+            .0
+            .store(false, std::sync::atomic::Ordering::SeqCst);
+    }
+
+    whisper::unload_all_models();
+
+    // Flush persisted stores (settings.json, history.json) BEFORE terminating,
+    // because `_exit` below skips normal teardown and would otherwise drop any
+    // unsaved writes made since the last automatic store save.
+    {
+        use tauri_plugin_store::StoreExt;
+        for key in ["settings.json", "history.json"] {
+            if let Ok(store) = app_handle.store(key) {
+                let _ = store.save();
+            }
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        // whisper.cpp/ggml Metal owns process-global resources. On some macOS
+        // builds, regular process teardown can run C++ destructors while Metal
+        // resource-set initialization is still unwinding, which triggers
+        // ggml_abort() and shows a crash dialog on quit. We unload our contexts
+        // first, then terminate without running those fragile global destructors.
+        unsafe { libc::_exit(0) };
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    app_handle.exit(0);
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let ctrl_space = Shortcut::new(Some(Modifiers::CONTROL), Code::Space);
-    let opt_space  = Shortcut::new(Some(Modifiers::ALT), Code::Space);
+    let opt_space = Shortcut::new(Some(Modifiers::ALT), Code::Space);
 
-    let recording_state: whisper::SharedState = Arc::new(Mutex::new(whisper::RecordingState::default()));
-    let ai_state: ai_provider::SharedAiState = Arc::new(Mutex::new(ai_provider::RecordingState::default()));
-    let deepgram_state: deepgram::SharedDeepgramState = Arc::new(Mutex::new(deepgram::DeepgramState::default()));
+    let recording_state: whisper::SharedState =
+        Arc::new(Mutex::new(whisper::RecordingState::default()));
+    let ai_state: ai_provider::SharedAiState = Arc::new(Mutex::new(AudioBuffer::default()));
+    let deepgram_state: deepgram::SharedDeepgramState =
+        Arc::new(Mutex::new(AudioBuffer::default()));
 
     let sys_lang = if cfg!(target_os = "macos") {
-        if let Ok(o) = std::process::Command::new("defaults").arg("read").arg("-g").arg("AppleLanguages").output() {
+        if let Ok(o) = std::process::Command::new("defaults")
+            .arg("read")
+            .arg("-g")
+            .arg("AppleLanguages")
+            .output()
+        {
             let s = String::from_utf8_lossy(&o.stdout);
-            if s.contains("ru") { "ru" } else { "en" }
-        } else { "en" }
-    } else { "en" };
+            if s.contains("ru") {
+                "ru"
+            } else {
+                "en"
+            }
+        } else {
+            "en"
+        }
+    } else {
+        "en"
+    };
 
     tauri::Builder::default()
+        .plugin(
+            tauri_plugin_log::Builder::default()
+                .level(log::LevelFilter::Info)
+                .build(),
+        )
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_clipboard_manager::init())
-        .plugin(tauri_plugin_global_shortcut::Builder::new()
-            .with_handler(move |app, shortcut, event| {
-                if event.state() == ShortcutState::Pressed && (shortcut == &ctrl_space || shortcut == &opt_space) {
-                    if let (Some(p_state), Some(_r_state)) = (app.try_state::<ProcessingFlag>(), app.try_state::<RecordingFlag>()) {
-                        // Only block if PROCESSING (API refinement), but ALLOW trigger if RECORDING (to stop it)
-                        if p_state.0.load(std::sync::atomic::Ordering::SeqCst) { return; }
+        .plugin(
+            tauri_plugin_global_shortcut::Builder::new()
+                .with_handler(move |app, shortcut, event| {
+                    if event.state() == ShortcutState::Pressed
+                        && (shortcut == &ctrl_space || shortcut == &opt_space)
+                    {
+                        if let (Some(p_state), Some(_r_state)) = (
+                            app.try_state::<ProcessingFlag>(),
+                            app.try_state::<RecordingFlag>(),
+                        ) {
+                            // Only block if PROCESSING (API refinement), but ALLOW trigger if RECORDING (to stop it)
+                            if p_state.0.load(std::sync::atomic::Ordering::SeqCst) {
+                                return;
+                            }
+                        }
+                        show_overlay(app);
+                        let _ = app.emit("shortcut-trigger", ());
                     }
-                    show_overlay(app);
-                    let _ = app.emit("shortcut-trigger", ());
-                }
-            })
-            .build()
+                })
+                .build(),
         )
         .setup(move |app| {
             app.manage(recording_state);
@@ -66,18 +136,19 @@ pub fn run() {
             app.manage(RecordingFlag::default());
             app.manage(ActiveSttMode(Mutex::new(String::new())));
             app.manage(DidPauseMedia::default());
-            app.manage(PositionInitialized::default());
             app.manage(SttMode(Mutex::new("deepgram".to_string())));
             app.manage(FormattingMode(Mutex::new("none".to_string())));
             app.manage(FormattingStyleState(Mutex::new(FormattingStyle::default())));
-            app.manage(DeepgramLanguage(Mutex::new("ru".to_string())));
-            app.manage(WhisperLanguage(Mutex::new("ru".to_string())));
             app.manage(WhisperModel(Mutex::new(WhisperModelType::default())));
-            app.manage(GroqLanguage(Mutex::new("ru".to_string())));
             app.manage(AutoPause(Mutex::new(false)));
             app.manage(AutoPaste(Mutex::new(true)));
+            app.manage(NoiseGateThreshold(Mutex::new(0.002)));
+            app.manage(AudioGain(Mutex::new(2.0)));
             app.manage(AlwaysOnTop(Mutex::new(true)));
-            app.manage(TargetApp(Mutex::new(("Unknown".to_string(), "Unknown".to_string()))));
+            app.manage(TargetApp(Mutex::new((
+                "Unknown".to_string(),
+                "Unknown".to_string(),
+            ))));
             app.manage(AppLanguage(Mutex::new(sys_lang.to_string())));
             app.manage(keys::ApiKeys::default());
             app.manage(AiSemaphore(tokio::sync::Semaphore::new(1)));
@@ -89,12 +160,7 @@ pub fn run() {
                 }
             }
             #[cfg(target_os = "macos")]
-            {
-                // Manage a dummy state to prevent panic on macOS when commands access it
-                if let Ok(enigo) = enigo::Enigo::new(&enigo::Settings::default()) {
-                    app.manage(EnigoState(Arc::new(Mutex::new(EnigoWrapper(enigo)))));
-                }
-            }
+            {}
 
             let _ = app.global_shortcut().register(ctrl_space);
             let _ = app.global_shortcut().register(opt_space);
@@ -111,9 +177,14 @@ pub fn run() {
 
                     macro_rules! load_str_setting {
                         ($key:expr, $state_type:ty) => {
-                            if let Some(val) = store.get($key).and_then(|v: serde_json::Value| v.as_str().map(|s| s.to_string())) {
+                            if let Some(val) = store
+                                .get($key)
+                                .and_then(|v: serde_json::Value| v.as_str().map(|s| s.to_string()))
+                            {
                                 if let Some(state) = app.try_state::<$state_type>() {
-                                    if let Ok(mut lock) = state.0.lock() { *lock = val; }
+                                    if let Ok(mut lock) = state.0.lock() {
+                                        *lock = val;
+                                    }
                                 }
                             }
                         };
@@ -121,40 +192,58 @@ pub fn run() {
 
                     load_str_setting!("stt_mode", SttMode);
                     load_str_setting!("formatting_mode", FormattingMode);
-                    load_str_setting!("deepgram_language", DeepgramLanguage);
-                    load_str_setting!("whisper_language", WhisperLanguage);
-                    
-                    if let Some(m) = store.get("whisper_model").and_then(|v: serde_json::Value| v.as_str().map(|s| s.to_string())) {
+
+                    if let Some(m) = store
+                        .get("whisper_model")
+                        .and_then(|v: serde_json::Value| v.as_str().map(|s| s.to_string()))
+                    {
                         let m_type = match m.as_str() {
                             "medium" => WhisperModelType::Medium,
                             "turbo" => WhisperModelType::Turbo,
                             _ => WhisperModelType::Small,
                         };
                         if let Some(state) = app.try_state::<WhisperModel>() {
-                            if let Ok(mut lock) = state.0.lock() { *lock = m_type; }
+                            if let Ok(mut lock) = state.0.lock() {
+                                *lock = m_type;
+                            }
                         }
                     }
 
-                    load_str_setting!("groq_language", GroqLanguage);
-
-                    if let Some(l) = store.get("app_language").and_then(|v: serde_json::Value| v.as_str().map(|s| s.to_string())) {
+                    if let Some(l) = store
+                        .get("app_language")
+                        .and_then(|v: serde_json::Value| v.as_str().map(|s| s.to_string()))
+                    {
                         initial_app_lang = l;
                         if let Some(state) = app.try_state::<AppLanguage>() {
-                            if let Ok(mut lock) = state.0.lock() { *lock = initial_app_lang.clone(); }
+                            if let Ok(mut lock) = state.0.lock() {
+                                *lock = initial_app_lang.clone();
+                            }
                         }
                     }
 
-                    if let Some(s) = store.get("formatting_style").and_then(|v: serde_json::Value| serde_json::from_value::<FormattingStyle>(v).ok()) {
+                    if let Some(s) =
+                        store
+                            .get("formatting_style")
+                            .and_then(|v: serde_json::Value| {
+                                serde_json::from_value::<FormattingStyle>(v).ok()
+                            })
+                    {
                         if let Some(state) = app.try_state::<FormattingStyleState>() {
-                            if let Ok(mut lock) = state.0.lock() { *lock = s; }
+                            if let Ok(mut lock) = state.0.lock() {
+                                *lock = s;
+                            }
                         }
                     }
 
                     macro_rules! load_bool_setting {
                         ($key:expr, $state_type:ty) => {
-                            if let Some(val) = store.get($key).and_then(|v: serde_json::Value| v.as_bool()) {
+                            if let Some(val) =
+                                store.get($key).and_then(|v: serde_json::Value| v.as_bool())
+                            {
                                 if let Some(state) = app.try_state::<$state_type>() {
-                                    if let Ok(mut lock) = state.0.lock() { *lock = val; }
+                                    if let Ok(mut lock) = state.0.lock() {
+                                        *lock = val;
+                                    }
                                 }
                             }
                         };
@@ -164,7 +253,32 @@ pub fn run() {
                     load_bool_setting!("auto_paste", AutoPaste);
                     load_bool_setting!("always_on_top", AlwaysOnTop);
 
-                    if let Some(aot) = store.get("always_on_top").and_then(|v: serde_json::Value| v.as_bool()) {
+                    if let Some(val) = store
+                        .get("noise_gate")
+                        .and_then(|v: serde_json::Value| v.as_f64())
+                    {
+                        if let Some(state) = app.try_state::<NoiseGateThreshold>() {
+                            if let Ok(mut lock) = state.0.lock() {
+                                *lock = val as f32;
+                            }
+                        }
+                    }
+
+                    if let Some(val) = store
+                        .get("audio_gain")
+                        .and_then(|v: serde_json::Value| v.as_f64())
+                    {
+                        if let Some(state) = app.try_state::<AudioGain>() {
+                            if let Ok(mut lock) = state.0.lock() {
+                                *lock = val as f32;
+                            }
+                        }
+                    }
+
+                    if let Some(aot) = store
+                        .get("always_on_top")
+                        .and_then(|v: serde_json::Value| v.as_bool())
+                    {
                         if let Some(w) = app.get_webview_window("main") {
                             let _ = w.set_always_on_top(aot);
                             #[cfg(target_os = "macos")]
@@ -178,11 +292,17 @@ pub fn run() {
                         }
                     }
 
-                    let minimized = store.get("start_minimized").and_then(|v: serde_json::Value| v.as_bool()).unwrap_or(false);
+                    let minimized = store
+                        .get("start_minimized")
+                        .and_then(|v: serde_json::Value| v.as_bool())
+                        .unwrap_or(false);
                     let version = app.package_info().version.to_string();
                     let welcome_key = format!("welcome_seen_{}", version.replace('.', "_"));
-                    welcome_seen = store.get(welcome_key).and_then(|v: serde_json::Value| v.as_bool()).unwrap_or(false);
-                    
+                    welcome_seen = store
+                        .get(welcome_key)
+                        .and_then(|v: serde_json::Value| v.as_bool())
+                        .unwrap_or(false);
+
                     if minimized && welcome_seen {
                         should_show_window = false;
                     }
@@ -204,36 +324,43 @@ pub fn run() {
 
             let tray_menu = tauri::menu::Menu::with_items(app, &[])?;
             TrayIconBuilder::with_id("main")
-                .icon(tauri::image::Image::from_bytes(include_bytes!("../icons/trayTemplate.png")).unwrap())
+                .icon(
+                    tauri::image::Image::from_bytes(include_bytes!("../icons/trayTemplate.png"))
+                        .unwrap(),
+                )
                 .icon_as_template(true)
                 .menu(&tray_menu)
                 .tooltip("NYX Vox — Option+Space")
-                .on_menu_event(|app_handle, event| {
-                    match event.id.as_ref() {
-                        "quit" => app_handle.exit(0),
-                        "show" => toggle_window(app_handle),
-                        "welcome_win" => {
-                            let _ = app_handle.emit("open-welcome", ());
-                            show_overlay(app_handle);
-                        }
-                        "settings" => {
-                            let _ = app_handle.emit("open-settings", ());
-                            show_overlay(app_handle);
-                        }
-                        "history" => {
-                            let ah = app_handle.clone();
-                            tauri::async_runtime::spawn(async move {
-                                let _ = commands::open_history_window(ah).await;
-                            });
-                        }
-                        "reset_pos" => reset_window_position_inner(app_handle),
-                        _ => {}
+                .on_menu_event(|app_handle, event| match event.id.as_ref() {
+                    "quit" => quit_app_safely(app_handle),
+                    "show" => toggle_window(app_handle),
+                    "welcome_win" => {
+                        let _ = app_handle.emit("open-welcome", ());
+                        show_overlay(app_handle);
                     }
+                    "settings" => {
+                        let _ = app_handle.emit("open-settings", ());
+                        show_overlay(app_handle);
+                    }
+                    "history" => {
+                        let ah = app_handle.clone();
+                        tauri::async_runtime::spawn(async move {
+                            let _ = commands::open_history_window(ah).await;
+                        });
+                    }
+                    "reset_pos" => reset_window_position_inner(app_handle),
+                    _ => {}
                 })
                 .on_tray_icon_event(|_tray, event| {
                     match event {
-                        TrayIconEvent::Click { button: tauri::tray::MouseButton::Left, .. } |
-                        TrayIconEvent::DoubleClick { button: tauri::tray::MouseButton::Left, .. } => {
+                        TrayIconEvent::Click {
+                            button: tauri::tray::MouseButton::Left,
+                            ..
+                        }
+                        | TrayIconEvent::DoubleClick {
+                            button: tauri::tray::MouseButton::Left,
+                            ..
+                        } => {
                             // Left click now does nothing (handled by OS if menu is set)
                         }
                         _ => {}
@@ -249,14 +376,21 @@ pub fn run() {
                 let mut last_name = String::new();
                 loop {
                     // Only poll if window is visible to save CPU
-                    let window_visible = handle_poll.get_webview_window("main")
+                    let window_visible = handle_poll
+                        .get_webview_window("main")
                         .map(|w| w.is_visible().unwrap_or(false))
                         .unwrap_or(false);
 
                     if window_visible {
                         let (name, bundle_id) = crate::utils::get_frontmost_app_info();
-                        if name != last_name && !name.is_empty() && name != "Unknown" && name != "NYX Vox" && name != "app" {
-                            if let Some(state) = handle_poll.try_state::<crate::state::TargetApp>() {
+                        if name != last_name
+                            && !name.is_empty()
+                            && name != "Unknown"
+                            && name != "NYX Vox"
+                            && name != "app"
+                        {
+                            if let Some(state) = handle_poll.try_state::<crate::state::TargetApp>()
+                            {
                                 if let Ok(mut lock) = state.0.lock() {
                                     *lock = (name.clone(), bundle_id);
                                 }
@@ -267,7 +401,7 @@ pub fn run() {
                     } else {
                         last_name = String::new();
                     }
-                    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+                    tokio::time::sleep(std::time::Duration::from_millis(2000)).await;
                 }
             });
 
@@ -278,9 +412,22 @@ pub fn run() {
 
             let _ = history::perform_smart_cleanup(app.handle());
 
+            // Preload whisper model in background to avoid cold-start delay
+            {
+                let model_type = if let Some(state) = app.try_state::<WhisperModel>() {
+                    state.0.lock().map(|l| *l).unwrap_or_default()
+                } else {
+                    WhisperModelType::default()
+                };
+                std::thread::spawn(move || {
+                    whisper::preload_model(model_type);
+                });
+            }
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            commands::get_all_settings,
             commands::paste_text,
             commands::dismiss_overlay,
             commands::start_recording,
@@ -299,19 +446,14 @@ pub fn run() {
             commands::set_welcome_seen,
             commands::check_accessibility,
             commands::open_accessibility_settings,
+            commands::request_permissions_auto,
             commands::reset_accessibility_permissions,
             commands::open_microphone_settings,
             commands::show_welcome_window,
             commands::hide_welcome_window,
             commands::fix_quarantine,
-            commands::set_deepgram_language,
-            commands::get_deepgram_language,
-            commands::set_whisper_language,
-            commands::get_whisper_language,
             commands::set_whisper_model_type,
             commands::get_whisper_model_type,
-            commands::set_groq_language,
-            commands::get_groq_language,
             commands::get_target_app,
             commands::update_target_app,
             tray::update_tray_lang,
@@ -340,9 +482,14 @@ pub fn run() {
             commands::set_update_dismissed_at,
             commands::get_ignored_update,
             commands::set_ignored_update,
+            commands::save_window_position,
+            commands::get_window_position,
+            commands::set_noise_gate,
+            commands::set_audio_gain,
             commands::open_url,
             commands::show_update_window,
             commands::resize_window,
+            commands::debug_log,
             diag::run_self_diagnosis,
             history::get_history,
             history::add_history_entry,

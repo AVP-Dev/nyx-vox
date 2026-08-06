@@ -16,13 +16,22 @@ interface WelcomeOverlayProps {
     onClose: () => void;
     appLanguage: 'ru' | 'en';
     onLanguageToggle: () => void;
+    initialTab?: Tab;
 }
 
-export function WelcomeOverlay({ onClose, appLanguage, onLanguageToggle }: WelcomeOverlayProps) {
-    const [tab, setTab] = useState<Tab>('welcome');
+export function WelcomeOverlay({ onClose, appLanguage, onLanguageToggle, initialTab }: WelcomeOverlayProps) {
+    const [tab, setTab] = useState<Tab>(initialTab ?? 'welcome');
     const [welcomeDoNotShowAgain, setWelcomeDoNotShowAgain] = useState(false);
     const [accGranted, setAccGranted] = useState<boolean | null>(null);
     const [micGranted, setMicGranted] = useState<boolean | null>(null);
+    const autoPrompted = React.useRef(false);
+
+    useEffect(() => {
+        if (tab === 'perms' && !autoPrompted.current) {
+            autoPrompted.current = true;
+            invoke('request_permissions_auto').catch(console.error);
+        }
+    }, [tab]);
 
     // Focus back when granted
     useEffect(() => {
@@ -46,8 +55,16 @@ export function WelcomeOverlay({ onClose, appLanguage, onLanguageToggle }: Welco
         };
 
         checkPerms();
-        const interval = setInterval(checkPerms, 2000);
-        return () => clearInterval(interval);
+        const onFocus = async () => {
+            if (typeof window !== 'undefined' && window.__TAURI_INTERNALS__) {
+                const { listen } = await import('@tauri-apps/api/event');
+                const unlisten = await listen('tauri://focus', () => checkPerms());
+                return unlisten;
+            }
+        };
+        let unlistenFn: (() => void) | null = null;
+        onFocus().then(fn => { if (fn) unlistenFn = fn; });
+        return () => { if (unlistenFn) unlistenFn(); };
     }, []);
 
     const C = CONTENT[appLanguage];
@@ -71,20 +88,18 @@ export function WelcomeOverlay({ onClose, appLanguage, onLanguageToggle }: Welco
     ];
 
     return (
-        <div className="w-full h-full flex flex-col pointer-events-auto overflow-hidden bg-[#18181B] border border-white/10 rounded-[28px] relative shadow-none">
-            {/* GLASSMORPHISM BACKGROUND */}
-            <div className="absolute inset-0 z-0 pointer-events-none" style={{ backdropFilter: 'blur(32px) saturate(180%)' }} />
+        <div className="w-full h-full flex flex-col pointer-events-auto overflow-hidden bg-panel border border-subtle rounded-[28px] relative shadow-none">
 
             {/* HEADER */}
             <div data-tauri-drag-region className="flex items-center justify-center px-4 pt-4 pb-2 shrink-0 z-10 transition-colors relative">
-                <div className="flex gap-0.5 p-1 bg-white/5 rounded-xl border border-white/5">
+                <div className="flex gap-0.5 p-1 bg-surface rounded-xl border border-subtle">
                     {tabs.map(t => (
                         <button
                             key={t.id}
                             onClick={() => setTab(t.id)}
                             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all whitespace-nowrap ${tab === t.id
-                                ? 'bg-white/10 text-white'
-                                : 'text-white/40 hover:text-white/60 hover:bg-white/5'
+                                ? 'bg-surface-hover text-white'
+                                : 'text-muted hover:text-muted hover:bg-surface'
                                 }`}
                         >
                             {t.icon}
@@ -94,7 +109,7 @@ export function WelcomeOverlay({ onClose, appLanguage, onLanguageToggle }: Welco
                 </div>
                 <button
                     onClick={handleExit}
-                    className="absolute right-4 top-5 w-7 h-7 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white/15 text-white/50 hover:text-white transition-all shrink-0 border border-white/5"
+                    className="absolute right-4 top-5 w-7 h-7 flex items-center justify-center rounded-lg bg-surface hover:bg-white/15 text-muted hover:text-white transition-all shrink-0 border border-subtle"
                 >
                     <X size={14} strokeWidth={3} />
                 </button>
@@ -111,7 +126,7 @@ export function WelcomeOverlay({ onClose, appLanguage, onLanguageToggle }: Welco
                             exit={{ opacity: 0, scale: 0.98 }}
                             className="flex flex-col items-center justify-center min-h-full pb-6 text-center"
                         >
-                            <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mb-4 relative">
+                            <div className="w-14 h-14 rounded-2xl bg-surface border border-subtle flex items-center justify-center mb-4 relative">
                                 <Image src="/logo.png" alt="Logo" width={36} height={36} className="object-contain" />
                                 <div className="absolute -bottom-1 -right-1 bg-orange-600 w-3.5 h-3.5 rounded-full flex items-center justify-center border-2 border-black/50">
                                     <Zap size={7} className="text-white" fill="white" />
@@ -123,11 +138,11 @@ export function WelcomeOverlay({ onClose, appLanguage, onLanguageToggle }: Welco
                             </h1>
                             <div className="w-12 h-1 bg-orange-600/60 rounded-full mt-3 mb-4" />
 
-                            <p className="text-[12px] text-white/50 leading-relaxed max-w-[280px] font-bold italic">
+                            <p className="text-[12px] text-muted leading-relaxed max-w-[280px] font-bold italic">
                                 {C.welcome.subtitle}
                             </p>
 
-                            <div className="mt-6 w-full max-w-[340px] p-4 rounded-xl bg-white/3 border border-white/10 space-y-3">
+                            <div className="mt-6 w-full max-w-[340px] p-4 rounded-xl bg-white/3 border border-subtle space-y-3">
                                 <div className="text-[8px] font-black text-white/20 uppercase tracking-[0.4em] text-center mb-0.5">Production Release v{APP_VERSION}</div>
                                 <div className="flex flex-col gap-3 mx-auto w-fit">
                                     {[
@@ -169,8 +184,8 @@ export function WelcomeOverlay({ onClose, appLanguage, onLanguageToggle }: Welco
                                     granted: micGranted
                                 }
                             ].map((p, i) => (
-                                <div key={i} className={`flex items-center gap-4 p-4 rounded-xl bg-white/5 border transition-all group ${p.granted ? 'border-green-500/50 hover:bg-green-500/5' : 'border-white/5 hover:bg-white/10'}`}>
-                                    <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center shrink-0 border border-white/10 group-hover:border-white/20">
+                                <div key={i} className={`flex items-center gap-4 p-4 rounded-xl bg-surface border transition-all group ${p.granted ? 'border-green-500/50 hover:bg-green-500/5' : 'border-subtle hover:bg-surface-hover'}`}>
+                                    <div className="w-10 h-10 rounded-lg bg-surface flex items-center justify-center shrink-0 border border-subtle group-hover:border-strong">
                                         {p.granted ? <Check className="text-green-500" size={17} strokeWidth={3} /> : p.icon}
                                     </div>
                                     <div className="flex-1 min-w-0 py-0.5">
@@ -218,7 +233,7 @@ export function WelcomeOverlay({ onClose, appLanguage, onLanguageToggle }: Welco
                             ].filter(f => f.q).map((f, i) => (
                                 <div key={i} className="space-y-2">
                                     <div className="text-[11px] font-black text-white/25 uppercase tracking-wider ml-1">{f.q}</div>
-                                    <div className="p-4 rounded-xl bg-white/4 border border-white/5 text-[12px] text-white/50 leading-relaxed font-bold italic opacity-80 hover:opacity-100 transition-opacity">
+                                    <div className="p-4 rounded-xl bg-white/4 border border-subtle text-[12px] text-muted leading-relaxed font-bold italic opacity-80 hover:opacity-100 transition-opacity">
                                         {f.a}
                                     </div>
                                 </div>
@@ -235,7 +250,7 @@ export function WelcomeOverlay({ onClose, appLanguage, onLanguageToggle }: Welco
                         >
                             <div className="text-[9px] font-black text-white/20 uppercase tracking-[0.3em] ml-1 mb-2">{C.about.title}</div>
                             <div className="flex items-center gap-4 px-1">
-                                <div className="w-[60px] h-[60px] rounded-[16px] border border-white/10 flex items-center justify-center shadow-xl overflow-hidden shrink-0 relative bg-white/5">
+                                <div className="w-[60px] h-[60px] rounded-[16px] border border-subtle flex items-center justify-center shadow-xl overflow-hidden shrink-0 relative bg-surface">
                                     <Image src="/logo.png" alt="NYX Vox" width={48} height={48} className="object-cover opacity-80" />
                                 </div>
                                 <div>
@@ -243,7 +258,7 @@ export function WelcomeOverlay({ onClose, appLanguage, onLanguageToggle }: Welco
                                         <span className="text-[20px] font-bold text-white tracking-tight">{C.about.app}</span>
                                         <span className="text-[12px] text-white/30 font-mono">v{APP_VERSION}</span>
                                     </div>
-                                    <div className="text-[12px] text-white/50 mt-0.5 leading-relaxed font-medium">{APP_DESCRIPTION[appLanguage]}</div>
+                                    <div className="text-[12px] text-muted mt-0.5 leading-relaxed font-medium">{APP_DESCRIPTION[appLanguage]}</div>
                                 </div>
                             </div>
 
@@ -251,7 +266,7 @@ export function WelcomeOverlay({ onClose, appLanguage, onLanguageToggle }: Welco
                                 <div className="text-[11px] font-bold text-white/30 uppercase tracking-widest leading-none">{C.about.author}</div>
                                 <div>
                                     <div className="text-[15px] font-bold text-white tracking-tight">{CREATOR_INFO.name}</div>
-                                    <div className="text-[11px] text-white/40 font-mono mt-0.5 leading-none">{CREATOR_INFO.role}</div>
+                                    <div className="text-[11px] text-muted font-mono mt-0.5 leading-none">{CREATOR_INFO.role}</div>
                                 </div>
                                 <div className="flex items-center gap-2 pt-1 flex-wrap">
                                     {CREATOR_INFO.links.map((s, i) => (
@@ -261,7 +276,7 @@ export function WelcomeOverlay({ onClose, appLanguage, onLanguageToggle }: Welco
                                             target="_blank" 
                                             rel="noopener noreferrer"
                                             title={s.title}
-                                            className={`w-9 h-9 flex items-center justify-center rounded-xl bg-white/5 border border-white/8 text-white/30 transition-all duration-200 ${s.color} hover:bg-white/10`}
+                                            className={`w-9 h-9 flex items-center justify-center rounded-xl bg-surface border border-white/8 text-white/30 transition-all duration-200 ${s.color} hover:bg-surface-hover`}
                                             onClick={(e) => {
                                                 e.preventDefault();
                                                 invoke('open_url', { url: s.href }).catch(() => window.open(s.href, '_blank'));
@@ -275,14 +290,14 @@ export function WelcomeOverlay({ onClose, appLanguage, onLanguageToggle }: Welco
 
                             <div className="p-4 rounded-2xl bg-white/4 border border-white/8">
                                 <div className="text-[11px] font-bold text-white/30 uppercase tracking-widest mb-2">{C.about.mission}</div>
-                                <div className="text-[13px] text-white/80 italic leading-relaxed font-medium">&ldquo;{MISSION[appLanguage]}&rdquo;</div>
+                                <div className="text-[13px] text-primary italic leading-relaxed font-medium">&ldquo;{MISSION[appLanguage]}&rdquo;</div>
                             </div>
 
                             <div className="p-4 rounded-2xl bg-white/4 border border-white/8">
                                 <div className="text-[11px] font-bold text-white/30 uppercase tracking-widest mb-3">{C.about.future}</div>
                                 <div className="space-y-1.5">
                                     {FUTURE_ITEMS[appLanguage].map((item, i) => (
-                                        <div key={i} className="flex items-center gap-2 text-[12px] text-white/50 font-bold italic">
+                                        <div key={i} className="flex items-center gap-2 text-[12px] text-muted font-bold italic">
                                             <ChevronRight className="w-3 h-3 text-white/20 shrink-0" />
                                             {item}
                                         </div>
@@ -307,19 +322,19 @@ export function WelcomeOverlay({ onClose, appLanguage, onLanguageToggle }: Welco
                                     </div>
                                     <div className="text-[14px] font-black text-white uppercase tracking-wider">{C.welcome.fixQuarantine}</div>
                                 </div>
-                                <p className="text-[12px] text-white/40 leading-relaxed font-bold italic">
+                                <p className="text-[12px] text-muted leading-relaxed font-bold italic">
                                     {C.welcome.fixQuarantineDesc}
                                 </p>
                                 <button
                                     onClick={() => invoke('fix_quarantine').catch(console.error)}
-                                    className="w-full py-3 rounded-xl bg-white/5 hover:bg-white/10 text-white font-black text-[11px] uppercase tracking-[0.2em] border border-white/10 transition-all active:scale-95"
+                                    className="w-full py-3 rounded-xl bg-surface hover:bg-surface-hover text-white font-black text-[11px] uppercase tracking-[0.2em] border border-subtle transition-all active:scale-95"
                                 >
                                     {C.welcome.fixBtn}
                                 </button>
                             </div>
-                            <div className="p-5 rounded-2xl bg-white/3 border border-white/5 space-y-3">
+                            <div className="p-5 rounded-2xl bg-white/3 border border-subtle space-y-3">
                                 <div className="text-[11px] font-black text-white/30 uppercase tracking-widest">{C.welcome.updateWarningTitle}</div>
-                                <p className="text-[12px] text-white/40 leading-relaxed font-bold italic">{C.welcome.updateWarning}</p>
+                                <p className="text-[12px] text-muted leading-relaxed font-bold italic">{C.welcome.updateWarning}</p>
                             </div>
                         </motion.div>
                     )}
@@ -327,7 +342,7 @@ export function WelcomeOverlay({ onClose, appLanguage, onLanguageToggle }: Welco
             </div>
 
             {/* FOOTER */}
-            <footer className="absolute bottom-0 left-0 right-0 p-3 bg-[#18181B] border-t border-white/5 flex flex-col items-center gap-3 z-20 rounded-b-[28px] shadow-[0_-10px_20px_rgba(0,0,0,0.5)]">
+            <footer className="absolute bottom-0 left-0 right-0 p-3 bg-panel border-t border-subtle flex flex-col items-center gap-3 z-20 rounded-b-[28px] shadow-[0_-10px_20px_rgba(0,0,0,0.5)]">
                 <div className="flex items-center gap-5">
                     <label className="flex items-center gap-2.5 cursor-pointer group">
                         <input
@@ -336,28 +351,28 @@ export function WelcomeOverlay({ onClose, appLanguage, onLanguageToggle }: Welco
                             checked={welcomeDoNotShowAgain}
                             onChange={(e) => setWelcomeDoNotShowAgain(e.target.checked)}
                         />
-                        <div className={`w-4 h-4 border-2 rounded-md transition-all flex items-center justify-center ${welcomeDoNotShowAgain ? 'bg-orange-600 border-orange-600' : 'bg-white/5 border-white/20 group-hover:border-white/40'}`}>
+                        <div className={`w-4 h-4 border-2 rounded-md transition-all flex items-center justify-center ${welcomeDoNotShowAgain ? 'bg-orange-600 border-orange-600' : 'bg-surface border-strong group-hover:border-white/40'}`}>
                             {welcomeDoNotShowAgain && <Check className="w-3 h-3 text-white" strokeWidth={5} />}
                         </div>
-                        <span className="text-[9px] text-white/30 group-hover:text-white/60 transition-colors font-black uppercase tracking-widest">
+                        <span className="text-[9px] text-white/30 group-hover:text-muted transition-colors font-black uppercase tracking-widest">
                             {C.welcome.dontShow}
                         </span>
                     </label>
 
-                    <div className="w-[1px] h-3 bg-white/10" />
+                    <div className="w-[1px] h-3 bg-surface-hover" />
 
                     <button
                         onClick={onLanguageToggle}
-                        className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-white/5 hover:bg-white/10 transition-all border border-white/5"
+                        className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-surface hover:bg-surface-hover transition-all border border-subtle"
                     >
                         <Globe className="w-3 h-3 text-white/30" />
-                        <span className="text-[9px] font-black text-white/40 uppercase tracking-widest">{appLanguage}</span>
+                        <span className="text-[9px] font-black text-muted uppercase tracking-widest">{appLanguage}</span>
                     </button>
                 </div>
 
                 <button
                     onClick={handleExit}
-                    className="w-full max-w-[240px] h-10 rounded-xl bg-[#F97316] hover:bg-orange-500 active:scale-[0.98] transition-all text-white font-black text-[12px] uppercase tracking-[0.2em] flex items-center justify-center gap-3 border border-white/10 shrink-0 shadow-[0_4px_12px_rgba(249,115,22,0.3)]"
+                    className="w-full max-w-[240px] h-10 rounded-xl bg-[#F97316] hover:bg-orange-500 active:scale-[0.98] transition-all text-white font-black text-[12px] uppercase tracking-[0.2em] flex items-center justify-center gap-3 border border-subtle shrink-0 shadow-[0_4px_12px_rgba(249,115,22,0.3)]"
                 >
                     <span>{C.welcome.startBtn}</span>
                     <Zap className="w-3.5 h-3.5" fill="currentColor" />

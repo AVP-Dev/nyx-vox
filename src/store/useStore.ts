@@ -1,25 +1,32 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 
 interface AppState {
-    isRecording: boolean;
     isProcessing: boolean;
     transcriptText: string;
-    language: 'ru' | 'en';
-    setRecording: (recording: boolean) => void;
+    compactResultWindow: boolean;
     setProcessing: (processing: boolean) => void;
     setTranscript: (textOrFn: string | ((prev: string) => string)) => void;
-    setLanguage: (lang: 'ru' | 'en') => void;
+    setCompactResultWindow: (val: boolean) => void;
 }
 
-export const useStore = create<AppState>((set) => ({
-    isRecording: false,
-    isProcessing: false,
-    transcriptText: "",
-    language: "ru",
-    setRecording: (recording) => set({ isRecording: recording }),
-    setProcessing: (processing) => set({ isProcessing: processing }),
-    setTranscript: (textOrFn) => set((state) => ({
-        transcriptText: typeof textOrFn === 'function' ? textOrFn(state.transcriptText) : textOrFn
-    })),
-    setLanguage: (lang) => set({ language: lang }),
-}));
+export const useStore = create<AppState>()(
+    persist(
+        (set) => ({
+            isProcessing: false,
+            transcriptText: "",
+            compactResultWindow: false,
+            setProcessing: (processing) => set({ isProcessing: processing }),
+            setTranscript: (textOrFn) => set((state) => ({
+                transcriptText: typeof textOrFn === 'function' ? textOrFn(state.transcriptText) : textOrFn
+            })),
+            setCompactResultWindow: (compactResultWindow) => set({ compactResultWindow })
+        }),
+        {
+            name: 'nyx-vox-ui-settings',
+            partialize: (state) => ({ 
+                compactResultWindow: state.compactResultWindow 
+            }),
+        }
+    )
+);

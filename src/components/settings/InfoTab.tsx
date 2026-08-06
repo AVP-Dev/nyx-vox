@@ -47,13 +47,13 @@ export const InfoTab: React.FC<InfoTabProps> = ({
                 </SectionTitle>
                 <div className="space-y-3">
                     {c.guide.stepsHead.map((head: string, i: number) => (
-                        <div key={i} className="flex gap-3 p-3 rounded-xl bg-white/3 border border-white/5">
-                            <div className="shrink-0 w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-white/40">
+                        <div key={i} className="flex gap-3 p-3 rounded-xl bg-white/3 border border-subtle">
+                            <div className="shrink-0 w-8 h-8 rounded-lg bg-surface flex items-center justify-center text-muted">
                                 <StepIcon index={i} />
                             </div>
                             <div>
-                                <div className="text-[12px] font-bold text-white/80">{head}</div>
-                                <div className="text-[11px] text-white/40 leading-snug">{c.guide.stepsBody[i]}</div>
+                                <div className="text-[12px] font-bold text-primary">{head}</div>
+                                <div className="text-[11px] text-muted leading-snug">{c.guide.stepsBody[i]}</div>
                             </div>
                         </div>
                     ))}
@@ -74,7 +74,7 @@ export const InfoTab: React.FC<InfoTabProps> = ({
                         </div>
                         <div className="text-[11px] text-white/30 mt-0.5">v{APP_VERSION}</div>
                     </div>
-                    <button onClick={handleCheckUpdates} className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-white/80 text-[11px] font-bold transition-all uppercase tracking-widest">
+                    <button onClick={handleCheckUpdates} className="px-3 py-1.5 rounded-lg bg-surface-hover hover:bg-white/15 text-primary text-[11px] font-bold transition-all uppercase tracking-widest">
                         {updateStatus === 'checking' ? c.settings.checking : (updateStatus === 'available' ? c.settings.checkUpdatesBtn : c.settings.checkUpdates)}
                     </button>
                 </div>
@@ -89,7 +89,7 @@ export const InfoTab: React.FC<InfoTabProps> = ({
                 </SectionTitle>
                 <div className="space-y-4">
                     <div className="flex items-center gap-4 px-1">
-                        <div className="w-[60px] h-[60px] rounded-[16px] border border-white/10 flex items-center justify-center shadow-xl overflow-hidden shrink-0 relative bg-white/5">
+                        <div className="w-[60px] h-[60px] rounded-[16px] border border-subtle flex items-center justify-center shadow-xl overflow-hidden shrink-0 relative bg-surface">
                             <Image src="/logo.png" alt="NYX Vox" width={48} height={48} className="object-cover opacity-80" />
                         </div>
                         <div>
@@ -97,7 +97,7 @@ export const InfoTab: React.FC<InfoTabProps> = ({
                                 <span className="text-[18px] font-bold text-white tracking-tight">{c.about.app}</span>
                                 <span className="text-[12px] text-white/30 font-mono">v{APP_VERSION}</span>
                             </div>
-                            <div className="text-[11px] text-white/50 mt-0.5 leading-relaxed font-medium">
+                            <div className="text-[11px] text-muted mt-0.5 leading-relaxed font-medium">
                                 {APP_DESCRIPTION[lang as keyof typeof APP_DESCRIPTION] || APP_DESCRIPTION.en}
                             </div>
                         </div>
@@ -109,7 +109,7 @@ export const InfoTab: React.FC<InfoTabProps> = ({
                         </div>
                         <div>
                             <div className="text-[14px] font-bold text-white tracking-tight">{CREATOR_INFO.name}</div>
-                            <div className="text-[10px] text-white/40 font-mono mt-0.5 leading-none">{CREATOR_INFO.role}</div>
+                            <div className="text-[10px] text-muted font-mono mt-0.5 leading-none">{CREATOR_INFO.role}</div>
                         </div>
                         <div className="flex items-center gap-2 pt-1 flex-wrap">
                             {CREATOR_INFO.links.map((s, i) => (
@@ -119,7 +119,7 @@ export const InfoTab: React.FC<InfoTabProps> = ({
                                     target="_blank" 
                                     rel="noopener noreferrer"
                                     title={s.title}
-                                    className={`w-8 h-8 flex items-center justify-center rounded-lg bg-white/5 border border-white/8 text-white/30 transition-all duration-200 ${s.color} hover:bg-white/10`}
+                                    className={`w-8 h-8 flex items-center justify-center rounded-lg bg-surface border border-white/8 text-white/30 transition-all duration-200 ${s.color} hover:bg-surface-hover`}
                                 >
                                     {s.icon}
                                 </a>
@@ -142,7 +142,7 @@ export const InfoTab: React.FC<InfoTabProps> = ({
                         </div>
                         <div className="space-y-1.5">
                             {(FUTURE_ITEMS[lang as keyof typeof FUTURE_ITEMS] || FUTURE_ITEMS.en).map((item, i) => (
-                                <div key={i} className="flex items-center gap-2 text-[11px] text-white/50 font-bold italic">
+                                <div key={i} className="flex items-center gap-2 text-[11px] text-muted font-bold italic">
                                     <ChevronRight className="w-3 h-3 text-white/20 shrink-0" />
                                     {item}
                                 </div>

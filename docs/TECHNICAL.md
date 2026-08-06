@@ -15,7 +15,7 @@ This document covers the architectural and technical aspects of NYX-Vox, a fast,
 ![Tauri](https://img.shields.io/badge/Tauri-2.x-yellow.svg)
 
 > [!IMPORTANT]
-> **Core Architecture:** NYX-Vox follows a hybrid approach where high-performance audio processing (cpal) and AI inference (whisper.cpp) are handled by the Rust backend, while the glassmorphism UI is rendered by a decoupled Next.js 16 environment. Communication is strictly typed via Tauri's IPC bridge.
+> **Core Architecture:** NYX-Vox follows a hybrid approach where high-performance audio processing (cpal), STT cleanup and AI inference (whisper.cpp / Core ML on macOS when available) are handled by the Rust backend, while the glassmorphism UI is rendered by a decoupled Next.js 16 environment. Communication is strictly typed via Tauri's IPC bridge.
 
 ---
 
@@ -24,10 +24,12 @@ This document covers the architectural and technical aspects of NYX-Vox, a fast,
 ```mermaid
 graph TD
     A["Tauri Core (Rust)"] -->|Hardware Thread| C["Audio Capture (cpal)"]
-    A -->|1. Offline Engine| B["whisper-rs Engine (Local)"]
+    A -->|1. Offline Engine| B["whisper-rs Engine (Local + Core ML)"]
     A -->|2. Cloud Engine| G["Deepgram API (Remote)"]
     A -->|3. Cloud Engine| H["Groq Whisper API (Remote)"]
-    A -->|Future: Post-Process| I["LLM Integration (Grammar/Format)"]
+    A -->|4. Cloud Engine| J["Gemini API (STT)"]
+    A -->|5. Cloud Engine| K["GigaChat API (STT)"]
+    A -->|LLM Formatting| I["AI Formatting (Gemini/DeepSeek/Qwen/Groq/GigaChat)"]
     A -->|IPC Bridge| D["React Frontend (Next.js)"]
     D --> E["Tailwind v4 Styling"]
     D --> F["Zustand Frontend State"]

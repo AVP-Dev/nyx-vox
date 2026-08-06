@@ -26,12 +26,27 @@
 *.log
 
 # AI Agents & Assistants
+.claude/
+.commandcode/
 .agent/
 .cline/
 .cursor/
 .history/
 .gemini/
 .qwen/
+
+# Agent workflow templates (not project code)
+METHODOLOGY.md
+NEW-PROJECT-INIT.md
+PROMPT-TEMPLATE-dev-session.md
+QUICKSTART.md
+README-SETUP.md
+SESSION-END.md
+SESSION-START.md
+document-monorepo.sh
+
+# Session-specific audit reports (point-in-time, not permanent docs)
+docs/_reports/
 
 # debug
 npm-debug.log*
@@ -83,3 +98,9 @@ build/
 *.dmg
 *.exe
 *.msi
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/

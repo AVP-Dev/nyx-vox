@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
     X, Globe, Cpu, Key, History as HistoryIcon, Info,
     Settings as SettingsIcon,
@@ -6,6 +6,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
+import Markdown from 'react-markdown';
 
 // Internal Components
 import { DICTIONARY } from './settings/translations';
@@ -16,8 +17,11 @@ import { EnginesTab, type EngineHelp } from './settings/EnginesTab';
 import { KeysTab } from './settings/KeysTab';
 import { HistoryTab } from './settings/HistoryTab';
 import { InfoTab } from './settings/InfoTab';
+import { ToastContainer, useToast } from './ui/Toast';
+import { ConfirmDialog, useConfirm } from './ui/ConfirmDialog';
+import type { FormattingMode } from '@/lib/types';
 
-export const APP_VERSION = '1.1.0';
+export const APP_VERSION = '1.2.0';
 
 interface EngineHelpItem {
     title: string;
@@ -30,8 +34,9 @@ const ENGINE_HELP: Record<string, Record<string, EngineHelpItem>> = {
     ru: {
         deepgram: { title: 'Deepgram', badge: 'Pro', type: 'Cloud', desc: 'Молниеносно, пунктуация, диктофонное качество.' },
         groq: { title: 'Groq', badge: 'Free', type: 'Cloud', desc: 'Whisper на стероидах. Бесплатно и очень быстро.' },
-        gemini: { title: 'Gemini', badge: 'Soto', type: 'Multimodal', desc: 'Google AI. Высочайшая точность + стиль.' },
+        gemini: { title: 'Gemini', badge: 'SOTA', type: 'Multimodal', desc: 'Google AI. Высочайшая точность + стиль.' },
         whisper: { title: 'Local', badge: 'Privasi', type: 'Offline', desc: '100% приватно. Работает без интернета.' },
+        gigachat: { title: 'GigaChat', badge: 'Сбер', type: 'LLM', desc: 'SberAI. Быстрая, доступна без VPN.' },
         formatting: { title: 'Formatting', badge: 'AI', type: 'LLM', desc: '✨ AI режим: автоматически исправляет ошибки, убирает "эээ" и расставляет абзацы.' }
     },
     en: {
@@ -39,6 +44,7 @@ const ENGINE_HELP: Record<string, Record<string, EngineHelpItem>> = {
         groq: { title: 'Groq', badge: 'FREE', type: 'Cloud', desc: 'Blazing fast Whisper LPU. Best value.' },
         gemini: { title: 'Gemini', badge: 'SOTA', type: 'Multimodal', desc: 'Google AI. Premium accuracy and formatting.' },
         whisper: { title: 'Local', badge: 'PRIVACY', type: 'Offline', desc: '100% private. Works without internet.' },
+        gigachat: { title: 'GigaChat', badge: 'Sber', type: 'LLM', desc: 'SberAI. Russian neural network, works without VPN.' },
         formatting: { title: 'Formatting', badge: 'AI', type: 'LLM', desc: '✨ AI mode: fixes typos, removes filler words, and structures text into paragraphs.' }
     }
 };
@@ -60,16 +66,14 @@ interface SettingsPanelProps {
     formattingStyle: 'casual' | 'professional';
     onSetFormattingStyle: (s: 'casual' | 'professional') => void;
     // Shared settings
-    sttMode: 'deepgram' | 'whisper' | 'groq' | 'gemini';
-    onSetSttMode: (m: 'deepgram' | 'whisper' | 'groq' | 'gemini') => void;
-    dgLanguage: 'auto' | 'ru' | 'en';
-    onSetDgLanguage: (l: 'auto' | 'ru' | 'en') => void;
-    whisperLanguage: 'auto' | 'ru' | 'en';
-    onSetWhisperLanguage: (l: 'auto' | 'ru' | 'en') => void;
-    groqLanguage: 'auto' | 'ru' | 'en';
-    onSetGroqLanguage: (l: 'auto' | 'ru' | 'en') => void;
-    formattingMode: 'none' | 'gemini' | 'deepseek' | 'qwen' | 'groq';
-    onSetFormattingMode: (m: 'none' | 'gemini' | 'deepseek' | 'qwen' | 'groq') => void;
+    sttMode: 'deepgram' | 'whisper' | 'groq' | 'gemini' | 'gigachat';
+    onSetSttMode: (m: 'deepgram' | 'whisper' | 'groq' | 'gemini' | 'gigachat') => void;
+    formattingMode: FormattingMode;
+    onSetFormattingMode: (m: FormattingMode) => void;
+    noiseGate: number;
+    onSetNoiseGate: (v: number) => void;
+    audioGain: number;
+    onSetAudioGain: (v: number) => void;
 }
 
 export const SettingsPanel: React.FC<SettingsPanelProps> = ({ 
@@ -80,13 +84,14 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     autoPauseMedia, handleToggleAutoPauseMedia,
     formattingStyle, onSetFormattingStyle,
     sttMode, onSetSttMode,
-    dgLanguage, onSetDgLanguage,
-    whisperLanguage, onSetWhisperLanguage,
-    groqLanguage, onSetGroqLanguage,
-    formattingMode, onSetFormattingMode
+    formattingMode, onSetFormattingMode,
+    noiseGate, onSetNoiseGate,
+    audioGain, onSetAudioGain,
 }) => {
     const [tab, setTab] = useState('general');
     const [showHelp, setShowHelp] = useState<string | null>(null);
+    const { toasts, addToast, dismissToast } = useToast();
+    const confirmDialog = useConfirm();
 
     // Settings State
     const [whisperModel, setWhisperModel] = useState<'small' | 'medium' | 'turbo'>('small');
@@ -103,6 +108,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     const [geminiApiKey, setGeminiApiKey] = useState('');
     const [qwenApiKey, setQwenApiKey] = useState('');
     const [deepseekApiKey, setDeepseekApiKey] = useState('');
+    const [gigachatApiKey, setGigachatApiKey] = useState('');
     const [showKeys, setShowKeys] = useState<Record<string, boolean>>({});
     const [savedStatus, setSavedStatus] = useState<Record<string, boolean>>({});
     const [accGranted, setAccGranted] = useState<boolean | null>(null);
@@ -117,6 +123,14 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     const [updateStatus, setUpdateStatus] = useState('idle');
     const [showUpdatePopup, setShowUpdatePopup] = useState(false);
     const [releaseData, setReleaseData] = useState<{ version: string; url: string; notes: string } | null>(null);
+    const [notesLang, setNotesLang] = useState<'ru' | 'en'>('ru');
+
+    const parsedNotes = useMemo(() => {
+        if (!releaseData?.notes) return { en: '', ru: '' };
+        const parts = releaseData.notes.split(/\n---\n/);
+        if (parts.length < 2) return { en: releaseData.notes, ru: releaseData.notes };
+        return { en: parts[0].trim(), ru: parts.slice(1).join('\n---\n').trim() };
+    }, [releaseData?.notes]);
 
     const c = DICTIONARY[lang as keyof typeof DICTIONARY] || DICTIONARY.en;
 
@@ -125,35 +139,41 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
             try {
                 const acc = await invoke<boolean>('check_accessibility');
                 const mic = await invoke<boolean>('check_microphone_permission');
-                
-                // If permission was just granted (transition to true)
-                // we automatically bring the window back to front
-                const accJustGranted = acc && (accGranted === false || accGranted === null);
-                const micJustGranted = mic && (micGranted === false || micGranted === null);
 
-                if (accJustGranted || micJustGranted) {
-                    const { getCurrentWindow } = await import('@tauri-apps/api/window');
-                    const win = getCurrentWindow();
-                    await win.show();
-                    await win.setFocus();
-                    if (alwaysOnTop) {
-                        try {
-                            await win.setAlwaysOnTop(true);
-                        } catch (e) { console.error(e); }
-                    }
-                }
+                setAccGranted(prevAcc => {
+                    setMicGranted(prevMic => {
+                        const accJustGranted = acc && (prevAcc === false || prevAcc === null);
+                        const micJustGranted = mic && (prevMic === false || prevMic === null);
 
-                setAccGranted(acc);
-                setMicGranted(mic);
-            } catch (e) {
-                console.error('Failed to check permissions:', e);
+                        if (accJustGranted || micJustGranted) {
+                            import('@tauri-apps/api/window').then(async ({ getCurrentWindow }) => {
+                                const win = getCurrentWindow();
+                                await win.show();
+                                await win.setFocus();
+                                if (alwaysOnTop) {
+                                    try { await win.setAlwaysOnTop(true); } catch { /* ignore */ }
+                                }
+                            });
+                        }
+
+                        return mic;
+                    });
+                    return acc;
+                });
+            } catch {
+                // Permission check failed — non-critical
             }
         };
 
         checkPerms();
-        const interval = setInterval(checkPerms, 2000);
-        return () => clearInterval(interval);
-    }, [accGranted, micGranted, alwaysOnTop]);
+        let unlistenFn: (() => void) | null = null;
+        if (typeof window !== 'undefined' && window.__TAURI_INTERNALS__) {
+            import('@tauri-apps/api/event').then(({ listen }) => {
+                listen('tauri://focus', () => checkPerms()).then(fn => { unlistenFn = fn; });
+            });
+        }
+        return () => { if (unlistenFn) unlistenFn(); };
+    }, [alwaysOnTop]);
 
     useEffect(() => {
         const loadSettings = async () => {
@@ -162,16 +182,17 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 if (savedLang) setLang(savedLang as 'ru' | 'en');
 
                 const wm = await invoke<'small' | 'medium' | 'turbo'>('get_whisper_model_type'); setWhisperModel(wm);
-                
-                const keys = ['deepgram', 'groq', 'gemini', 'qwen', 'deepseek'];
-                for (const s of keys) {
-                    const k = await invoke<string>('get_api_key', { service: s });
-                    if (s === 'deepgram') setDgApiKey(k);
-                    else if (s === 'groq') setGroqApiKey(k);
-                    else if (s === 'gemini') setGeminiApiKey(k);
-                    else if (s === 'qwen') setQwenApiKey(k);
-                    else if (s === 'deepseek') setDeepseekApiKey(k);
-                }
+
+                const services = ['deepgram', 'groq', 'gemini', 'qwen', 'deepseek', 'gigachat'] as const;
+                const apiKeys = await Promise.all(
+                    services.map(s => invoke<string>('get_api_key', { service: s }))
+                );
+                setDgApiKey(apiKeys[0]);
+                setGroqApiKey(apiKeys[1]);
+                setGeminiApiKey(apiKeys[2]);
+                setQwenApiKey(apiKeys[3]);
+                setDeepseekApiKey(apiKeys[4]);
+                setGigachatApiKey(apiKeys[5]);
 
                 const hist = await invoke<[boolean, string]>('get_history_settings');
                 setHistorySmartCleanup(hist[0]);
@@ -208,18 +229,12 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         setModelAvailable(avail);
     };
 
-    const handleModeChange = async (m: 'deepgram' | 'whisper' | 'groq' | 'gemini') => {
+    const handleModeChange = async (m: 'deepgram' | 'whisper' | 'groq' | 'gemini' | 'gigachat') => {
         onSetSttMode(m);
         await invoke('set_stt_mode', { mode: m });
     };
 
-    const handleLanguageChange = async (l: 'auto' | 'ru' | 'en') => {
-        if (sttMode === 'deepgram') { onSetDgLanguage(l); await invoke('set_deepgram_language', { lang: l }); }
-        else if (sttMode === 'whisper') { onSetWhisperLanguage(l); await invoke('set_whisper_language', { lang: l }); }
-        else if (sttMode === 'groq') { onSetGroqLanguage(l); await invoke('set_groq_language', { lang: l }); }
-    };
-
-    const handleFormattingModeChange = async (m: 'none' | 'gemini' | 'deepseek' | 'qwen' | 'groq') => {
+    const handleFormattingModeChange = async (m: FormattingMode) => {
         onSetFormattingMode(m);
         await invoke('set_formatting_mode', { mode: m });
     };
@@ -235,11 +250,11 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         setIsPaused(false);
         setDownloadProgress('0%');
         try { await invoke('download_whisper_model'); }
-        catch (err) { 
+        catch (err) {
             if (err !== 'Загрузка отменена') {
-                alert(err); 
+                addToast(String(err), 'error');
             }
-            setDownloading(false); 
+            setDownloading(false);
         }
     };
 
@@ -265,27 +280,34 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
             await invoke('delete_whisper_model');
             setModelAvailable(false);
         } catch (err) {
-            alert(`Error deleting model: ${err}`);
-            console.error("Delete model error:", err);
+            addToast(`${lang === 'ru' ? 'Ошибка удаления модели' : 'Error deleting model'}: ${err}`, 'error');
         }
     };
 
     const handleSaveKey = async (service: string, key: string) => {
         try {
             await invoke('cmd_set_api_key', { service, key });
-            setSavedStatus({ ...savedStatus, [service]: true });
-            setTimeout(() => setSavedStatus({ ...savedStatus, [service]: false }), 2000);
-        } catch (err) { alert(err); }
+            setSavedStatus(prev => ({ ...prev, [service]: true }));
+            setTimeout(() => setSavedStatus(prev => ({ ...prev, [service]: false })), 2000);
+        } catch (err) { addToast(String(err), 'error'); }
     };
 
     const handleDeleteKey = async (service: string) => {
-        if (confirm(lang === 'ru' ? 'Удалить ключ?' : 'Delete key?')) {
+        const confirmed = await confirmDialog.confirm({
+            title: lang === 'ru' ? 'Удалить ключ?' : 'Delete key?',
+            message: lang === 'ru' ? 'Это действие нельзя отменить.' : 'This action cannot be undone.',
+            confirmLabel: lang === 'ru' ? 'Удалить' : 'Delete',
+            cancelLabel: lang === 'ru' ? 'Отмена' : 'Cancel',
+            destructive: true,
+        });
+        if (confirmed) {
             await invoke('cmd_set_api_key', { service, key: '' });
             if (service === 'deepgram') setDgApiKey('');
             else if (service === 'groq') setGroqApiKey('');
             else if (service === 'gemini') setGeminiApiKey('');
             else if (service === 'qwen') setQwenApiKey('');
             else if (service === 'deepseek') setDeepseekApiKey('');
+            else if (service === 'gigachat') setGigachatApiKey('');
         }
     };
 
@@ -297,8 +319,11 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
     const handleClearHistory = async () => {
         if (!isConfirmingClear) { setIsConfirmingClear(true); setTimeout(() => setIsConfirmingClear(false), 3000); return; }
-        try { await invoke('clear_history'); setIsConfirmingClear(false); alert(lang === 'ru' ? 'Очищено' : 'Cleared'); }
-        catch (err) { alert(err); }
+        try {
+            await invoke('clear_history');
+            setIsConfirmingClear(false);
+            addToast(lang === 'ru' ? 'Очищено' : 'Cleared', 'success');
+        } catch (err) { addToast(String(err), 'error'); }
     };
 
     const handleOpenHistory = () => invoke('open_history_window');
@@ -326,40 +351,38 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                     setShowUpdatePopup(true);
                 } else {
                     setUpdateStatus('idle');
-                    alert(lang === 'ru' ? 'У вас установлена самая актуальная версия!' : 'You have the latest version installed!');
+                    addToast(lang === 'ru' ? 'У вас установлена самая актуальная версия!' : 'You have the latest version installed!', 'success');
                 }
             } else {
                 setUpdateStatus('idle');
-                alert(lang === 'ru' ? 'Не удалось проверить обновления.' : 'Failed to check for updates.');
+                addToast(lang === 'ru' ? 'Не удалось проверить обновления.' : 'Failed to check for updates.', 'error');
             }
-        } catch (err) {
+        } catch {
             setUpdateStatus('idle');
-            alert(lang === 'ru' ? 'Ошибка при проверке обновлений.' : 'Error checking for updates.');
+            addToast(lang === 'ru' ? 'Ошибка при проверке обновлений.' : 'Error checking for updates.', 'error');
         }
     };
 
     return (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center p-6">
-            <div className="absolute inset-0 bg-black/70 backdrop-blur-md" onClick={onClose} />
-            
-            <motion.div 
-                initial={{ scale: 0.95, y: 30, opacity: 0 }} 
-                animate={{ scale: 1, y: 0, opacity: 1 }} 
-                className="w-full h-full bg-[#18181B] border border-white/10 rounded-[32px] shadow-[0_20px_40px_rgba(0,0,0,0.4)] overflow-hidden flex flex-col relative z-10"
-            >
+        <motion.div 
+            initial={{ opacity: 0 }} 
+            animate={{ opacity: 1, transition: { duration: 0.3 } }} 
+            exit={{ opacity: 0, transition: { duration: 0.2 } }}
+            className="w-full h-full bg-panel border border-subtle rounded-[32px] overflow-hidden flex flex-col relative z-10"
+        >
                 {/* Header Section */}
                 <div className="shrink-0 pt-5 pb-3 px-5 flex flex-col gap-4 bg-gradient-to-b from-white/[0.02] to-transparent border-b border-white/[0.03]">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-2xl bg-white/5 flex items-center justify-center border border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]">
+                            <div className="w-10 h-10 rounded-2xl bg-surface flex items-center justify-center border border-subtle shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]">
                                 <SettingsIcon className="w-5 h-5 text-white/70" />
                             </div>
                             <div>
                                 <h2 className="text-[17px] font-black text-white tracking-tight leading-none">{c.ui.settings}</h2>
                                 <div className="flex items-center gap-2 mt-2">
-                                    <span className="text-[10px] font-bold text-white/30 uppercase tracking-[0.15em] bg-white/5 px-2 py-0.5 rounded-md border border-white/5">{sttMode}</span>
-                                    <span className="w-1 h-1 rounded-full bg-white/10" />
-                                    <span className="text-[10px] font-bold text-white/30 uppercase tracking-[0.15em] bg-white/5 px-2 py-0.5 rounded-md border border-white/5">{formattingMode}</span>
+                                    <span className="text-[10px] font-bold text-white/30 uppercase tracking-[0.15em] bg-surface px-2 py-0.5 rounded-md border border-subtle">{sttMode}</span>
+                                    <span className="w-1 h-1 rounded-full bg-surface-hover" />
+                                    <span className="text-[10px] font-bold text-white/30 uppercase tracking-[0.15em] bg-surface px-2 py-0.5 rounded-md border border-subtle">{formattingMode}</span>
                                 </div>
                             </div>
                         </div>
@@ -367,14 +390,14 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                         <div className="flex items-center gap-2.5">
                              <button 
                                 onClick={() => setLang(lang === 'ru' ? 'en' : 'ru')} 
-                                className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-white/5 border border-white/10 text-white/40 hover:text-white/80 hover:bg-white/10 transition-all text-xs font-bold"
+                                className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-surface border border-subtle text-muted hover:text-primary hover:bg-surface-hover transition-all text-xs font-bold"
                             >
                                 <Globe className="w-4 h-4" />
                                 {lang.toUpperCase()}
                             </button>
                             <button 
                                 onClick={onClose} 
-                                className="w-10 h-10 flex items-center justify-center rounded-2xl bg-white/5 border border-white/10 hover:bg-red-500/20 hover:border-red-500/30 text-white/30 hover:text-red-400 transition-all group"
+                                className="w-10 h-10 flex items-center justify-center rounded-2xl bg-surface border border-subtle hover:bg-red-500/20 hover:border-red-500/30 text-white/30 hover:text-red-400 transition-all group"
                             >
                                 <X className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" />
                             </button>
@@ -382,7 +405,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                     </div>
 
                     {/* Navigation Tabs */}
-                    <nav className="p-1 bg-white/2 border border-white/5 rounded-[22px] grid grid-cols-5 gap-1">
+                    <nav className="p-1 bg-white/2 border border-subtle rounded-[22px] grid grid-cols-5 gap-1">
                         <SidebarItem id="general" active={tab === 'general'} icon={SettingsIcon} label={c.settings.behavior} onClick={setTab} />
                         <SidebarItem id="engines" active={tab === 'engines'} icon={Cpu} label={c.ui.engine} onClick={setTab} color="text-amber-400" />
                         <SidebarItem id="keys" active={tab === 'keys'} icon={Key} label={c.settings.apiKeysTitle} onClick={setTab} color="text-sky-400" />
@@ -404,23 +427,25 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                                     transition={{ duration: 0.2 }}
                                 >
                                     {tab === 'general' && (
-                                        <GeneralTab 
-                                            c={c} lang={lang} 
+                                        <GeneralTab
+                                            c={c} lang={lang}
                                             autoPaste={autoPaste} onToggleAutoPaste={onToggleAutoPaste}
                                             clearOnPaste={clearOnPaste} onToggleClearOnPaste={onToggleClearOnPaste}
                                             startMinimized={startMinimized} onToggleStartMinimized={onToggleStartMinimized}
                                             autoPauseMedia={autoPauseMedia} handleToggleAutoPauseMedia={handleToggleAutoPauseMedia}
                                             alwaysOnTop={alwaysOnTop} onToggleAlwaysOnTop={onToggleAlwaysOnTop}
                                             formattingStyle={formattingStyle} onSetFormattingStyle={onSetFormattingStyle}
+                                            noiseGate={noiseGate} onSetNoiseGate={onSetNoiseGate}
+                                            audioGain={audioGain} onSetAudioGain={onSetAudioGain}
                                             micGranted={micGranted}
                                             accGranted={accGranted}
+                                            addToast={addToast}
                                         />
                                     )}
                                     {tab === 'engines' && (
                                         <EnginesTab 
                                             c={c} lang={lang} sttMode={sttMode} handleModeChange={handleModeChange} 
                                             showHelp={showHelp} setShowHelp={setShowHelp} ENGINE_HELP={ENGINE_HELP as unknown as EngineHelp}
-                                            dgLanguage={dgLanguage} whisperLanguage={whisperLanguage} groqLanguage={groqLanguage} handleLanguageChange={handleLanguageChange}
                                             formattingMode={formattingMode} handleFormattingModeChange={handleFormattingModeChange}
                                             whisperModel={whisperModel} handleWhisperModelChange={handleWhisperModelChange}
                                             modelAvailable={modelAvailable} downloading={downloading} downloadProgress={downloadProgress}
@@ -433,6 +458,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                                             c={c} dgApiKey={dgApiKey} setDgApiKey={setDgApiKey} groqApiKey={groqApiKey} setGroqApiKey={setGroqApiKey}
                                             geminiApiKey={geminiApiKey} setGeminiApiKey={setGeminiApiKey} qwenApiKey={qwenApiKey} setQwenApiKey={setQwenApiKey}
                                             deepseekApiKey={deepseekApiKey} setDeepseekApiKey={setDeepseekApiKey}
+                                            gigachatApiKey={gigachatApiKey} setGigachatApiKey={setGigachatApiKey}
                                             showKeys={showKeys} setShowKeys={setShowKeys} handleSaveKey={handleSaveKey} handleDeleteKey={handleDeleteKey}
                                             savedStatus={savedStatus} setTab={setTab}
                                         />
@@ -470,11 +496,11 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                                 initial={{ scale: 0.9, y: 20 }} 
                                 animate={{ scale: 1, y: 0 }} 
                                 exit={{ scale: 0.9, y: 20 }}
-                                className="w-full max-w-md bg-[#27272A] border border-emerald-500/30 rounded-3xl p-6 shadow-2xl flex flex-col relative max-h-[90%]"
+                                className="w-full max-w-md bg-panel border border-emerald-500/30 rounded-3xl p-6 shadow-2xl flex flex-col relative max-h-[90%]"
                             >
                                 <button 
                                     onClick={() => setShowUpdatePopup(false)}
-                                    className="absolute top-4 right-4 w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 transition-all"
+                                    className="absolute top-4 right-4 w-8 h-8 rounded-full bg-surface flex items-center justify-center text-muted hover:text-white hover:bg-surface-hover transition-all"
                                 >
                                     <X className="w-4 h-4" />
                                 </button>
@@ -494,20 +520,29 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                                 </p>
 
                                 {releaseData.notes && (
-                                    <div className="mb-5 flex-1 overflow-y-auto custom-scrollbar bg-black/30 rounded-xl p-3 border border-white/5">
-                                        <div className="text-[10px] font-bold text-white/30 uppercase tracking-wider mb-1">
-                                            {c.update?.notes || 'Release Notes:'}
+                                    <div className="mb-5 flex-1 overflow-y-auto custom-scrollbar bg-black/30 rounded-xl p-3 border border-subtle">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <div className="text-[10px] font-bold text-white/30 uppercase tracking-wider">
+                                                {c.update?.notes || 'Release Notes:'}
+                                            </div>
+                                            <button
+                                                onClick={() => setNotesLang(l => l === 'ru' ? 'en' : 'ru')}
+                                                className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-surface border border-subtle hover:bg-surface-hover transition-all"
+                                            >
+                                                <Globe size={10} className="text-white/30" />
+                                                <span className="text-[9px] font-black text-muted uppercase tracking-wider">{notesLang.toUpperCase()}</span>
+                                            </button>
                                         </div>
-                                        <div className="text-[11px] text-white/80 font-sans whitespace-pre-wrap leading-relaxed">
-                                            {releaseData.notes}
+                                        <div className="prose-update">
+                                            <Markdown>{notesLang === 'ru' ? parsedNotes.ru : parsedNotes.en}</Markdown>
                                         </div>
                                     </div>
                                 )}
 
-                                <div className="flex items-center gap-3 pt-2 border-t border-white/5 shrink-0">
+                                <div className="flex items-center gap-3 pt-2 border-t border-subtle shrink-0">
                                     <button 
                                         onClick={() => setShowUpdatePopup(false)}
-                                        className="flex-1 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white/60 hover:text-white font-bold text-xs transition-all"
+                                        className="flex-1 py-2.5 rounded-xl bg-surface hover:bg-surface-hover text-muted hover:text-white font-bold text-xs transition-all"
                                     >
                                         {c.update?.later || 'Later'}
                                     </button>
@@ -525,7 +560,21 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                         </motion.div>
                     )}
                 </AnimatePresence>
-            </motion.div>
+
+                {/* Toast Notifications */}
+                <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+
+                {/* Confirm Dialog */}
+                <ConfirmDialog
+                    open={confirmDialog.open}
+                    title={confirmDialog.title}
+                    message={confirmDialog.message}
+                    confirmLabel={confirmDialog.confirmLabel}
+                    cancelLabel={confirmDialog.cancelLabel}
+                    destructive={confirmDialog.destructive}
+                    onConfirm={() => confirmDialog.onConfirm?.()}
+                    onCancel={confirmDialog.cancel}
+                />
         </motion.div>
     );
 };

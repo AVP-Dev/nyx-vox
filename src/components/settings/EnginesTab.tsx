@@ -3,8 +3,7 @@ import { Wifi, Zap, Globe, HardDrive, HelpCircle, Check, Loader2, Download, Tras
 import { motion, AnimatePresence } from 'framer-motion';
 import { SectionTitle } from './Common';
 
-type FormattingMode = 'none' | 'gemini' | 'deepseek' | 'qwen' | 'groq';
-
+type FormattingMode = 'none' | 'gemini' | 'deepseek' | 'qwen' | 'groq' | 'gigachat';
 interface EngineInfo {
     title: string;
     badge: string;
@@ -12,25 +11,23 @@ interface EngineInfo {
     desc: string;
 }
 
+import { type DICTIONARY } from './translations';
+
 export interface EngineHelp {
     ru: Record<string, EngineInfo>;
     en: Record<string, EngineInfo>;
 }
 
 interface EnginesTabProps {
-    c: Record<string, any>;
+    c: typeof DICTIONARY.en;
     lang: string;
-    sttMode: 'deepgram' | 'whisper' | 'groq' | 'gemini';
-    handleModeChange: (mode: 'deepgram' | 'whisper' | 'groq' | 'gemini') => void;
+    sttMode: 'deepgram' | 'whisper' | 'groq' | 'gemini' | 'gigachat';
+    handleModeChange: (mode: 'deepgram' | 'whisper' | 'groq' | 'gemini' | 'gigachat') => void;
     showHelp: string | null;
     setShowHelp: (v: string | null) => void;
     ENGINE_HELP: EngineHelp;
-    dgLanguage: 'auto' | 'ru' | 'en';
-    whisperLanguage: 'auto' | 'ru' | 'en';
-    groqLanguage: 'auto' | 'ru' | 'en';
-    handleLanguageChange: (lang: 'auto' | 'ru' | 'en') => void;
-    formattingMode: 'none' | 'gemini' | 'deepseek' | 'qwen' | 'groq';
-    handleFormattingModeChange: (mode: 'none' | 'gemini' | 'deepseek' | 'qwen' | 'groq') => void;
+    formattingMode: 'none' | 'gemini' | 'deepseek' | 'qwen' | 'groq' | 'gigachat';
+    handleFormattingModeChange: (mode: 'none' | 'gemini' | 'deepseek' | 'qwen' | 'groq' | 'gigachat') => void;
     whisperModel: 'small' | 'medium' | 'turbo';
     handleWhisperModelChange: (model: 'small' | 'medium' | 'turbo') => void;
     modelAvailable: boolean;
@@ -46,7 +43,6 @@ interface EnginesTabProps {
 
 export const EnginesTab: React.FC<EnginesTabProps> = ({
     c, lang, sttMode, handleModeChange, showHelp, setShowHelp, ENGINE_HELP,
-    dgLanguage, whisperLanguage, groqLanguage, handleLanguageChange,
     formattingMode, handleFormattingModeChange, whisperModel, handleWhisperModelChange,
     modelAvailable, downloading, downloadProgress, handleDownload, handleDeleteModel,
     isPaused, handlePause, handleResume, handleCancel
@@ -57,19 +53,19 @@ export const EnginesTab: React.FC<EnginesTabProps> = ({
                 <SectionTitle>
                     <div className="flex items-center justify-between w-full">
                         {c.settings.sttMode}
-                        <button onClick={() => setShowHelp(showHelp === 'engines' ? null : 'engines')} className="hover:text-white/60 transition-colors">
+                        <button onClick={() => setShowHelp(showHelp === 'engines' ? null : 'engines')} className="hover:text-muted transition-colors">
                             <HelpCircle className="w-3.5 h-3.5" />
                         </button>
                     </div>
                 </SectionTitle>
-                <div className="grid grid-cols-2 gap-2 mb-3">
+                <div className="grid grid-cols-3 gap-2 mb-3">
                     <EngineButton 
                         active={sttMode === 'deepgram'} 
-                        icon={<Wifi className={`w-4 h-4 mb-1.5 shrink-0 ${sttMode === 'deepgram' ? 'text-white/80' : 'text-white/30'}`} />} 
+                        icon={<Wifi className={`w-4 h-4 mb-1.5 shrink-0 ${sttMode === 'deepgram' ? 'text-primary' : 'text-white/30'}`} />} 
                         label={c.settings.deepgramLabel} 
                         desc={c.settings.deepgramDesc} 
                         onClick={() => handleModeChange('deepgram')}
-                        activeColor="border-white/20"
+                        activeColor="border-strong"
                     />
                     <EngineButton 
                         active={sttMode === 'groq'} 
@@ -90,12 +86,21 @@ export const EnginesTab: React.FC<EnginesTabProps> = ({
                         activeLabelColor="text-sky-400/90"
                     />
                     <EngineButton 
+                        active={sttMode === 'gigachat'}
+                        icon={<Globe className={`w-4 h-4 mb-1.5 shrink-0 ${sttMode === 'gigachat' ? 'text-emerald-400' : 'text-white/30'}`} />}
+                        label={c.settings.gigachatSTTLabel || 'GigaChat'}
+                        desc={c.settings.gigachatSTTDesc || ''}
+                        onClick={() => handleModeChange('gigachat')}
+                        activeColor="border-emerald-500/30"
+                        activeLabelColor="text-emerald-400/90"
+                    />
+                    <EngineButton 
                         active={sttMode === 'whisper'} 
-                        icon={<HardDrive className={`w-4 h-4 mb-1.5 shrink-0 ${sttMode === 'whisper' ? 'text-white/80' : 'text-white/30'}`} />} 
+                        icon={<HardDrive className={`w-4 h-4 mb-1.5 shrink-0 ${sttMode === 'whisper' ? 'text-primary' : 'text-white/30'}`} />} 
                         label={c.settings.whisperLabel} 
                         desc={c.settings.whisperDesc} 
                         onClick={() => handleModeChange('whisper')}
-                        activeColor="border-white/20"
+                        activeColor="border-strong"
                     />
                 </div>
             </div>
@@ -108,34 +113,17 @@ export const EnginesTab: React.FC<EnginesTabProps> = ({
                                 <div key={key} className="space-y-1">
                                     <div className="flex items-center gap-2">
                                         <span className="text-[12px] font-black text-white/90">{info.title}</span>
-                                        <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-white/5 border border-white/10 text-white/40 font-bold uppercase tracking-wider">{info.badge}</span>
+                                        <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-surface border border-subtle text-muted font-bold uppercase tracking-wider">{info.badge}</span>
                                         <span className="text-[9px] text-orange-500/60 font-bold ml-auto uppercase tracking-tighter">{info.type}</span>
                                     </div>
-                                    <p className="text-[11px] text-white/40 leading-relaxed italic">{info.desc}</p>
+                                    <p className="text-[11px] text-muted leading-relaxed italic">{info.desc}</p>
                                 </div>
                             ))}
-                            <button onClick={() => setShowHelp(null)} className="w-full py-1 text-[10px] font-bold text-white/20 hover:text-white/40 uppercase tracking-[0.2em]">{c.ui.close}</button>
+                            <button onClick={() => setShowHelp(null)} className="w-full py-1 text-[10px] font-bold text-white/20 hover:text-muted uppercase tracking-[0.2em]">{c.ui.close}</button>
                         </div>
                     </motion.div>
                 )}
             </AnimatePresence>
-
-            <div>
-                <SectionTitle>{c.settings.sttLanguage}</SectionTitle>
-                <div className="grid grid-cols-3 gap-2 mb-3">
-                    {[
-                        { id: 'auto', label: c.settings.langAuto },
-                        { id: 'ru', label: c.settings.langRu },
-                        { id: 'en', label: c.settings.langEn },
-                    ].map((l) => {
-                        const currentLang = sttMode === 'deepgram' ? dgLanguage : (sttMode === 'whisper' ? whisperLanguage : groqLanguage);
-                        const isActive = currentLang === l.id;
-                        return (
-                            <button key={l.id} onClick={() => handleLanguageChange(l.id as 'auto' | 'ru' | 'en')} className={`p-2 rounded-xl border transition-all text-center text-[12px] font-semibold ${isActive ? 'bg-white/8 border-white/20 text-white' : 'bg-white/3 border-white/8 text-white/50 hover:border-white/15'}`}>{l.label}</button>
-                        );
-                    })}
-                </div>
-            </div>
 
             <div>
                 <SectionTitle>{c.settings.formattingEngine}</SectionTitle>
@@ -144,10 +132,11 @@ export const EnginesTab: React.FC<EnginesTabProps> = ({
                         { id: 'gemini', label: c.settings.formattingGemini, color: 'border-sky-500/30 text-sky-400' },
                         { id: 'qwen', label: c.settings.formattingQwen, color: 'border-purple-500/30 text-purple-400' },
                         { id: 'deepseek', label: c.settings.formattingDeepSeek, color: 'border-cyan-500/30 text-cyan-400' },
-                        { id: 'none', label: c.settings.formattingNone, color: 'border-white/20 text-white/60' },
+                        { id: 'gigachat', label: c.settings.formattingGigachat, color: 'border-emerald-500/30 text-emerald-400' },
+                        { id: 'none', label: c.settings.formattingNone, color: 'border-strong text-muted' },
                     ].map((m) => (
                         <button key={m.id} onClick={() => handleFormattingModeChange(m.id as FormattingMode)} className={`p-2.5 rounded-xl border transition-all text-left flex flex-col items-start ${formattingMode === m.id ? `bg-white/8 ${m.color.split(' ')[0]}` : 'bg-white/3 border-white/8 hover:border-white/15'}`}>
-                            <div className={`text-[11px] font-bold ${formattingMode === m.id ? m.color.split(' ')[1] : 'text-white/40'}`}>{m.label}</div>
+                            <div className={`text-[11px] font-bold ${formattingMode === m.id ? m.color.split(' ')[1] : 'text-muted'}`}>{m.label}</div>
                         </button>
                     ))}
                 </div>
@@ -161,14 +150,14 @@ export const EnginesTab: React.FC<EnginesTabProps> = ({
                             {['small', 'medium', 'turbo'].map((m) => {
                                 const isActive = whisperModel === m;
                                 return (
-                                    <button key={m} onClick={() => handleWhisperModelChange(m as 'small' | 'medium' | 'turbo')} className={`p-2 rounded-xl border transition-all text-center text-[11px] font-bold ${isActive ? 'bg-white/8 border-white/20 text-white' : 'bg-white/3 border-white/8 text-white/40 hover:border-white/15'}`}>{(c.settings as Record<string, string>)[`model${m.charAt(0).toUpperCase() + m.slice(1)}`]}</button>
+                                    <button key={m} onClick={() => handleWhisperModelChange(m as 'small' | 'medium' | 'turbo')} className={`p-2 rounded-xl border transition-all text-center text-[11px] font-bold ${isActive ? 'bg-white/8 border-strong text-white' : 'bg-white/3 border-white/8 text-muted hover:border-white/15'}`}>{(c.settings as unknown as Record<string, string>)[`model${m.charAt(0).toUpperCase() + m.slice(1)}`]}</button>
                                 );
                             })}
                         </div>
                     </div>
                     <div>
                         <SectionTitle>{c.settings.modelStatus}</SectionTitle>
-                        <div className="p-3 rounded-xl bg-white/3 border border-white/5">
+                        <div className="p-3 rounded-xl bg-white/3 border border-subtle">
                             {modelAvailable ? (
                                 <div className="flex items-center gap-2">
                                     <Check className="w-4 h-4 text-emerald-400" />
@@ -180,17 +169,17 @@ export const EnginesTab: React.FC<EnginesTabProps> = ({
                             ) : downloading ? (
                                 <div className="flex items-center justify-between w-full">
                                     <div className="flex items-center gap-2">
-                                        {isPaused ? <Pause className="w-4 h-4 text-amber-400" /> : <Loader2 className="w-4 h-4 text-white/50 animate-spin" />}
+                                        {isPaused ? <Pause className="w-4 h-4 text-amber-400" /> : <Loader2 className="w-4 h-4 text-muted animate-spin" />}
                                         <div>
-                                            <div className="text-[12px] text-white/60">{isPaused ? (c.settings.modelPause || 'Paused') : (c.settings.modelDownloading || 'Downloading')}</div>
+                                            <div className="text-[12px] text-muted">{isPaused ? (c.settings.modelPause || 'Paused') : (c.settings.modelDownloading || 'Downloading')}</div>
                                             <div className="text-[10px] text-white/30">{downloadProgress}</div>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-1.5">
                                         {isPaused ? (
-                                            <button onClick={handleResume} className="p-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-white/60 transition-all" title={c.settings.modelResume}><Play className="w-3.5 h-3.5" /></button>
+                                            <button onClick={handleResume} className="p-1.5 bg-surface hover:bg-surface-hover rounded-lg text-muted transition-all" title={c.settings.modelResume}><Play className="w-3.5 h-3.5" /></button>
                                         ) : (
-                                            <button onClick={handlePause} className="p-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-white/60 transition-all" title={c.settings.modelPause}><Pause className="w-3.5 h-3.5" /></button>
+                                            <button onClick={handlePause} className="p-1.5 bg-surface hover:bg-surface-hover rounded-lg text-muted transition-all" title={c.settings.modelPause}><Pause className="w-3.5 h-3.5" /></button>
                                         )}
                                         <button onClick={handleCancel} className="p-1.5 bg-red-500/10 hover:bg-red-500/20 rounded-lg text-red-400/60 transition-all" title={c.settings.modelCancel}><X className="w-3.5 h-3.5" /></button>
                                     </div>
@@ -198,10 +187,10 @@ export const EnginesTab: React.FC<EnginesTabProps> = ({
                             ) : (
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <div className="text-[12px] text-white/50">{c.settings.modelNotFound}</div>
+                                        <div className="text-[12px] text-muted">{c.settings.modelNotFound}</div>
                                         <div className="text-[10px] text-white/30">{whisperModel === 'turbo' ? '~830 MB' : whisperModel === 'medium' ? '~1.5 GB' : '~500 MB'}</div>
                                     </div>
-                                    <button onClick={handleDownload} className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/15 rounded-lg text-[11px] font-medium text-white/80 transition-all"><Download className="w-3.5 h-3.5" />{c.settings.modelDownload}</button>
+                                    <button onClick={handleDownload} className="flex items-center gap-1.5 px-3 py-1.5 bg-surface-hover hover:bg-white/15 rounded-lg text-[11px] font-medium text-primary transition-all"><Download className="w-3.5 h-3.5" />{c.settings.modelDownload}</button>
                                 </div>
                             )}
                         </div>
@@ -214,12 +203,16 @@ export const EnginesTab: React.FC<EnginesTabProps> = ({
 
             <div>
                 <SectionTitle>{c.welcome.faqTitle}</SectionTitle>
-                <div className="p-4 rounded-xl bg-white/4 border border-white/8 space-y-3 text-[12px] leading-relaxed text-white/60">
-                    <FaqItem icon={<Wifi className="w-4 h-4 text-white/80 shrink-0 mt-0.5" />} text={c.settings.faqDeepgram} />
+                <div className="p-4 rounded-xl bg-white/4 border border-white/8 space-y-3 text-[12px] leading-relaxed text-muted">
+                    <FaqItem icon={<Wifi className="w-4 h-4 text-primary shrink-0 mt-0.5" />} text={c.settings.faqDeepgram} />
                     <FaqSeparator />
                     <FaqItem icon={<Zap className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />} text={c.settings.faqGroq} />
                     <FaqSeparator />
-                    <FaqItem icon={<HardDrive className="w-4 h-4 text-white/40 shrink-0 mt-0.5" />} text={c.settings.faqWhisper} />
+                    <FaqItem icon={<Globe className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />} text={c.settings.faqGemini} />
+                    <FaqSeparator />
+                    <FaqItem icon={<HardDrive className="w-4 h-4 text-muted shrink-0 mt-0.5" />} text={c.settings.faqWhisper} />
+                    <FaqSeparator />
+                    <FaqItem icon={<Globe className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />} text={ENGINE_HELP[lang as keyof EngineHelp].gigachat.desc} isItalic color="text-emerald-400/80" />
                     <FaqSeparator />
                     <FaqItem icon={<HelpCircle className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />} text={ENGINE_HELP[lang as keyof EngineHelp].formatting.desc} isItalic color="text-sky-400/80" />
                 </div>
@@ -241,7 +234,7 @@ interface EngineButtonProps {
 const EngineButton = ({ active, icon, label, desc, onClick, activeColor, activeLabelColor = "text-white/90" }: EngineButtonProps) => (
     <button onClick={onClick} className={`p-3 rounded-xl border transition-all text-left flex flex-col items-start ${active ? `bg-white/8 ${activeColor}` : 'bg-white/3 border-white/8 hover:border-white/15'}`}>
         {icon}
-        <div className={`text-[12px] font-semibold ${active ? activeLabelColor : 'text-white/50'}`}>{label}</div>
+        <div className={`text-[12px] font-semibold ${active ? activeLabelColor : 'text-muted'}`}>{label}</div>
         <div className="text-[10px] text-white/30 mt-0.5 leading-tight">{desc}</div>
     </button>
 );
@@ -253,11 +246,11 @@ interface FaqItemProps {
     color?: string;
 }
 
-const FaqItem = ({ icon, text, isItalic = false, color = "text-white/60" }: FaqItemProps) => (
+const FaqItem = ({ icon, text, isItalic = false, color = "text-muted" }: FaqItemProps) => (
     <div className="flex gap-2">
         {icon}
         <p className={`${isItalic ? 'italic' : ''} ${color}`}>{text}</p>
     </div>
 );
 
-const FaqSeparator = () => <div className="w-full h-[1px] bg-white/5" />;
+const FaqSeparator = () => <div className="w-full h-[1px] bg-surface" />;

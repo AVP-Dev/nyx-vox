@@ -3,14 +3,51 @@
 @theme {
     --color-accent-blue: #60A5FA;
     --color-accent-ember: #F97316;
+    
+    --color-panel: var(--panel-bg);
+    --color-surface: var(--surface-bg);
+    --color-surface-hover: var(--surface-hover);
+    --color-subtle: var(--border-subtle);
+    --color-strong: var(--border-strong);
+    --color-primary: var(--text-primary);
+    --color-muted: var(--text-muted);
+    --color-app-bg: var(--app-bg);
+
+    --color-success-bg: var(--success-bg);
+    --color-success-text: var(--success-text);
+    --color-success-border: var(--success-border);
+    
+    --color-danger-bg: var(--danger-bg);
+    --color-danger-text: var(--danger-text);
+    --color-danger-border: var(--danger-border);
+
+    --color-info-bg: var(--info-bg);
+    --color-info-text: var(--info-text);
+    --color-info-border: var(--info-border);
 }
 
 :root {
-    --background: #000000;
-    --foreground: #ffffff;
-    --glass-background: rgba(0, 0, 0, 0.45);
-    --glass-border: rgba(255, 255, 255, 0.08);
-    --glass-blur: 40px;
+    --panel-bg: #1C1C1E;
+    --surface-bg: rgba(255, 255, 255, 0.06);
+    --surface-hover: rgba(255, 255, 255, 0.12);
+    --border-subtle: rgba(255, 255, 255, 0.08);
+    --border-strong: rgba(255, 255, 255, 0.2);
+    --text-primary: #FFFFFF;
+    --text-muted: rgba(255, 255, 255, 0.5);
+    --app-bg: #121214;
+    --liquid-opacity: 1;
+
+    --success-bg: rgba(16, 185, 129, 0.1);
+    --success-text: #34d399;
+    --success-border: rgba(16, 185, 129, 0.1);
+
+    --danger-bg: rgba(239, 68, 68, 0.1);
+    --danger-text: #f87171;
+    --danger-border: rgba(239, 68, 68, 0.2);
+
+    --info-bg: rgba(6, 182, 212, 0.1);
+    --info-text: #22d3ee;
+    --info-border: rgba(6, 182, 212, 0.2);
 }
 
 /* V7 Stability Law: Centering & Shielding */
@@ -79,4 +116,119 @@ body {
 .custom-scrollbar::-webkit-scrollbar-thumb {
     background: rgba(255, 255, 255, 0.1);
     border-radius: 10px;
+}
+
+/* Markdown rendering for update notes */
+.prose-update {
+    font-size: 11px;
+    line-height: 1.6;
+    color: rgba(255, 255, 255, 0.7);
+    user-select: text;
+    -webkit-user-select: text;
+}
+
+.prose-update h1 {
+    font-size: 14px;
+    font-weight: 900;
+    color: white;
+    margin: 0 0 8px 0;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.prose-update h2 {
+    font-size: 12px;
+    font-weight: 800;
+    color: rgba(255, 255, 255, 0.9);
+    margin: 12px 0 6px 0;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.prose-update h3 {
+    font-size: 11px;
+    font-weight: 800;
+    color: rgba(255, 255, 255, 0.8);
+    margin: 10px 0 4px 0;
+}
+
+.prose-update p {
+    margin: 4px 0;
+}
+
+.prose-update strong {
+    color: rgba(255, 255, 255, 0.95);
+    font-weight: 800;
+}
+
+.prose-update em {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.prose-update ul {
+    list-style: none;
+    padding: 0;
+    margin: 4px 0;
+}
+
+.prose-update li {
+    padding: 2px 0 2px 12px;
+    position: relative;
+}
+
+.prose-update li::before {
+    content: '*';
+    position: absolute;
+    left: 0;
+    color: #F97316;
+    font-weight: 900;
+}
+
+.prose-update code {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 4px;
+    padding: 1px 4px;
+    font-size: 10px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.prose-update pre {
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 8px;
+    padding: 8px;
+    margin: 6px 0;
+    overflow-x: auto;
+}
+
+.prose-update pre code {
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: 10px;
+}
+
+.prose-update a {
+    color: #F97316;
+    text-decoration: none;
+}
+
+.prose-update a:hover {
+    text-decoration: underline;
+}
+
+.prose-update hr {
+    border: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    margin: 12px 0;
+}
+
+.prose-update blockquote {
+    border-left: 2px solid #F97316;
+    padding-left: 10px;
+    margin: 6px 0;
+    color: rgba(255, 255, 255, 0.5);
+    font-style: italic;
 }

@@ -18,6 +18,13 @@ pub enum FormattingStyle {
     Professional,
 }
 
+// ── Shared audio buffer (used by Deepgram, Groq, Gemini) ─────────────────
+#[derive(Default)]
+pub struct AudioBuffer {
+    pub samples: Vec<f32>,
+    pub sample_rate: u32,
+}
+
 // ── Shared state types ────────────────────────────────────────────────────────
 #[derive(Default)]
 pub struct DidPauseMedia(pub AtomicBool);
@@ -44,11 +51,7 @@ pub struct ActiveSttMode(pub Mutex<String>);
 // STT Mode: "deepgram" or "whisper" or "groq"
 pub struct SttMode(pub Mutex<String>);
 
-// STT Languages (per mode)
-pub struct DeepgramLanguage(pub Mutex<String>);
-pub struct WhisperLanguage(pub Mutex<String>);
 pub struct WhisperModel(pub Mutex<WhisperModelType>);
-pub struct GroqLanguage(pub Mutex<String>);
 
 // Auto-Pause Media flag
 pub struct AutoPause(pub Mutex<bool>);
@@ -56,16 +59,17 @@ pub struct AutoPause(pub Mutex<bool>);
 // Auto-Paste flag
 pub struct AutoPaste(pub Mutex<bool>);
 
+// Noise Gate Threshold
+pub struct NoiseGateThreshold(pub Mutex<f32>);
+
+// Audio Gain multiplier (1.0-5.0, default 2.0)
+pub struct AudioGain(pub Mutex<f32>);
+
 // Always-on-top flag
 pub struct AlwaysOnTop(pub Mutex<bool>);
 
 // Target application info (Name, Bundle ID)
 pub struct TargetApp(pub Mutex<(String, String)>);
-
-// Position initialized flag (to only center once on launch)
-#[derive(Default)]
-#[allow(dead_code)]
-pub struct PositionInitialized(pub AtomicBool);
 
 // APP Language ("ru" or "en")
 pub struct AppLanguage(pub Mutex<String>);
@@ -79,8 +83,6 @@ pub struct FormattingStyleState(pub Mutex<FormattingStyle>);
 // Enigo instance (cached to avoid IOHID initialization delay on every call)
 #[allow(dead_code)]
 pub struct EnigoWrapper(pub enigo::Enigo);
-unsafe impl Send for EnigoWrapper {}
-unsafe impl Sync for EnigoWrapper {}
 
 #[allow(dead_code)]
 pub struct EnigoState(pub Arc<Mutex<EnigoWrapper>>);

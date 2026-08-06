@@ -1,6 +1,6 @@
+use crate::state::{FormattingStyle, FormattingStyleState};
 use serde_json::json;
 use tauri::{AppHandle, Manager, Runtime};
-use crate::state::{FormattingStyle, FormattingStyleState};
 
 // ── Text Refinement (Formatting) using DeepSeek ──────────────────────────────
 pub async fn refine_text<R: Runtime>(
@@ -25,22 +25,25 @@ pub async fn refine_text<R: Runtime>(
     };
 
     let system_prompt = format!(
-        "{}\n\n{}\n\n{}", 
-        crate::prompts::REFINEMENT_SYSTEM_PROMPT, 
-        style_prompt, 
+        "{}\n\n{}\n\n{}",
+        crate::prompts::REFINEMENT_SYSTEM_PROMPT,
+        style_prompt,
         crate::prompts::FORMAT_STYLE_UNIVERSAL_RULE
     );
 
-    let user_instruction = instruction.unwrap_or_else(|| crate::prompts::REFINEMENT_USER_INSTRUCTION_DEEPSEEK.to_string());
-    
+    let user_instruction = instruction
+        .unwrap_or_else(|| crate::prompts::REFINEMENT_USER_INSTRUCTION_GENERIC.to_string());
+
     let user_content = format!(
-        "{}\n\n{}", 
-        user_instruction, 
-        text
+        "{}{}{}{}",
+        user_instruction,
+        crate::prompts::REFINEMENT_USER_DELIMITER,
+        text,
+        crate::prompts::REFINEMENT_USER_SUFFIX
     );
 
     let body = json!({
-        "model": "deepseek-chat",
+        "model": "deepseek-v4-flash",
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_content}
@@ -63,8 +66,13 @@ pub async fn refine_text<R: Runtime>(
         return Err(format!("DeepSeek API Error: {}", err_text));
     }
 
-    let json: serde_json::Value = res.json().await.map_err(|e| format!("Parse json failed: {}", e))?;
-    let content = json["choices"][0]["message"]["content"].as_str().unwrap_or("");
+    let json: serde_json::Value = res
+        .json()
+        .await
+        .map_err(|e| format!("Parse json failed: {}", e))?;
+    let content = json["choices"][0]["message"]["content"]
+        .as_str()
+        .unwrap_or("");
     let cleaned = crate::utils::clean_repetitive_phrases(content);
     let final_text = crate::utils::strip_filler_phrases(&cleaned);
 

@@ -3,9 +3,12 @@ import { ExternalLink, ShieldAlert, Mic2, Accessibility } from 'lucide-react';
 import { Toggle, SectionTitle } from './Common';
 import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { useStore } from '@/store/useStore';
+import { type DICTIONARY } from './translations';
+import type { ToastType } from '../ui/Toast';
 
 interface GeneralTabProps {
-    c: Record<string, any>;
+    c: typeof DICTIONARY.en;
     autoPaste: boolean;
     onToggleAutoPaste: (v: boolean) => void;
     clearOnPaste: boolean;
@@ -21,15 +24,26 @@ interface GeneralTabProps {
     onSetFormattingStyle: (s: 'casual' | 'professional') => void;
     micGranted?: boolean | null;
     accGranted?: boolean | null;
+    noiseGate: number;
+    onSetNoiseGate: (v: number) => void;
+    audioGain: number;
+    onSetAudioGain: (v: number) => void;
+    addToast: (message: string, type?: ToastType) => void;
 }
 
 export const GeneralTab: React.FC<GeneralTabProps> = ({
     c, autoPaste, onToggleAutoPaste, clearOnPaste, onToggleClearOnPaste,
     startMinimized, onToggleStartMinimized, autoPauseMedia, handleToggleAutoPauseMedia,
     alwaysOnTop, onToggleAlwaysOnTop, lang,
-    formattingStyle, onSetFormattingStyle, micGranted, accGranted
+    formattingStyle, onSetFormattingStyle, micGranted, accGranted,
+    noiseGate, onSetNoiseGate, audioGain, onSetAudioGain,
+    addToast
 }) => {
     const [resetting, setResetting] = React.useState(false);
+
+    const {
+        compactResultWindow, setCompactResultWindow
+    } = useStore();
 
     // Automatic focus back when settings/permissions are granted
     React.useEffect(() => {
@@ -44,12 +58,11 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({
         setResetting(true);
         try {
             await invoke('reset_accessibility_permissions');
-            alert(c.settings.accessibilityResetAlert);
+            addToast(c.settings.accessibilityResetAlert, 'success');
         } catch (e) {
-            alert(`Error: ${e}`);
+            addToast(`Error: ${e}`, 'error');
         } finally {
             setResetting(false);
-            // Permission checked via parent interval or manually if needed
         }
     };
 
@@ -86,10 +99,70 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({
                             </div>
                             <div>
                                 <div className="text-[13px] font-bold text-white/90">{c.settings.autoPaste}</div>
-                                <div className="text-[10px] text-white/40 leading-none mt-0.5">{c.settings.autoPasteDesc}</div>
+                                <div className="text-[10px] text-muted leading-none mt-0.5">{c.settings.autoPasteDesc}</div>
                             </div>
                         </div>
                         <Toggle checked={autoPaste} onChange={onToggleAutoPaste} />
+                    </div>
+
+                    <div className="flex flex-col p-3.5 rounded-xl bg-surface border border-subtle gap-2">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2.5">
+                                <div className="p-1.5 rounded-lg bg-surface text-muted">
+                                    <Mic2 className="w-3.5 h-3.5" />
+                                </div>
+                                <div>
+                                    <div className="text-[13px] font-bold text-white/90">{c.settings.noiseGateTitle}</div>
+                                    <div className="text-[10px] text-muted leading-none mt-0.5">{c.settings.noiseGateDesc}</div>
+                                </div>
+                            </div>
+                            <div className="text-[11px] font-mono text-muted bg-surface px-2 py-0.5 rounded">
+                                {noiseGate.toFixed(3)}
+                            </div>
+                        </div>
+                        <div className="px-1 mt-1 flex items-center gap-3">
+                            <span className="text-[10px] font-bold text-white/30 uppercase tracking-wider">{c.settings.noiseGateLoud}</span>
+                            <input
+                                type="range"
+                                min="0.001"
+                                max="0.05"
+                                step="0.001"
+                                value={noiseGate}
+                                onChange={(e) => onSetNoiseGate(parseFloat(e.target.value))}
+                                className="flex-1 accent-orange-500 h-1.5 bg-surface-hover rounded-full appearance-none cursor-pointer hover:bg-surface-hover transition-colors"
+                            />
+                            <span className="text-[10px] font-bold text-white/30 uppercase tracking-wider">{c.settings.noiseGateQuiet}</span>
+                        </div>
+                    </div>
+
+                    <div className="flex flex-col p-3.5 rounded-xl bg-surface border border-subtle gap-2">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2.5">
+                                <div className="p-1.5 rounded-lg bg-surface text-muted">
+                                    <Mic2 className="w-3.5 h-3.5" />
+                                </div>
+                                <div>
+                                    <div className="text-[13px] font-bold text-white/90">{c.settings.audioGainTitle}</div>
+                                    <div className="text-[10px] text-muted leading-none mt-0.5">{c.settings.audioGainDesc}</div>
+                                </div>
+                            </div>
+                            <div className="text-[11px] font-mono text-muted bg-surface px-2 py-0.5 rounded">
+                                {audioGain.toFixed(1)}
+                            </div>
+                        </div>
+                        <div className="px-1 mt-1 flex items-center gap-3">
+                            <span className="text-[10px] font-bold text-white/30 uppercase tracking-wider">{c.settings.audioGainLow}</span>
+                            <input
+                                type="range"
+                                min="1.0"
+                                max="5.0"
+                                step="0.5"
+                                value={audioGain}
+                                onChange={(e) => onSetAudioGain(parseFloat(e.target.value))}
+                                className="flex-1 accent-orange-500 h-1.5 bg-surface-hover rounded-full appearance-none cursor-pointer hover:bg-surface-hover transition-colors"
+                            />
+                            <span className="text-[10px] font-bold text-white/30 uppercase tracking-wider">{c.settings.audioGainHigh}</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -106,11 +179,24 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({
                         <div key={idx} className="flex items-center justify-between p-3.5 rounded-xl bg-white/4 border border-white/8">
                             <div>
                                 <div className="text-[13px] font-semibold text-white/90">{item.label}</div>
-                                <div className="text-[11px] text-white/40 mt-0.5">{item.desc}</div>
+                                <div className="text-[11px] text-muted mt-0.5">{item.desc}</div>
                             </div>
                             <Toggle checked={item.val} onChange={item.fn} />
                         </div>
                     ))}
+                </div>
+            </div>
+
+            <div>
+                <SectionTitle>{lang === 'ru' ? 'Интерфейс' : 'Interface'}</SectionTitle>
+                <div className="space-y-2">
+                    <div className="flex items-center justify-between p-3.5 rounded-xl bg-white/4 border border-white/8">
+                        <div>
+                            <div className="text-[13px] font-semibold text-white/90">{lang === 'ru' ? 'Компактный режим' : 'Compact Mode'}</div>
+                            <div className="text-[11px] text-muted mt-0.5">{lang === 'ru' ? 'Уменьшить размер окна в простое' : 'Reduce window size when idle'}</div>
+                        </div>
+                        <Toggle checked={compactResultWindow} onChange={setCompactResultWindow} />
+                    </div>
                 </div>
             </div>
 
@@ -134,11 +220,11 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({
                             onClick={() => onSetFormattingStyle(style.id as 'casual' | 'professional')}
                             className={`flex flex-col text-left p-3.5 rounded-2xl border transition-all duration-300 ${
                                 formattingStyle === style.id
-                                ? 'bg-white/10 border-white/20 shadow-[0_0_20px_rgba(255,255,255,0.05)]'
-                                : 'bg-white/2 border-white/5 hover:bg-white/4 hover:border-white/10'
+                                ? 'bg-surface-hover border-strong shadow-[0_0_20px_rgba(255,255,255,0.05)]'
+                                : 'bg-white/2 border-subtle hover:bg-white/4 hover:border-subtle'
                             }`}
                         >
-                            <span className={`text-[13px] font-bold ${formattingStyle === style.id ? 'text-white' : 'text-white/60'}`}>{style.label}</span>
+                            <span className={`text-[13px] font-bold ${formattingStyle === style.id ? 'text-white' : 'text-muted'}`}>{style.label}</span>
                             <span className="text-[10px] text-white/30 mt-1 leading-tight font-medium italic">{style.desc}</span>
                         </button>
                     ))}
@@ -162,10 +248,10 @@ interface StatusCardProps {
 }
 
 const StatusCard = ({ icon: Icon, label, granted, color, action, secondaryAction, lang, resetting }: StatusCardProps) => (
-    <div className="p-4 rounded-3xl bg-white/[0.03] border border-white/5 flex flex-col gap-4 group relative overflow-hidden transition-all hover:bg-white/[0.05]">
+    <div className="p-4 rounded-3xl bg-surface border border-subtle flex flex-col gap-4 group relative overflow-hidden transition-all hover:bg-white/[0.05]">
         <div className="flex items-center justify-between relative z-10">
             <div className="flex items-center gap-3">
-                <div className={`w-9 h-9 rounded-xl bg-white/5 border border-white/5 flex items-center justify-center ${color}`}>
+                <div className={`w-9 h-9 rounded-xl bg-surface border border-subtle flex items-center justify-center ${color}`}>
                     <Icon className="w-4 h-4" />
                 </div>
                 <div>
@@ -182,7 +268,7 @@ const StatusCard = ({ icon: Icon, label, granted, color, action, secondaryAction
         <div className="grid grid-cols-1 gap-1.5 relative z-10">
             <button
                 onClick={action}
-                className="w-full h-9 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/10 text-[10px] font-black text-white/80 hover:text-white transition-all uppercase tracking-widest active:scale-95 flex items-center justify-center gap-2"
+                className="w-full h-9 rounded-xl bg-surface border border-subtle hover:bg-surface-hover hover:border-subtle text-[10px] font-black text-primary hover:text-white transition-all uppercase tracking-widest active:scale-95 flex items-center justify-center gap-2"
             >
                 {lang === 'ru' ? 'Настроить' : 'Setup'}
                 <ExternalLink className="w-2.5 h-2.5 opacity-40 group-hover:opacity-100 transition-opacity" />

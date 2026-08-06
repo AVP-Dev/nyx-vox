@@ -4,7 +4,304 @@
 
 ---
 
-## 📅 Version 1.0.0 (Current)
+## 📅 Unreleased (Post-1.2.0 Quality Improvements)
+
+### 🆕 GigaChat STT (Transcription Engine)
+- Added GigaChat as a **speech-to-text engine** (button "GigaChat Pro" in EnginesTab)
+- Model: `GigaChat-2-Pro` (multimodal: text + audio); formatting stays on `GigaChat-2` (cheaper)
+- Audio uploaded via `POST /v1/files` (`purpose=general`), then `chat/completions` with `attachments: [file_id]` + `function_call: "auto"` — inline OpenAI-style `input_audio` is **not** supported (400)
+- Same authorization key as formatting (Base64 `client_id:client_secret`); OAuth token cached, auto-refresh on 401/403
+- Works in Russia without a VPN
+
+### 🆕 SberAI / GigaChat Formatting Engine
+- Added GigaChat (SberAI) as a text formatting engine (model: `GigaChat-2`)
+- OAuth access token (30-min TTL) is fetched automatically from the authorization key (`base64(client_id:client_secret)`) and cached; auto-refresh on 401/403
+- New "GigaChat" button in EnginesTab (formatting) and API-key field in KeysTab
+- Works in Russia without a VPN (unlike Gemini)
+
+### 🔐 GigaChat TLS (Russian Trusted CA)
+- Both GigaChat endpoints serve certificates from the Russian Trusted Sub CA (Минцифры), which macOS doesn't trust
+- `reqwest` switched from default `native-tls` to `rustls-tls`; the official Russian Trusted Root CA is downloaded once from `gu-st.ru` into app-data and used via `add_root_certificate` — no disabled certificate verification
+- OAuth endpoint: `ngw.devices.sberbank.ru:9443/api/v2/oauth`; chat: `api.giga.chat/v1/chat/completions`
+
+### 🛠️ Stability Fixes
+- `paste_text` now checks Accessibility before hiding the window, returns a real status, and re-shows the window on failure — no more "hidden window with no paste"
+- Network reachability check cached for 5s (was blocking up to 1.5s per recording start)
+- Microphone stream start failures (`s.play()`) now emit `recording-error` and reset the recording flag instead of spinning forever
+- `quit_app_safely` flushes `settings.json` and `history.json` before `_exit` — no data loss on quit
+- **Code review fixes (28 items):** semaphore timeout in `gemini_refine_text`, proper error handling in Gemini STT (`map_err` instead of `unwrap_or_default`), auto-resume of paused media on stop, history entries only for non-empty results, dead code removed (`PositionInitialized`, `REFINEMENT_USER_INSTRUCTION_DEEPSEEK`, `tauri-plugin-window-state`), tray menu rebuilt only on language change, poisoned-mutex logging
+
+### 🎤 Transcription Reliability
+- Recording rejection now shows the user a human-readable reason ("Too quiet", "Too short", "No sound captured") via `recording-error` event
+- `triggerStart` no longer wipes the previous transcript before the backend confirms recording started
+- Removed duplicate frontend text cleanup (backend is the single source of truth)
+- Auto-paste no longer leaves the UI stuck in `processing` when the paste fails
+- **Deepgram:** switched to `nova-2-general` with automatic fallback to `nova-3-general` on "No such model/language/tier combination" — works across account tiers
+- **Groq:** clearer error message for 403 (model permission / region block hint)
+
+### ⚡ Whisper Speed
+- `WhisperState` is now cached in `WhisperModel` and reused across transcriptions — no more Metal/Core ML backend re-init on every inference (was the main source of 30-60s delays)
+- Enabled `flash_attn` in the Whisper context — faster self-attention on ggml-metal
+- Pre-warm now runs on the cached state, so shader compilation is paid exactly once per model load
+
+### 🗣️ Language Selection Removed
+- Removed the per-engine language picker from the UI — each engine now auto-detects the spoken language: Whisper (`auto` → whisper.cpp auto-detect), Deepgram (`multi`), Groq (`ru` base), Gemini (`mixed` prompt)
+- Removed `DeepgramLanguage`/`WhisperLanguage`/`GroqLanguage`/`GeminiLanguage` states, `set/get_*_language` commands, `useTrayLanguage`, and the language indicator dot in the header
+
+### 🧹 Cleanup
+- Removed dead code: `useAudioRecorder.ts`, `streaming.rs`, dead events (`transcript-partial`, `deepgram-final`, `deepgram-error`), and the non-functional "Streaming" toggle
+- `setupEvents` now catches subscription failures instead of silently breaking the hotkey
+- `handleCancel` surfaces unexpected stop errors
+- Fixed Vitest picking up Playwright E2E specs (`e2e/` now excluded)
+
+### 🎤 Audio Sensitivity & Processing Fixes
+
+#### 1. **Software Gain Amplification** ✅
+- Added 2x audio gain before noise gate in all 3 STT engines (Whisper, Deepgram, Groq/Gemini)
+- Quiet microphone signals at arm's length now pass the RMS threshold
+- Clamped to ±1.0 to prevent clipping
+
+#### 2. **Minimum Duration Normalization** ✅
+- Deepgram: 0.8s → 0.3s (was silently dropping short phrases)
+- Groq/Gemini: 0.8s → 0.3s (same issue)
+- Whisper was already 0.3s
+
+#### 3. **Debug Logging** ✅
+- Added RMS, sample count, and rejection reason logging to all 3 engines
+- Enables diagnosing audio issues from console output
+
+---
+
+### 🧹 Architecture & Code Quality Overhaul
+
+#### 1. **Frontend Refactoring** ✅
+- `page.tsx` 1065 → 297 lines (−72%)
+- Extracted 8 hooks: `useSettings`, `useRecording`, `useWindowManager`, `useInitialSettings`, `useTargetApp`, `useTauriEvents`, `useKeyboardShortcuts`, `useTrayLanguage`
+- Extracted 4 components: `QuickMenu`, `HeaderBar`, `ResultPane`, `ActionBar`
+- Extracted 4 utility modules: `types`, `text`, `windowSizes`, `animations`
+- Lazy loading for `SettingsPanel` and `WelcomeOverlay`
+
+#### 2. **Backend Refactoring** ✅
+- `whisper.rs` 846 lines → 6 focused modules (`whisper/`): `paths`, `model_cache`, `recording`, `transcribe`, `download`, `mod`
+- Deduplicated 4 patterns: filename/URL mapping, model_mutex, spawn_capture_thread, hallucination filtering
+
+#### 3. **Critical Bug Fixes (6 P0)** ✅
+- B6: Multi-char uppercase handling in transcription
+- B7: Hallucination substring matching (was false-positive on normal text)
+- B1: Animation target wrong phase in auto-paste mode
+- B3: JSON parsing fallback for raw text starting with `{`
+- P2: Stale closure in SettingsPanel `setSavedStatus`
+- All other P0 bugs from audit resolved
+
+#### 4. **SettingsPanel & GeneralTab Fixes** ✅
+- Replaced 10× `alert()`/`confirm()` with `Toast` and `ConfirmDialog` UI components
+- Fixed stale closure in `setSavedStatus` (functional update)
+- Sequential `invoke` calls → `Promise.all` for parallel execution
+- Removed unnecessary `useEffect` deps causing re-renders
+
+#### 5. **Logging & Safety** ✅
+- Replaced ~50 `println!`/`eprintln!` → `log::debug!/info!/warn!/error!` across 9 files
+- All `unwrap()` → safe alternatives (mutex, settings, debug_log)
+- Added `tauri_plugin_log` for structured logging
+- Clippy: 0 warnings (was 8)
+
+#### 6. **Test Suite** ✅
+- **Frontend:** Vitest setup + 60 tests (was 0%)
+  - `text.test.ts` — 32 tests for `cleanHallucinations`
+  - `windowSizes.test.ts` — 17 tests for window size logic
+  - `useStore.test.ts` — 11 tests for Zustand store
+- **Backend:** 74 Rust tests (was 51)
+  - `ai_provider.rs` — 4 tests for refinement content builder
+  - `keys.rs` — 9 tests for encrypt/decrypt roundtrip
+  - `history.rs` — 11 tests for retention periods and serialization
+  - Extracted `retention_period_to_seconds()` as testable pure function
+
+---
+
+## 📅 Version 1.2.0 (Next Release — not yet published)
+
+> The last public release is **v1.1.0**. The v1.2.0 tag exists in git, but no
+> v1.2.0 build was ever published. The next public release will be named
+> **v1.2.0** (not v1.3.0), and it will include everything listed below plus
+> the Unreleased section above (GigaChat, Whisper speed, stability fixes,
+> language auto-detection).
+
+### 🎯 Security Hardening & Architecture Overhaul
+
+#### 1. **Critical Security Fixes** ✅
+
+**Problem:** Multiple security vulnerabilities identified during full audit.
+
+**Solution:**
+- ✅ Removed `unsafe impl Send + Sync` on `EnigoWrapper` — prevents potential data races
+- ✅ Removed legacy decryption with hardcoded nonce (`NYXVOX_NONCE`) — only v2 AES-256-GCM with random nonces supported
+- ✅ Removed `std::env::set_var` from main.rs — eliminates UB in multi-threaded Rust (editions 2024+)
+- ✅ Removed `unsafe-eval` from CSP — reduces XSS attack surface
+
+**Result:**
+- **Data Race Risk:** Eliminated ✅
+- **Legacy Crypto:** Removed ✅
+- **CSP Hardened:** ✅
+
+---
+
+#### 2. **Recording Pipeline Race Conditions** ✅
+
+**Problem:** Non-atomic flag operations could cause duplicate stop calls and state corruption.
+
+**Solution:**
+```rust
+// Was (race condition):
+if !recording_flag.0.load(Ordering::SeqCst) {
+    return Err("ALREADY_IDLE".to_string());
+}
+recording_flag.0.store(false, Ordering::SeqCst);
+
+// Became (atomic stop guard):
+processing_flag.0.compare_exchange(false, true, SeqCst, SeqCst)
+    .map_err(|_| "ALREADY_PROCESSING".to_string())?;
+```
+
+**Additional Fixes:** Whisper model loading is now synchronous — recording cannot start until model is fully loaded, preventing empty/corrupt transcriptions. Stop handling also keeps the microphone alive during tail padding, so trailing syllables are captured before the recording flag is cleared.
+
+---
+
+#### 3. **Auto-Pause Media Reliability** ✅
+
+**Problem:** Play command could accidentally start Music app; no guard against already-paused state.
+
+**Solution:**
+- ✅ Added `is_music_app_running()` — play command only sent if Music is actually running
+- ✅ Added 300ms safety delay before unpause to let system settle
+- ✅ Double-guard: `!is_media_playing() && !is_music_app_running()` before play
+
+**Result:** Music app no longer accidentally starts when recording stops.
+
+---
+
+#### 4. **Startup Performance** ✅
+
+**Problem:** 13 sequential `invoke` calls at startup caused slow load times.
+
+**Solution:**
+- ✅ Created `get_all_settings` Rust command — returns all settings in single IPC call
+- ✅ Frontend now uses one `invoke` instead of 13
+- ✅ Replaced `setInterval(checkPerms, 2000)` with `tauri://focus` event listeners across 3 components
+
+**Result:** Dramatically faster startup, reduced CPU usage.
+
+---
+
+#### 5. **Dead Code Removal** ✅
+
+**Problem:** Multiple unused files and functions cluttering the codebase.
+
+**Solution:**
+- ✅ Deleted `bin_test.rs`, `check_perm.rs` (Rust)
+- ✅ Deleted `FeedbackModal.tsx`, `useAudioRecorder.ts`, `CreatorSignature.tsx` (React)
+- ✅ Simplified Zustand store — removed unused `isRecording` and `language` fields
+- ✅ Removed duplicate hallucination list from frontend (backend is single source of truth)
+
+---
+
+#### 6. **Mixed Language & Voice Frontend Hardening** ✅
+
+**Problem:** Russian-only recognition was stable, but frequent English technical words could be misrecognized; short or silent recordings could also produce subtitle/training artifacts.
+
+**Solution:**
+- ✅ Added dedicated `Mixed` language mode alongside Russian, English and Auto
+- ✅ Mixed mode uses RU+EN prompts for Whisper, Groq, Gemini and Deepgram
+- ✅ Unified backend cleanup now removes subtitle/training artifacts, repeated phrases and formatter preambles across all STT engines
+- ✅ Tail padding is now captured before the microphone is stopped, reducing cut-off final words
+
+---
+
+#### 7. **Local Whisper & Core ML Acceleration** ✅
+
+**Problem:** Local models needed faster startup/inference and more reliable offline handling.
+
+**Solution:**
+- ✅ Whisper download now also fetches matching macOS Core ML `.mlmodelc` encoder bundles when available
+- ✅ CPU fallback remains intact if Core ML download/extraction fails
+- ✅ Local model cleanup also removes the associated Core ML bundle
+- ✅ Offline Whisper uses synchronous model initialization, non-speech token suppression and model-specific decoding settings
+
+---
+
+#### 8. **Performance Optimizations** ✅
+
+**Problem:** Regex compiled on every call; nearest-neighbor resampling introduced aliasing.
+
+**Solution:**
+- ✅ All regex patterns in `utils.rs` cached via `OnceLock` — compile once, use forever
+- ✅ Linear interpolation resampling replaces nearest-neighbor — reduces STT aliasing artifacts
+- ✅ Target app polling interval increased from 500ms to 2000ms — less `osascript` overhead
+
+---
+
+#### 9. **Bug Fixes** ✅
+
+- ✅ `Array.reverse()` mutating original array in history page → `[...history].reverse()`
+- ✅ `handlePaste()` called without `await` → added proper `await`
+- ✅ Version strings updated across all files (package.json, tauri.conf.json, Cargo.toml, SettingsPanel.tsx, version.ts, translations.ts)
+
+---
+
+#### 10. **API Provider Model Updates** ✅
+
+**Problem:** Several AI provider model names were invalid or outdated, causing transcription/formatting failures.
+
+**Solution:**
+- ✅ **Gemini STT/Refinement**: `gemini-3.1-flash-lite` (non-existent) → `gemini-2.5-flash` — root cause of Gemini transcription failures
+- ✅ **Deepgram STT**: `nova-3` → `nova-3-general` — canonical model ID per Deepgram API
+- ✅ **Qwen Refinement**: `qwen-plus` (deprecated) → `qwen3.7-plus` — current Alibaba DashScope model
+- ✅ **Groq STT prompt**: Added truncation to 896 characters (Groq API limit) — combined `MIXED_RU_EN_STT_PROMPT` + `GROQ_STT_PROMPT` exceeded limit
+
+**Verified against live API documentation (June 2026):**
+
+| Provider | Endpoint | Model | Status |
+|----------|----------|-------|--------|
+| Deepgram | `api.deepgram.com/v1/listen` | `nova-3-general` | ✅ |
+| Groq STT | `api.groq.com/openai/v1/audio/transcriptions` | `whisper-large-v3-turbo` | ✅ |
+| Groq LLM | `api.groq.com/openai/v1/chat/completions` | `llama-3.3-70b-versatile` | ✅ |
+| Gemini | `generativelanguage.googleapis.com/v1beta/models/...` | `gemini-2.5-flash` | ✅ |
+| DeepSeek | `api.deepseek.com/chat/completions` | `deepseek-v4-flash` | ✅ |
+| Qwen | `dashscope.aliyuncs.com/compatible-mode/v1/chat/completions` | `qwen3.7-plus` | ✅ |
+
+---
+
+#### 11. **Whisper Local Transcription Performance** ✅
+
+**Problem:** Local Whisper transcription took ~57 seconds per phrase on M1 MacBook Air (47s Metal GPU overhead + 10s inference).
+
+**Root Cause:** `WhisperContext` was cached, but `WhisperState` was recreated for each transcription. Each new state triggered full Metal backend reinitialization — ~20 GPU shader pipeline compilations (~47 seconds).
+
+**Solution:**
+- ✅ **WhisperState caching**: Both `WhisperContext` AND `WhisperState` now cached in `WhisperModel` struct — Metal compiles once, reused across all transcriptions
+- ✅ **Model preloading**: Whisper model loaded in background thread at app startup — first transcription doesn't pay cold-start penalty
+- ✅ **Thread count uncapped**: Removed `.min(4)` limit — now uses all available CPU cores (8 on M1)
+- ✅ **Metal pre-warm**: Tiny inference on silence during model load compiles all GPU shaders upfront
+
+**Result:** Local Whisper transcription dropped from ~57s to ~10s per phrase (**~6x faster**).
+
+---
+
+### 📊 Final Statistics
+
+| Metric | Before | After | Improvement |
+|--------|--------|-------|-------------|
+| **Security Vulnerabilities** | 4 critical | 0 | **-100%** ✅ |
+| **Race Conditions** | 2 | 0 | **-100%** ✅ |
+| **Dead Files** | 5 | 0 | **-100%** ✅ |
+| **Startup IPC Calls** | 13 | 1 | **-92%** ✅ |
+| **Permission Polling** | 3 × setInterval | Event-based | **-100% CPU** ✅ |
+| **Regex Compilation** | Per-call | Cached | **-99%** ✅ |
+| **Language Modes** | RU / EN / Auto | Mixed / RU / EN / Auto | **Mixed RU+EN** ✅ |
+| **Local Acceleration** | Whisper model only | Whisper + Core ML bundle | **Faster local path** ✅ |
+
+---
+
+## 📅 Version 1.1.0
 
 ### 🎯 Critical Changes
 
