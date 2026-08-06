@@ -4,9 +4,6 @@ This directory contains detailed release notes for every version of NYX Vox.
 
 ## 🏷️ Versions
 
-> **Note:** v1.2.0 is the next release (tag exists in git, build not yet published).
-> Last public release: **v1.1.0**.
-
 - [v1.2.0](v1.2.0/release.md) - **Security Hardening, GigaChat, Voice Frontend & Architecture Overhaul** 🚀
 - [v1.1.0](v1.1.0/release.md) - **Transcription Reliability & Tech-Vocab Update** 🚀
 - [v1.0.0](v1.0.0/release.md) - **Official Release (Code Cleanup, Text Selection & AI Fixes)** 🚀
@@ -22,9 +19,6 @@ This directory contains detailed release notes for every version of NYX Vox.
 Этот каталог содержит подробные заметки о релизах для каждой версии NYX Vox.
 
 ## 🏷️ Версии
-
-> **Примечание:** v1.2.0 — следующий релиз (тег есть в git, сборка ещё не опубликована).
-> Последний публичный релиз: **v1.1.0**.
 
 - [v1.2.0](v1.2.0/release.md) — **Усиление безопасности, GigaChat, голосовой фронтенд и перестройка архитектуры** 🚀
 - [v1.1.0](v1.1.0/release.md) — **Надёжность транскрибации и IT-словарь** 🚀

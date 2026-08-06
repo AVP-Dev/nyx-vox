@@ -1,11 +1,9 @@
 # NYX-Vox v1.2.0 (Security Hardening & Architecture Overhaul) 🚀
 **Focus: Critical Security Fixes, Race Condition Elimination, Voice Frontend Reliability & Performance Optimization 🌪️**
 
-> **Release status:** This release has NOT been published to GitHub Releases yet.
-> The last public release is **v1.1.0**. The v1.2.0 tag exists in git, and this
-> document describes the full scope that will ship as v1.2.0 when published —
-> including the GigaChat engine, Whisper speed-up and stability fixes from the
-> dev branch. The language picker was removed: engines now auto-detect the
+> **Release status:** Published to GitHub Releases. This release covers the
+> full v1.2.0 scope: GigaChat engine, Whisper speed-up and stability fixes from
+> the dev branch. The language picker was removed: engines now auto-detect the
 > spoken language (Whisper `auto`, Deepgram `multi`, Groq `ru`, Gemini `mixed`).
 
 This release is a comprehensive audit-driven overhaul of NYX Vox: critical security vulnerabilities eliminated, race conditions in the recording pipeline fixed, dead code removed, startup and auto-pause performance improved, and the voice processing path hardened for cleaner mixed-language dictation.
@@ -77,11 +75,9 @@ This release is a comprehensive audit-driven overhaul of NYX Vox: critical secur
 # Релиз v1.2.0 (Усиление безопасности и перестройка архитектуры) 🚀
 **Фокус: Критические исправления безопасности, устранение гонок, надёжность голосового фронтенда и оптимизация производительности 🌪️**
 
-> **Статус релиза:** релиз ещё НЕ опубликован в GitHub Releases. Последний
-> публичный релиз — **v1.1.0**. Тег v1.2.0 существует в git, и этот документ
-> описывает полный объём, который выйдет как v1.2.0 при публикации, включая
-> движок GigaChat, ускорение Whisper и фиксы стабильности из ветки dev.
-> Выбор языка распознавания убран: движки сами определяют язык
+> **Статус релиза:** опубликован в GitHub Releases. Релиз охватывает полный
+> объём v1.2.0: движок GigaChat, ускорение Whisper и фиксы стабильности из
+> ветки dev. Выбор языка распознавания убран: движки сами определяют язык
 > (Whisper `auto`, Deepgram `multi`, Groq `ru`, Gemini `mixed`).
 
 Это масштабное обновление, проведенное по результатам полного аудита кодовой базы. Мы устранили критические уязвимости безопасности, исправили гонки состояний в конвейере записи, удалили мёртвый код, значительно ускорили загрузку приложения и работу авто-паузы, а также усилили обработку голоса для более чистой mixed-language диктовки.
