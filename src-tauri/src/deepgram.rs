@@ -55,6 +55,7 @@ pub fn start_recording<R: Runtime>(
         let samples_ref = Arc::clone(&sample_store);
         let flag_inner = Arc::clone(&flag_cpal);
         let emit_handle = app_stream.clone();
+        let mut vad_tracker = crate::utils::VadTracker::new();
 
         let stream = device.build_input_stream(
             &config.into(),
@@ -84,6 +85,31 @@ pub fn start_recording<R: Runtime>(
                 if now_ms - last > 50 {
                     let _ = emit_handle.emit("audio-level", level);
                     LAST_EMIT_MS.store(now_ms, Ordering::Relaxed);
+                }
+
+                // VAD Silence Auto-Stop
+                let vad_enabled = emit_handle
+                    .try_state::<crate::state::VadAutoStop>()
+                    .and_then(|s| s.0.lock().ok().map(|l| *l))
+                    .unwrap_or(false);
+
+                if vad_enabled {
+                    let noise_threshold = emit_handle
+                        .try_state::<crate::state::NoiseGateThreshold>()
+                        .and_then(|s| s.0.lock().ok().map(|l| *l))
+                        .unwrap_or(0.002);
+                    let timeout_sec = emit_handle
+                        .try_state::<crate::state::VadSilenceTimeout>()
+                        .and_then(|s| s.0.lock().ok().map(|l| *l))
+                        .unwrap_or(7.0);
+
+                    if vad_tracker.update(&mono, noise_threshold, timeout_sec) {
+                        log::info!(
+                            "Deepgram VAD: Continuous silence for {:.1}s detected, triggering auto-stop",
+                            timeout_sec
+                        );
+                        let _ = emit_handle.emit("vad-auto-stop", ());
+                    }
                 }
 
                 if let Ok(mut lock) = samples_ref.lock() {
@@ -181,6 +207,21 @@ fn spawn_interim_stream_worker<R: Runtime>(
             };
 
             if sample_rate > 0 && samples.len() >= (sample_rate as usize) {
+                // Speech presence check: do not query STT on silence to prevent hallucinations
+                let frame_size = (sample_rate / 20).max(1) as usize;
+                let mut peak_rms: f32 = 0.0;
+                for chunk in samples.chunks(frame_size) {
+                    let chunk_rms =
+                        (chunk.iter().map(|s| s * s).sum::<f32>() / chunk.len() as f32).sqrt();
+                    if chunk_rms > peak_rms {
+                        peak_rms = chunk_rms;
+                    }
+                }
+                if peak_rms < 0.0012 {
+                    tokio::time::sleep(std::time::Duration::from_millis(800)).await;
+                    continue;
+                }
+
                 let resampled = crate::utils::resample_to_16k(&samples, sample_rate, 16000);
                 let trimmed_audio = crate::utils::trim_silence(&resampled, 0.0025, 16000);
                 if trimmed_audio.len() >= 6400 {
@@ -311,21 +352,28 @@ pub async fn stop_recording<R: Runtime>(
         .map(|s| (s * gain).clamp(-1.0, 1.0))
         .collect();
 
-    // Noise gate check
-    let rms = (samples.iter().map(|s| s * s).sum::<f32>() / samples.len() as f32).sqrt();
-    if rms < threshold {
+    // Noise gate check: detect speech presence via peak frame energy (50ms)
+    let frame_size = (src_rate / 20).max(1) as usize;
+    let mut peak_frame_rms: f32 = 0.0;
+    for chunk in samples.chunks(frame_size) {
+        let chunk_rms = (chunk.iter().map(|s| s * s).sum::<f32>() / chunk.len() as f32).sqrt();
+        if chunk_rms > peak_frame_rms {
+            peak_frame_rms = chunk_rms;
+        }
+    }
+    if peak_frame_rms < (threshold * 0.25).max(0.0003) {
         log::debug!(
-            "Deepgram: audio too quiet (RMS: {:.6} < threshold: {:.6}), skipping",
-            rms,
-            threshold
+            "Deepgram: audio too quiet (Peak RMS: {:.6} < min: {:.6}), skipping",
+            peak_frame_rms,
+            (threshold * 0.25).max(0.0003)
         );
         crate::utils::emit_skip_reason(app, crate::utils::RecordingSkipReason::TooQuiet, &app_lang);
         return Ok(String::new());
     }
     log::debug!(
-        "Deepgram: processing {} samples (RMS: {:.6}, lang: {}, src_rate: {})",
+        "Deepgram: processing {} samples (Peak RMS: {:.6}, lang: {}, src_rate: {})",
         samples.len(),
-        rms,
+        peak_frame_rms,
         language,
         src_rate
     );

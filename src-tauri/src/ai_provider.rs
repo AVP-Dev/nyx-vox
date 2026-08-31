@@ -72,18 +72,27 @@ pub(crate) fn take_recording_wav<R: Runtime>(
         .map(|s| (s * gain).clamp(-1.0, 1.0))
         .collect();
 
-    let rms = (samples.iter().map(|s| s * s).sum::<f32>() / samples.len() as f32).sqrt();
-    if rms < threshold {
+    // Check speech presence via peak frame energy (50ms windows) so that pauses
+    // in speech do not dilute total RMS and falsely drop audible recordings.
+    let frame_size = (src_rate / 20).max(1) as usize;
+    let mut peak_frame_rms: f32 = 0.0;
+    for chunk in samples.chunks(frame_size) {
+        let chunk_rms = (chunk.iter().map(|s| s * s).sum::<f32>() / chunk.len() as f32).sqrt();
+        if chunk_rms > peak_frame_rms {
+            peak_frame_rms = chunk_rms;
+        }
+    }
+    if peak_frame_rms < (threshold * 0.25).max(0.0003) {
         log::debug!(
-            "Groq/Gemini: audio too quiet (RMS: {:.6} < threshold: {:.6}), skipping",
-            rms,
-            threshold
+            "Groq/Gemini: audio too quiet (Peak RMS: {:.6} < min: {:.6}), skipping",
+            peak_frame_rms,
+            (threshold * 0.25).max(0.0003)
         );
         crate::utils::emit_skip_reason(app, crate::utils::RecordingSkipReason::TooQuiet, &app_lang);
         return Ok(None);
     }
-    log::info!("Groq/Gemini audio: {} samples, RMS: {:.6}, threshold: {:.6}, gain: {:.1}, src_rate: {}, duration: {:.1}s",
-        samples.len(), rms, threshold, gain, src_rate, samples.len() as f64 / src_rate as f64);
+    log::info!("Groq/Gemini audio: {} samples, Peak RMS: {:.6}, threshold: {:.6}, gain: {:.1}, src_rate: {}, duration: {:.1}s",
+        samples.len(), peak_frame_rms, threshold, gain, src_rate, samples.len() as f64 / src_rate as f64);
 
     let processed_samples = crate::utils::resample_to_16k(&samples, src_rate, 16000);
     let trimmed = crate::utils::trim_silence(&processed_samples, threshold.max(0.002), 16000);
@@ -157,6 +166,7 @@ pub fn start_recording<R: Runtime>(
         let samples_ref = Arc::clone(&sample_store);
         let flag_inner = Arc::clone(&flag_cpal);
         let emit_handle = app_stream.clone();
+        let mut vad_tracker = crate::utils::VadTracker::new();
 
         let stream = device.build_input_stream(
             &config.into(),
@@ -185,10 +195,7 @@ pub fn start_recording<R: Runtime>(
                     LAST_EMIT_MS.store(now_ms, Ordering::Relaxed);
                 }
 
-                // ── VAD Silence Auto-Stop Detection ──────────────────────
-                static SPEECH_STARTED: AtomicBool = AtomicBool::new(false);
-                static LAST_SPEECH_TIME_MS: AtomicU64 = AtomicU64::new(0);
-
+                // VAD Silence Auto-Stop
                 let vad_enabled = emit_handle
                     .try_state::<crate::state::VadAutoStop>()
                     .and_then(|s| s.0.lock().ok().map(|l| *l))
@@ -204,26 +211,13 @@ pub fn start_recording<R: Runtime>(
                         .and_then(|s| s.0.lock().ok().map(|l| *l))
                         .unwrap_or(7.0);
 
-                    if rms >= noise_threshold {
-                        SPEECH_STARTED.store(true, Ordering::SeqCst);
-                        LAST_SPEECH_TIME_MS.store(now_ms, Ordering::Relaxed);
-                    } else if SPEECH_STARTED.load(Ordering::SeqCst) {
-                        let last_speech = LAST_SPEECH_TIME_MS.load(Ordering::Relaxed);
-                        if last_speech > 0
-                            && now_ms.saturating_sub(last_speech) >= (timeout_sec * 1000.0) as u64
-                        {
-                            SPEECH_STARTED.store(false, Ordering::SeqCst);
-                            LAST_SPEECH_TIME_MS.store(0, Ordering::Relaxed);
-                            log::info!(
-                                "VAD: Continuous silence for {:.1}s detected, triggering auto-stop",
-                                timeout_sec
-                            );
-                            let _ = emit_handle.emit("vad-auto-stop", ());
-                        }
+                    if vad_tracker.update(&mono, noise_threshold, timeout_sec) {
+                        log::info!(
+                            "AI Provider VAD: Continuous silence for {:.1}s detected, triggering auto-stop",
+                            timeout_sec
+                        );
+                        let _ = emit_handle.emit("vad-auto-stop", ());
                     }
-                } else {
-                    SPEECH_STARTED.store(false, Ordering::Relaxed);
-                    LAST_SPEECH_TIME_MS.store(0, Ordering::Relaxed);
                 }
 
                 if let Ok(mut lock) = samples_ref.lock() {
@@ -312,6 +306,21 @@ fn spawn_interim_stream_worker<R: Runtime>(
             };
 
             if sample_rate > 0 && samples.len() >= (sample_rate as usize) {
+                // Speech presence check: do not query STT on silence to prevent hallucinations
+                let frame_size = (sample_rate / 20).max(1) as usize;
+                let mut peak_rms: f32 = 0.0;
+                for chunk in samples.chunks(frame_size) {
+                    let chunk_rms =
+                        (chunk.iter().map(|s| s * s).sum::<f32>() / chunk.len() as f32).sqrt();
+                    if chunk_rms > peak_rms {
+                        peak_rms = chunk_rms;
+                    }
+                }
+                if peak_rms < 0.0012 {
+                    tokio::time::sleep(std::time::Duration::from_millis(800)).await;
+                    continue;
+                }
+
                 let resampled = crate::utils::resample_to_16k(&samples, sample_rate, 16000);
                 let trimmed_audio = crate::utils::trim_silence(&resampled, 0.0025, 16000);
                 if trimmed_audio.len() >= 6400 {

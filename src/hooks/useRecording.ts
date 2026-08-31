@@ -58,11 +58,17 @@ export function useRecording(opts: UseRecordingOptions) {
         setPhase('processing');
         setProcessing(true);
         try {
-            const rawText = await invoke<string>('stop_recording');
+            // 1. Snapshot live streamed text from real-time transcription
+            const currentLiveText = useStore.getState().transcriptText;
+            const hasValidLiveText = !!(currentLiveText && 
+                !currentLiveText.startsWith('Ошибка') && 
+                !currentLiveText.startsWith('Error') && 
+                currentLiveText.trim().length > 0);
 
-            // Parse engine responses shaped like { "content": "..." }.
-            // Text cleanup already happens on the backend (commands/audio.rs),
-            // so no frontend hallucination cleaning is needed here.
+            const rawText = await invoke<string>('stop_recording', {
+                streamedText: hasValidLiveText ? currentLiveText : null,
+            });
+
             let processedText = rawText;
             if (rawText && (rawText.startsWith('{') || rawText.startsWith('['))) {
                 try {
@@ -73,10 +79,14 @@ export function useRecording(opts: UseRecordingOptions) {
                 }
             }
 
-            // Fallback: if backend returned empty (e.g. strict noise gate or fast cutoff),
-            // but we already captured live streaming text during the speech, use it!
-            if (!processedText && transcriptText && !transcriptText.startsWith('Ошибка') && !transcriptText.startsWith('Error')) {
-                processedText = transcriptText;
+            // If backend STT returned empty or shorter text than what was already
+            // transcribed live to the UI, prioritize the full live streaming text!
+            if (hasValidLiveText) {
+                if (!processedText || processedText.trim().length < currentLiveText.trim().length) {
+                    processedText = currentLiveText;
+                }
+            } else if (!processedText && currentLiveText) {
+                processedText = currentLiveText;
             }
 
             if (processedText) {
@@ -90,7 +100,9 @@ export function useRecording(opts: UseRecordingOptions) {
                     setPhase('result');
                 }
             } else {
-                setPhase('idle');
+                const msg = appLanguageRef.current === 'ru' ? 'Речь не распознана (скажите громче)' : 'No speech detected (speak louder)';
+                setTranscript(msg);
+                setPhase('result');
             }
         } catch (err) {
             if (err === 'ALREADY_IDLE') return;

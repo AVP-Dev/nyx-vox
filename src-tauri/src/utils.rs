@@ -304,16 +304,11 @@ pub fn remove_hallucinations(text: &str) -> String {
         Regex::new(r"(?i)(?:\[(?:музыка|тишина|аплодисменты|смех)\]|\((?:музыка|тишина)\)|музыка,\s*которая\s+тут\s+была[^\.\?!]*[\.\?!]?|звучит\s+мелодия[^\.\?!]*[\.\?!]?)").unwrap()
     });
 
-    // Counting hallucination: "1, 2, 3, 4, 5, 6, 7, 8, 9, 10" or "1 2 3 4 5..."
-    static RE_COUNTING: OnceLock<Regex> = OnceLock::new();
-    let re_counting = RE_COUNTING.get_or_init(|| Regex::new(r"(?:\d{1,3}[, ]*){5,}").unwrap());
-
     let mut cleaned = text.to_string();
     cleaned = re_music.replace_all(&cleaned, "").to_string();
     for re in res {
         cleaned = re.replace_all(&cleaned, "").to_string();
     }
-    cleaned = re_counting.replace_all(&cleaned, "").to_string();
     re_spaces.replace_all(cleaned.trim(), " ").to_string()
 }
 
@@ -421,6 +416,72 @@ fn is_lone_filler(word: &str) -> bool {
     trimmed
         .chars()
         .all(|c| matches!(c, 'э' | 'а' | 'у' | 'о' | 'и' | 'м'))
+}
+
+/// A robust, smoothed Voice Activity Detection (VAD) tracker with adaptive noise floor.
+#[derive(Debug, Clone)]
+pub struct VadTracker {
+    pub speech_started: bool,
+    pub last_speech_time: Option<std::time::Instant>,
+    pub smoothed_rms: f32,
+    pub noise_floor: f32,
+    pub frames_count: usize,
+}
+
+impl Default for VadTracker {
+    fn default() -> Self {
+        Self {
+            speech_started: false,
+            last_speech_time: None,
+            smoothed_rms: 0.0,
+            noise_floor: 0.001,
+            frames_count: 0,
+        }
+    }
+}
+
+impl VadTracker {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Feeds a new audio buffer and returns `true` if continuous silence
+    /// has exceeded `timeout_secs` after speech was already detected.
+    pub fn update(&mut self, samples: &[f32], threshold: f32, timeout_secs: f32) -> bool {
+        if samples.is_empty() {
+            return false;
+        }
+        let buffer_rms = (samples.iter().map(|s| s * s).sum::<f32>() / samples.len() as f32).sqrt();
+
+        self.frames_count = self.frames_count.saturating_add(1);
+        // Exponential moving average for smooth energy
+        self.smoothed_rms = self.smoothed_rms * 0.70 + buffer_rms * 0.30;
+
+        // Adapt background noise floor dynamically
+        if self.frames_count <= 20 || buffer_rms < self.noise_floor {
+            self.noise_floor = self.noise_floor * 0.90 + buffer_rms * 0.10;
+        }
+
+        // Active speech threshold: speech is detected when energy rises above the noise threshold
+        let speech_threshold = threshold.max(0.0012);
+
+        if self.smoothed_rms >= speech_threshold {
+            self.speech_started = true;
+            self.last_speech_time = Some(std::time::Instant::now());
+            false
+        } else if self.speech_started {
+            if let Some(last_speech) = self.last_speech_time {
+                if last_speech.elapsed().as_secs_f32() >= timeout_secs {
+                    self.speech_started = false;
+                    self.last_speech_time = None;
+                    return true;
+                }
+            }
+            false
+        } else {
+            false
+        }
+    }
 }
 
 pub fn strip_filler_phrases(text: &str) -> String {
@@ -693,5 +754,24 @@ mod tests {
     fn hallucination_preserves_normal_text() {
         let result = remove_hallucinations("привет мир");
         assert_eq!(result, "привет мир");
+    }
+
+    // ── VadTracker ───────────────────────────────────────────────────────────
+
+    #[test]
+    fn vad_tracker_does_not_trigger_before_speech() {
+        let mut vad = VadTracker::new();
+        let silence = vec![0.0001; 1600]; // 100ms silence
+                                          // Should return false when no speech has ever occurred
+        assert!(!vad.update(&silence, 0.002, 0.5));
+        assert!(!vad.speech_started);
+    }
+
+    #[test]
+    fn vad_tracker_detects_speech_start() {
+        let mut vad = VadTracker::new();
+        let loud_speech = vec![0.05; 1600]; // 100ms loud speech
+        assert!(!vad.update(&loud_speech, 0.002, 0.5));
+        assert!(vad.speech_started);
     }
 }

@@ -256,6 +256,7 @@ pub async fn stop_recording(
     whisper_model: State<'_, WhisperModel>,
     noise_gate: State<'_, NoiseGateThreshold>,
     audio_gain: State<'_, AudioGain>,
+    streamed_text: Option<String>,
 ) -> Result<String, String> {
     processing_flag
         .0
@@ -301,7 +302,28 @@ pub async fn stop_recording(
         crate::utils::system_media_control(0);
     }
 
-    let result = if mode == "deepgram" {
+    // Fast-path: if we already have valid real-time streamed text, avoid redundant STT call!
+    let has_streamed = if let Some(ref text) = streamed_text {
+        let t = text.trim();
+        !t.is_empty() && !t.starts_with("Ошибка") && !t.starts_with("Error")
+    } else {
+        false
+    };
+
+    let result = if has_streamed {
+        log::info!("stop_recording: using live streamed text (skip redundant STT pass)");
+        recording_flag.0.store(false, Ordering::SeqCst);
+        if let Ok(mut lock) = dg_state.lock() {
+            lock.samples.clear();
+        }
+        if let Ok(mut lock) = ai_state.lock() {
+            lock.samples.clear();
+        }
+        if let Ok(mut lock) = state.lock() {
+            lock.samples.clear();
+        }
+        Ok(streamed_text.unwrap_or_default())
+    } else if mode == "deepgram" {
         log::debug!("stop_recording: calling Deepgram...");
         let api_key = api_keys
             .0
