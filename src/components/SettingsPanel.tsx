@@ -21,7 +21,7 @@ import { ToastContainer, useToast } from './ui/Toast';
 import { ConfirmDialog, useConfirm } from './ui/ConfirmDialog';
 import type { FormattingMode } from '@/lib/types';
 
-export const APP_VERSION = '1.2.0';
+export const APP_VERSION = '1.3.0';
 
 interface EngineHelpItem {
     title: string;
@@ -74,6 +74,12 @@ interface SettingsPanelProps {
     onSetNoiseGate: (v: number) => void;
     audioGain: number;
     onSetAudioGain: (v: number) => void;
+    vadAutoStop?: boolean;
+    onToggleVadAutoStop?: (v: boolean) => void;
+    vadSilenceTimeout?: number;
+    onSetVadSilenceTimeout?: (v: number) => void;
+    customModels?: Record<string, string>;
+    handleSetCustomModel?: (slot: string, model: string) => void;
 }
 
 export const SettingsPanel: React.FC<SettingsPanelProps> = ({ 
@@ -87,6 +93,9 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     formattingMode, onSetFormattingMode,
     noiseGate, onSetNoiseGate,
     audioGain, onSetAudioGain,
+    vadAutoStop, onToggleVadAutoStop,
+    vadSilenceTimeout, onSetVadSilenceTimeout,
+    customModels, handleSetCustomModel,
 }) => {
     const [tab, setTab] = useState('general');
     const [showHelp, setShowHelp] = useState<string | null>(null);
@@ -437,6 +446,8 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                                             formattingStyle={formattingStyle} onSetFormattingStyle={onSetFormattingStyle}
                                             noiseGate={noiseGate} onSetNoiseGate={onSetNoiseGate}
                                             audioGain={audioGain} onSetAudioGain={onSetAudioGain}
+                                            vadAutoStop={vadAutoStop} onToggleVadAutoStop={onToggleVadAutoStop}
+                                            vadSilenceTimeout={vadSilenceTimeout} onSetVadSilenceTimeout={onSetVadSilenceTimeout}
                                             micGranted={micGranted}
                                             accGranted={accGranted}
                                             addToast={addToast}
@@ -461,6 +472,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                                             gigachatApiKey={gigachatApiKey} setGigachatApiKey={setGigachatApiKey}
                                             showKeys={showKeys} setShowKeys={setShowKeys} handleSaveKey={handleSaveKey} handleDeleteKey={handleDeleteKey}
                                             savedStatus={savedStatus} setTab={setTab}
+                                            customModels={customModels} handleSetCustomModel={handleSetCustomModel}
                                         />
                                     )}
                                     {tab === 'history' && (

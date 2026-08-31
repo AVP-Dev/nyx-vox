@@ -285,6 +285,9 @@ pub fn remove_hallucinations(text: &str) -> String {
         "music fades",
         "music plays",
         "играет музыка",
+        "звучит музыка",
+        "фоновая музыка",
+        "музыкальное сопровождение",
     ];
 
     static HALLUCINATION_RES: OnceLock<Vec<Regex>> = OnceLock::new();
@@ -295,16 +298,61 @@ pub fn remove_hallucinations(text: &str) -> String {
             .collect()
     });
 
+    // Special music phrase hallucinations: "Музыка, которая тут была...", "[музыка]", "(музыка)"
+    static RE_MUSIC_COMPLEX: OnceLock<Regex> = OnceLock::new();
+    let re_music = RE_MUSIC_COMPLEX.get_or_init(|| {
+        Regex::new(r"(?i)(?:\[(?:музыка|тишина|аплодисменты|смех)\]|\((?:музыка|тишина)\)|музыка,\s*которая\s+тут\s+была[^\.\?!]*[\.\?!]?|звучит\s+мелодия[^\.\?!]*[\.\?!]?)").unwrap()
+    });
+
     // Counting hallucination: "1, 2, 3, 4, 5, 6, 7, 8, 9, 10" or "1 2 3 4 5..."
     static RE_COUNTING: OnceLock<Regex> = OnceLock::new();
     let re_counting = RE_COUNTING.get_or_init(|| Regex::new(r"(?:\d{1,3}[, ]*){5,}").unwrap());
 
     let mut cleaned = text.to_string();
+    cleaned = re_music.replace_all(&cleaned, "").to_string();
     for re in res {
         cleaned = re.replace_all(&cleaned, "").to_string();
     }
     cleaned = re_counting.replace_all(&cleaned, "").to_string();
     re_spaces.replace_all(cleaned.trim(), " ").to_string()
+}
+
+/// Trims leading and trailing silence from audio samples based on RMS threshold,
+/// keeping a small padding (150ms) to avoid clipping spoken consonants.
+pub fn trim_silence(samples: &[f32], threshold: f32, sample_rate: u32) -> &[f32] {
+    if samples.is_empty() {
+        return samples;
+    }
+    let frame_size = (sample_rate / 50).max(160) as usize; // 20ms frames
+    let pad_samples = (sample_rate as usize * 150) / 1000; // 150ms padding
+
+    let mut start_idx = 0;
+    for chunk_start in (0..samples.len()).step_by(frame_size) {
+        let chunk_end = (chunk_start + frame_size).min(samples.len());
+        let frame = &samples[chunk_start..chunk_end];
+        let rms = (frame.iter().map(|s| s * s).sum::<f32>() / frame.len() as f32).sqrt();
+        if rms >= threshold {
+            start_idx = chunk_start.saturating_sub(pad_samples);
+            break;
+        }
+    }
+
+    let mut end_idx = samples.len();
+    for chunk_start in (0..samples.len()).step_by(frame_size).rev() {
+        let chunk_end = (chunk_start + frame_size).min(samples.len());
+        let frame = &samples[chunk_start..chunk_end];
+        let rms = (frame.iter().map(|s| s * s).sum::<f32>() / frame.len() as f32).sqrt();
+        if rms >= threshold {
+            end_idx = (chunk_end + pad_samples).min(samples.len());
+            break;
+        }
+    }
+
+    if start_idx >= end_idx {
+        return &[];
+    }
+
+    &samples[start_idx..end_idx]
 }
 
 pub fn clean_repetitive_phrases(text: &str) -> String {

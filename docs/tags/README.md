@@ -4,6 +4,7 @@ This directory contains detailed release notes for every version of NYX Vox.
 
 ## 🏷️ Versions
 
+- [v1.3.0](v1.3.0/release.md) - **Live Streaming, Verbatim AI Calibration & Custom Models** 🚀
 - [v1.2.0](v1.2.0/release.md) - **Security Hardening, GigaChat, Voice Frontend & Architecture Overhaul** 🚀
 - [v1.1.0](v1.1.0/release.md) - **Transcription Reliability & Tech-Vocab Update** 🚀
 - [v1.0.0](v1.0.0/release.md) - **Official Release (Code Cleanup, Text Selection & AI Fixes)** 🚀
@@ -20,6 +21,7 @@ This directory contains detailed release notes for every version of NYX Vox.
 
 ## 🏷️ Версии
 
+- [v1.3.0](v1.3.0/release.md) — **Живой стриминг, 100% дословность ИИ и кастомные модели** 🚀
 - [v1.2.0](v1.2.0/release.md) — **Усиление безопасности, GigaChat, голосовой фронтенд и перестройка архитектуры** 🚀
 - [v1.1.0](v1.1.0/release.md) — **Надёжность транскрибации и IT-словарь** 🚀
 - [v1.0.0](v1.0.0/release.md) — **Официальный релиз (Очистка кода, Выделение текста и Исправление AI)** 🚀

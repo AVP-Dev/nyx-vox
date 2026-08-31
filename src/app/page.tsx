@@ -69,10 +69,14 @@ export default function Home() {
         setStartMinimized: settings.setStartMinimized,
         setAlwaysOnTop: settings.setAlwaysOnTop,
         setAutoPauseMedia: settings.setAutoPauseMedia,
+        setNoiseGate: settings.setNoiseGate,
         setAudioGain: settings.setAudioGain,
         setFormattingMode: settings.setFormattingMode,
         setLastActiveFormatting: settings.setLastActiveFormatting,
         setFormattingStyle: settings.setFormattingStyle,
+        setVadAutoStop: settings.setVadAutoStop,
+        setVadSilenceTimeout: settings.setVadSilenceTimeout,
+        setCustomModels: settings.setCustomModels,
         setShowWelcome: () => {}, // local state managed by useInitialSettings
         setIsVisible: () => {},   // local state managed by useInitialSettings
     });
@@ -195,6 +199,12 @@ export default function Home() {
                                                 onSetNoiseGate={(v) => { settings.setNoiseGate(v); import('@tauri-apps/api/core').then(({ invoke }) => invoke('set_noise_gate', { value: v })); }}
                                                 audioGain={settings.audioGain}
                                                 onSetAudioGain={(v) => { settings.setAudioGain(v); import('@tauri-apps/api/core').then(({ invoke }) => invoke('set_audio_gain', { gain: v })); }}
+                                                vadAutoStop={settings.vadAutoStop}
+                                                onToggleVadAutoStop={settings.handleSetVadAutoStop}
+                                                vadSilenceTimeout={settings.vadSilenceTimeout}
+                                                onSetVadSilenceTimeout={settings.handleSetVadSilenceTimeout}
+                                                customModels={settings.customModels}
+                                                handleSetCustomModel={settings.handleSetCustomModel}
                                             />
                                         </Suspense>
                                     </motion.div>

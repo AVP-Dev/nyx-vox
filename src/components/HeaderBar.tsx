@@ -66,30 +66,52 @@ export function HeaderBar(props: HeaderBarProps) {
         onSetPhase('idle');
     };
 
+    // Auto-scroll to the latest spoken words
+    React.useEffect(() => {
+        if (scrollRef.current) {
+            scrollRef.current.scrollLeft = scrollRef.current.scrollWidth;
+        }
+    }, [transcriptText, scrollRef]);
+
     return (
         <div data-tauri-drag-region className="flex items-center h-10 w-full relative px-2 shrink-0 cursor-default">
             {/* Left: Mic Button */}
-            <div className="absolute left-2 top-0 bottom-0 flex items-center">
+            <div className="absolute left-2 top-0 bottom-0 flex items-center z-20">
                 <motion.button
                     onMouseDown={(e) => { e.stopPropagation(); void (isIdle ? onTriggerStart() : onTriggerStop()); }}
-                    className={`rounded-full flex items-center justify-center transition-all duration-300 w-8 h-8 ${isRec ? 'bg-red-500 text-white animate-pulse' : 'bg-white/5 hover:bg-white/10 text-white/50 hover:text-white'}`}
+                    className={`rounded-full flex items-center justify-center transition-all duration-300 w-8 h-8 ${isRec ? 'bg-red-500 text-white animate-pulse shadow-[0_0_12px_rgba(239,68,68,0.5)]' : 'bg-white/5 hover:bg-white/10 text-white/50 hover:text-white'}`}
                 >
                     {isRec ? <div className="w-2.5 h-2.5 bg-white rounded-sm" /> : <Mic size={14} />}
                 </motion.button>
             </div>
 
-            {/* Center: Status Display */}
-            <div data-tauri-drag-region className="flex-1 flex justify-center items-center h-full pointer-events-none px-12">
+            {/* Center: Status / Live Speech Stream Display */}
+            <div data-tauri-drag-region className="flex-1 flex items-center h-full mx-10 overflow-hidden pointer-events-none">
                 <AnimatePresence mode="wait">
                     {isRec || isProc || (autoPaste && phase === 'result' && !isOverlay) ? (
-                        <motion.div key="rec-lbl" initial={{ opacity: 0, y: 2 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex items-center gap-1.5 overflow-hidden max-w-full">
-                            <div ref={scrollRef} className="whitespace-nowrap overflow-hidden text-[11px] text-white/80 font-bold tracking-tight truncate max-w-[150px]">
-                                {isRec
-                                    ? (transcriptText || (lang === 'ru' ? 'Слушаю...' : 'Listening...'))
-                                    : (aiStatus || (lang === 'ru' ? 'Обработка...' : 'Processing...'))
-                                }
+                        <motion.div key="rec-lbl" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="w-full overflow-hidden flex items-center">
+                            <div
+                                ref={scrollRef}
+                                className="w-full overflow-hidden whitespace-nowrap text-[12px] text-white/90 font-medium tracking-tight flex items-center scroll-smooth [mask-image:linear-gradient(to_right,transparent_0%,black_16px,black_100%)]"
+                            >
+                                {isRec ? (
+                                    transcriptText ? (
+                                        <div className="flex items-center gap-1 min-w-full justify-end pr-1">
+                                            <span className="text-white/95">{transcriptText}</span>
+                                            <span className="inline-block w-1.5 h-3.5 bg-red-500 rounded-full animate-pulse shrink-0" />
+                                        </div>
+                                    ) : (
+                                        <div className="w-full flex justify-center">
+                                            <span className="text-white/30 text-[11px] font-mono tracking-widest animate-pulse">● ● ●</span>
+                                        </div>
+                                    )
+                                ) : (
+                                    <div className="w-full flex justify-center items-center gap-1.5 text-[11px] text-white/80 font-bold">
+                                        <span>{aiStatus || (lang === 'ru' ? 'Обработка...' : 'Processing...')}</span>
+                                        <div className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" />
+                                    </div>
+                                )}
                             </div>
-                            {isRec ? <WaveformVisualizer isActive={true} /> : <div className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" />}
                         </motion.div>
                     ) : (phase === 'result' || isProc) ? (
                         <motion.div key="res-lbl" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex items-center gap-2">
@@ -130,7 +152,7 @@ export function HeaderBar(props: HeaderBarProps) {
             </div>
 
             {/* Right: Close Button or NV Logo + Quick Menu Trigger */}
-            <div className="absolute right-2 top-0 bottom-0 flex items-center h-full">
+            <div className="absolute right-2 top-0 bottom-0 flex items-center h-full z-20">
                 {!isIdle ? (
                     <motion.button
                         onMouseDown={(e) => { e.stopPropagation(); handleCancel(); }}

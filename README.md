@@ -4,7 +4,7 @@
 
   [![Скачать](https://img.shields.io/github/v/release/AVP-Dev/nyx-vox?label=Download%20Latest&style=for-the-badge&color=orange)](https://github.com/AVP-Dev/nyx-vox/releases/latest)
 
-  **Current release: v1.2.0**
+  **Current release: v1.3.0**
 
   <p>
     <a href="https://avp-dev.github.io/nyx-vox/" target="_blank" rel="noopener noreferrer">🌐 Landing Page</a> &nbsp;|&nbsp;
@@ -38,20 +38,19 @@ NYX Vox brings fast, offline-capable and cloud-accelerated voice transcription d
 
 3. **CLOUD (Gemini):** Google AI. Premium accuracy for Russian + English dictation, works well as a fallback engine.
    <details>
-   <summary><b>How to get Gemini API Key</b></summary>
-   1. Go to <a href="https://aistudio.google.com/apikey">Google AI Studio</a>.<br/>
-   2. Create an API key and copy it.
+   <summary><b>How to get free Gemini API Key</b></summary>
+   1. Go to <a href="https://aistudio.google.com/">Google AI Studio</a>.<br/>
+   2. Click "Get API key" -> "Create API key".
    </details>
 
-4. **CLOUD (GigaChat by SberAI):** Russian neural network. Works in Russia without a VPN, ideal for Russian dictation.
+4. **CLOUD (GigaChat):** SberAI. Multimodal model with Russian Trusted CA support.
    <details>
    <summary><b>How to get GigaChat API Key</b></summary>
-   1. Create a developer account at <a href="https://developers.sber.ru/">developers.sber.ru</a>.<br/>
-   2. Get `client_id` and `client_secret` in the SberAI developer console.<br/>
-   3. Paste them in Settings → Keys (the app builds the Base64 auth key automatically).
+   1. Go to <a href="https://developers.sber.ru/">developers.sber.ru</a>.<br/>
+   2. Create a GigaChat API project and copy the authorization key.
    </details>
 
-5. **OFFLINE (whisper-rs):** Runs locally on your Mac (Small/Medium/Turbo models, Metal/Core ML accelerated). Ultimate privacy, no internet required.
+5. **LOCAL (Whisper Offline):** Runs locally via Metal / Core ML acceleration without internet access.
 
 ## 📦 Installation & Setup
 
@@ -81,11 +80,15 @@ NYX Vox requires **Accessibility** (for auto-pasting text) and **Microphone** pe
 
 **Shipped:**
 - [x] Speech-to-Text Pipeline (Whisper offline / Groq / Deepgram / Gemini / GigaChat)
+- [x] **Universal Live Streaming**: Real-time phrase streaming preview with active typing indicator across all STT engines
+- [x] **100% Verbatim AI Formatting**: Zero rewriting or synonym replacement (Gemini, DeepSeek, Qwen, Groq, GigaChat)
+- [x] **Custom AI Models & Presets**: Select presets or type any custom model ID on the fly
+- [x] **Smart Speech Activity Detection (VAD)**: Configurable silence pause auto-stop (3.0s–15.0s)
 - [x] Glassmorphism UI & Dynamic Windows
 - [x] Native HID Auto-Paste (macOS) with Accessibility check & status
 - [x] Local Transcription History & Search
-- [x] **Intelligent AI Formatting**: LLM models (Gemini, DeepSeek, Qwen, Groq, GigaChat) for grammar, punctuation, and style refinement (Casual / Professional)
-- [x] Noise Gate & Configurable Microphone Gain
+- [x] Calibrated Noise Gate & Configurable Microphone Gain
+- [x] Anti-Hallucination Silence Trimming (`trim_silence`)
 - [x] Media Auto-Pause while dictating
 - [x] Encrypted API keys (AES-256-GCM, bound to machine-id)
 - [x] Compact Mode (idle window shrinks to a round mic bubble)
@@ -98,7 +101,6 @@ NYX Vox requires **Accessibility** (for auto-pasting text) and **Microphone** pe
 - [ ] **Microphone selection** — choose an input device in Settings (currently the system default is used)
 - [ ] **Auto-updates** — an update check already exists; automatic download & install comes next
 - [ ] **Custom dictionary** — user-defined terms, names, technical vocabulary
-- [ ] **Speech activity detection** — auto-pause recording when you stop talking
 - [ ] **Cross-platform** — Linux support
 
 > [!TIP]

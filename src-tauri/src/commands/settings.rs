@@ -18,6 +18,9 @@ pub async fn get_all_settings(
     whisper_model: State<'_, WhisperModel>,
     noise_gate: State<'_, NoiseGateThreshold>,
     audio_gain: State<'_, AudioGain>,
+    vad_auto_stop: State<'_, VadAutoStop>,
+    vad_silence_timeout: State<'_, VadSilenceTimeout>,
+    custom_models: State<'_, CustomModels>,
 ) -> Result<serde_json::Value, String> {
     let stt = stt_mode.0.lock().map_err(|e| e.to_string())?.clone();
     let ap = *auto_paste.0.lock().map_err(|e| e.to_string())?;
@@ -28,6 +31,9 @@ pub async fn get_all_settings(
     let wm = *whisper_model.0.lock().map_err(|e| e.to_string())?;
     let ng = *noise_gate.0.lock().map_err(|e| e.to_string())?;
     let ag = *audio_gain.0.lock().map_err(|e| e.to_string())?;
+    let vad_stop = *vad_auto_stop.0.lock().map_err(|e| e.to_string())?;
+    let vad_timeout = *vad_silence_timeout.0.lock().map_err(|e| e.to_string())?;
+    let models = custom_models.0.lock().map_err(|e| e.to_string())?.clone();
 
     let store = app
         .store("settings.json")
@@ -60,7 +66,97 @@ pub async fn get_all_settings(
         "modelAvailable": model_available,
         "noiseGate": ng,
         "audioGain": ag,
+        "vadAutoStop": vad_stop,
+        "vadSilenceTimeout": vad_timeout,
+        "customModels": models,
     }))
+}
+
+#[tauri::command]
+pub async fn set_vad_auto_stop(
+    app: AppHandle,
+    state: State<'_, VadAutoStop>,
+    enabled: bool,
+) -> Result<(), String> {
+    let store = app
+        .store("settings.json")
+        .map_err(|e: tauri_plugin_store::Error| e.to_string())?;
+    store.set("vad_auto_stop", serde_json::json!(enabled));
+    store
+        .save()
+        .map_err(|e: tauri_plugin_store::Error| e.to_string())?;
+    if let Ok(mut lock) = state.0.lock() {
+        *lock = enabled;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn get_vad_auto_stop(state: State<'_, VadAutoStop>) -> Result<bool, String> {
+    Ok(*state.0.lock().map_err(|e| e.to_string())?)
+}
+
+#[tauri::command]
+pub async fn set_vad_silence_timeout(
+    app: AppHandle,
+    state: State<'_, VadSilenceTimeout>,
+    timeout: f32,
+) -> Result<(), String> {
+    let clamped = timeout.clamp(3.0, 15.0);
+    let store = app
+        .store("settings.json")
+        .map_err(|e: tauri_plugin_store::Error| e.to_string())?;
+    store.set("vad_silence_timeout", serde_json::json!(clamped));
+    store
+        .save()
+        .map_err(|e: tauri_plugin_store::Error| e.to_string())?;
+    if let Ok(mut lock) = state.0.lock() {
+        *lock = clamped;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn get_vad_silence_timeout(state: State<'_, VadSilenceTimeout>) -> Result<f32, String> {
+    Ok(*state.0.lock().map_err(|e| e.to_string())?)
+}
+
+#[tauri::command]
+pub async fn set_custom_model(
+    app: AppHandle,
+    state: State<'_, CustomModels>,
+    slot: String,
+    model: String,
+) -> Result<(), String> {
+    let store = app
+        .store("settings.json")
+        .map_err(|e: tauri_plugin_store::Error| e.to_string())?;
+    let slot_key = format!("custom_model_{}", slot.trim());
+    let trimmed_model = model.trim().to_string();
+    if trimmed_model.is_empty() {
+        store.delete(&slot_key);
+    } else {
+        store.set(&slot_key, serde_json::json!(trimmed_model));
+    }
+    store
+        .save()
+        .map_err(|e: tauri_plugin_store::Error| e.to_string())?;
+
+    if let Ok(mut lock) = state.0.lock() {
+        if trimmed_model.is_empty() {
+            lock.remove(&slot);
+        } else {
+            lock.insert(slot, trimmed_model);
+        }
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn get_custom_models(
+    state: State<'_, CustomModels>,
+) -> Result<HashMap<String, String>, String> {
+    Ok(state.0.lock().map_err(|e| e.to_string())?.clone())
 }
 
 #[tauri::command]

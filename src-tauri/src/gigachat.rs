@@ -228,10 +228,27 @@ pub async fn refine_text<R: Runtime>(
     let system_prompt = build_system_prompt(&app);
     let user_content = build_user_content(instruction, &text);
 
+    let format_model = app
+        .try_state::<crate::state::CustomModels>()
+        .and_then(|s| {
+            s.0.lock()
+                .ok()
+                .and_then(|m| m.get("gigachat_format").cloned())
+        })
+        .unwrap_or_else(|| MODEL_FORMAT.to_string());
+
     // Attempt with a fresh token (the fast path in get_access_token may return
     // a cached one; force-invalidation on auth failure happens via the retry).
     let token = get_access_token(&app, &auth_key).await?;
-    match chat_once(&client, &token, MODEL_FORMAT, &system_prompt, &user_content).await {
+    match chat_once(
+        &client,
+        &token,
+        &format_model,
+        &system_prompt,
+        &user_content,
+    )
+    .await
+    {
         Ok(out) => {
             let cleaned = crate::utils::clean_repetitive_phrases(&out);
             Ok(crate::utils::strip_filler_phrases(&cleaned))
@@ -244,7 +261,14 @@ pub async fn refine_text<R: Runtime>(
                     *cache = None; // invalidate
                 }
                 let token = get_access_token(&app, &auth_key).await?;
-                match chat_once(&client, &token, MODEL_FORMAT, &system_prompt, &user_content).await
+                match chat_once(
+                    &client,
+                    &token,
+                    &format_model,
+                    &system_prompt,
+                    &user_content,
+                )
+                .await
                 {
                     Ok(out) => {
                         let cleaned = crate::utils::clean_repetitive_phrases(&out);
@@ -342,8 +366,13 @@ pub async fn transcribe<R: Runtime>(
         crate::prompts::GEMINI_STT_PROMPT
     };
 
+    let stt_model = app
+        .try_state::<crate::state::CustomModels>()
+        .and_then(|s| s.0.lock().ok().and_then(|m| m.get("gigachat_stt").cloned()))
+        .unwrap_or_else(|| MODEL_STT.to_string());
+
     let body = json!({
-        "model": MODEL_STT,
+        "model": stt_model,
         "function_call": "auto",
         "messages": [
             {

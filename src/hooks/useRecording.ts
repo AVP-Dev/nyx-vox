@@ -73,6 +73,12 @@ export function useRecording(opts: UseRecordingOptions) {
                 }
             }
 
+            // Fallback: if backend returned empty (e.g. strict noise gate or fast cutoff),
+            // but we already captured live streaming text during the speech, use it!
+            if (!processedText && transcriptText && !transcriptText.startsWith('Ошибка') && !transcriptText.startsWith('Error')) {
+                processedText = transcriptText;
+            }
+
             if (processedText) {
                 setTranscript(processedText);
                 if (autoPasteRef.current) {

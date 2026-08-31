@@ -7,7 +7,7 @@ use std::sync::{
     atomic::{AtomicBool, AtomicU64, Ordering},
     Arc, Mutex,
 };
-use tauri::{AppHandle, Emitter, Runtime};
+use tauri::{AppHandle, Emitter, Manager, Runtime};
 
 use crate::state::WhisperModelType;
 
@@ -67,6 +67,7 @@ pub fn start_recording<R: Runtime>(
     // only needed after stop.
 
     spawn_capture_thread(sample_store, flag_cpal, app_stream);
+    spawn_interim_stream_worker(app, state, recording_flag);
 
     // Do not warm the model here. On 8GB Macs, loading a large local model while
     // recording can cause memory pressure and even process termination. The mic
@@ -143,6 +144,42 @@ fn spawn_capture_thread(
                     LAST_EMIT_MS.store(now_ms, Ordering::Relaxed);
                 }
 
+                // ── VAD Silence Auto-Stop Detection ──────────────────────
+                static SPEECH_STARTED: AtomicBool = AtomicBool::new(false);
+                static LAST_SPEECH_TIME_MS: AtomicU64 = AtomicU64::new(0);
+
+                let vad_enabled = emit_handle
+                    .try_state::<crate::state::VadAutoStop>()
+                    .and_then(|s| s.0.lock().ok().map(|l| *l))
+                    .unwrap_or(false);
+
+                if vad_enabled {
+                    let noise_threshold = emit_handle
+                        .try_state::<crate::state::NoiseGateThreshold>()
+                        .and_then(|s| s.0.lock().ok().map(|l| *l))
+                        .unwrap_or(0.002);
+                    let timeout_sec = emit_handle
+                        .try_state::<crate::state::VadSilenceTimeout>()
+                        .and_then(|s| s.0.lock().ok().map(|l| *l))
+                        .unwrap_or(7.0);
+
+                    if rms >= noise_threshold {
+                        SPEECH_STARTED.store(true, Ordering::SeqCst);
+                        LAST_SPEECH_TIME_MS.store(now_ms, Ordering::Relaxed);
+                    } else if SPEECH_STARTED.load(Ordering::SeqCst) {
+                        let last_speech = LAST_SPEECH_TIME_MS.load(Ordering::Relaxed);
+                        if last_speech > 0 && now_ms.saturating_sub(last_speech) >= (timeout_sec * 1000.0) as u64 {
+                            SPEECH_STARTED.store(false, Ordering::SeqCst);
+                            LAST_SPEECH_TIME_MS.store(0, Ordering::Relaxed);
+                            log::info!("Whisper VAD: Continuous silence for {:.1}s detected, triggering auto-stop", timeout_sec);
+                            let _ = emit_handle.emit("vad-auto-stop", ());
+                        }
+                    }
+                } else {
+                    SPEECH_STARTED.store(false, Ordering::Relaxed);
+                    LAST_SPEECH_TIME_MS.store(0, Ordering::Relaxed);
+                }
+
                 if let Ok(mut lock) = samples_ref.lock() {
                     lock.samples.extend_from_slice(&mono);
                 }
@@ -168,6 +205,96 @@ fn spawn_capture_thread(
                 let _ = app_stream.emit("recording-error", "Не удалось запустить микрофон");
                 flag_cpal.store(false, Ordering::SeqCst);
             }
+        }
+    });
+}
+
+fn spawn_interim_stream_worker<R: Runtime>(
+    app: AppHandle<R>,
+    state: SharedState,
+    flag_cpal: Arc<AtomicBool>,
+) {
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_millis(1500)).await;
+
+        let client = match reqwest::Client::builder()
+            .timeout(std::time::Duration::from_millis(2000))
+            .build()
+        {
+            Ok(c) => c,
+            Err(_) => return,
+        };
+
+        while flag_cpal.load(Ordering::SeqCst) {
+            let groq_key = {
+                let keys_state = app.try_state::<crate::keys::ApiKeys>();
+                keys_state
+                    .as_ref()
+                    .and_then(|k| k.0.lock().ok())
+                    .and_then(
+                        |m: std::sync::MutexGuard<
+                            '_,
+                            std::collections::HashMap<crate::keys::Service, Option<String>>,
+                        >| {
+                            m.get(&crate::keys::Service::Groq).cloned().flatten()
+                        },
+                    )
+                    .unwrap_or_default()
+            };
+
+            let data_opt = {
+                state
+                    .lock()
+                    .ok()
+                    .map(|lock| (lock.samples.clone(), lock.sample_rate))
+            };
+
+            let (samples, sample_rate) = match data_opt {
+                Some(d) => d,
+                None => {
+                    tokio::time::sleep(std::time::Duration::from_millis(800)).await;
+                    continue;
+                }
+            };
+
+            if sample_rate > 0 && samples.len() >= (sample_rate as usize) {
+                let resampled = crate::utils::resample_to_16k(&samples, sample_rate, 16000);
+                let trimmed_audio = crate::utils::trim_silence(&resampled, 0.0025, 16000);
+                if trimmed_audio.len() >= 6400 && !groq_key.is_empty() {
+                    if let Ok(wav_data) = crate::utils::samples_to_wav(trimmed_audio, 16000) {
+                        let part = reqwest::multipart::Part::bytes(wav_data)
+                            .file_name("interim.wav")
+                            .mime_str("audio/wav")
+                            .unwrap();
+                        let form = reqwest::multipart::Form::new()
+                            .part("file", part)
+                            .text("model", "whisper-large-v3-turbo")
+                            .text("language", "ru".to_string());
+                        if let Ok(res) = client
+                            .post("https://api.groq.com/openai/v1/audio/transcriptions")
+                            .header("Authorization", format!("Bearer {}", groq_key))
+                            .multipart(form)
+                            .send()
+                            .await
+                        {
+                            if res.status().is_success() {
+                                if let Ok(json) = res.json::<serde_json::Value>().await {
+                                    if let Some(text) = json["text"].as_str() {
+                                        let cleaned = crate::utils::clean_repetitive_phrases(text);
+                                        let cleaned = crate::utils::remove_hallucinations(&cleaned);
+                                        let trimmed = cleaned.trim();
+                                        if !trimmed.is_empty() && flag_cpal.load(Ordering::SeqCst) {
+                                            let _ = app.emit("interim-transcription", trimmed);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            tokio::time::sleep(std::time::Duration::from_millis(1600)).await;
         }
     });
 }

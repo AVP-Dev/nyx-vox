@@ -89,3 +89,12 @@ pub struct EnigoState(pub Arc<Mutex<EnigoWrapper>>);
 
 // Semaphore to limit concurrent AI API calls
 pub struct AiSemaphore(pub tokio::sync::Semaphore);
+
+// VAD Silence Auto-Stop enabled flag
+pub struct VadAutoStop(pub Mutex<bool>);
+
+// VAD Silence Timeout in seconds (3.0 - 15.0s, default 7.0s)
+pub struct VadSilenceTimeout(pub Mutex<f32>);
+
+// Custom Model Names (map of slot/service -> custom model identifier)
+pub struct CustomModels(pub Mutex<std::collections::HashMap<String, String>>);

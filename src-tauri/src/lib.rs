@@ -152,6 +152,9 @@ pub fn run() {
             app.manage(AppLanguage(Mutex::new(sys_lang.to_string())));
             app.manage(keys::ApiKeys::default());
             app.manage(AiSemaphore(tokio::sync::Semaphore::new(1)));
+            app.manage(VadAutoStop(Mutex::new(false)));
+            app.manage(VadSilenceTimeout(Mutex::new(7.0)));
+            app.manage(CustomModels(Mutex::new(std::collections::HashMap::new())));
 
             #[cfg(target_os = "windows")]
             {
@@ -271,6 +274,45 @@ pub fn run() {
                         if let Some(state) = app.try_state::<AudioGain>() {
                             if let Ok(mut lock) = state.0.lock() {
                                 *lock = val as f32;
+                            }
+                        }
+                    }
+
+                    load_bool_setting!("vad_auto_stop", VadAutoStop);
+
+                    if let Some(val) = store
+                        .get("vad_silence_timeout")
+                        .and_then(|v: serde_json::Value| v.as_f64())
+                    {
+                        if let Some(state) = app.try_state::<VadSilenceTimeout>() {
+                            if let Ok(mut lock) = state.0.lock() {
+                                *lock = val as f32;
+                            }
+                        }
+                    }
+
+                    if let Some(state) = app.try_state::<CustomModels>() {
+                        if let Ok(mut lock) = state.0.lock() {
+                            for slot in [
+                                "groq_stt",
+                                "groq_format",
+                                "gemini_stt",
+                                "gemini_format",
+                                "deepseek_format",
+                                "qwen_format",
+                                "gigachat_stt",
+                                "gigachat_format",
+                            ] {
+                                let key = format!("custom_model_{}", slot);
+                                if let Some(val) =
+                                    store.get(&key).and_then(|v: serde_json::Value| {
+                                        v.as_str().map(|s| s.to_string())
+                                    })
+                                {
+                                    if !val.trim().is_empty() {
+                                        lock.insert(slot.to_string(), val.trim().to_string());
+                                    }
+                                }
                             }
                         }
                     }
@@ -486,6 +528,12 @@ pub fn run() {
             commands::get_window_position,
             commands::set_noise_gate,
             commands::set_audio_gain,
+            commands::set_vad_auto_stop,
+            commands::get_vad_auto_stop,
+            commands::set_vad_silence_timeout,
+            commands::get_vad_silence_timeout,
+            commands::set_custom_model,
+            commands::get_custom_models,
             commands::open_url,
             commands::show_update_window,
             commands::resize_window,

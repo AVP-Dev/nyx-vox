@@ -15,10 +15,14 @@ interface Setters {
     setStartMinimized: SettingsActions['setStartMinimized'];
     setAlwaysOnTop: SettingsActions['setAlwaysOnTop'];
     setAutoPauseMedia: SettingsActions['setAutoPauseMedia'];
+    setNoiseGate: SettingsActions['setNoiseGate'];
     setAudioGain: SettingsActions['setAudioGain'];
     setFormattingMode: SettingsActions['setFormattingMode'];
     setLastActiveFormatting: SettingsActions['setLastActiveFormatting'];
     setFormattingStyle: SettingsActions['setFormattingStyle'];
+    setVadAutoStop: SettingsActions['setVadAutoStop'];
+    setVadSilenceTimeout: SettingsActions['setVadSilenceTimeout'];
+    setCustomModels: SettingsActions['setCustomModels'];
     setShowWelcome: (v: boolean) => void;
     setIsVisible: (v: boolean) => void;
 }
@@ -87,11 +91,25 @@ export function useInitialSettings(setters: Setters) {
                 setters.setFormattingStyle(fStyle || 'casual');
                 setters.setAutoPauseMedia(results[8] ?? false);
 
-                // Load audio gain from get_all_settings (no individual getter exists)
+                // Load audio gain, noise gate, VAD and custom models from get_all_settings
                 try {
                     const allSettings = await invoke<Record<string, unknown>>('get_all_settings');
-                    if (allSettings && typeof allSettings.audioGain === 'number') {
-                        setters.setAudioGain(allSettings.audioGain);
+                    if (allSettings) {
+                        if (typeof allSettings.audioGain === 'number') {
+                            setters.setAudioGain(allSettings.audioGain);
+                        }
+                        if (typeof allSettings.noiseGate === 'number') {
+                            setters.setNoiseGate(allSettings.noiseGate);
+                        }
+                        if (typeof allSettings.vadAutoStop === 'boolean') {
+                            setters.setVadAutoStop(allSettings.vadAutoStop);
+                        }
+                        if (typeof allSettings.vadSilenceTimeout === 'number') {
+                            setters.setVadSilenceTimeout(allSettings.vadSilenceTimeout);
+                        }
+                        if (allSettings.customModels && typeof allSettings.customModels === 'object') {
+                            setters.setCustomModels(allSettings.customModels as Record<string, string>);
+                        }
                     }
                 } catch { /* non-critical */ }
 

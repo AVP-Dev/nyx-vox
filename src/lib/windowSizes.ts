@@ -4,7 +4,7 @@ import type { Phase } from './types';
 export const WINDOW_SIZES = {
     idle: [150, 48] as const,
     compactIdle: [48, 48] as const,
-    recording: [260, 48] as const,
+    recording: [380, 48] as const,
     quickMenu: [200, 230] as const,
     editing: [400, 360] as const,
     overlay: [440, 540] as const,

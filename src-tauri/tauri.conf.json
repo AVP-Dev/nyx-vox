@@ -1,8 +1,8 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "NYX Vox",
-  "version": "1.2.0",
-  "identifier": "com.nyx.vox2",
+  "version": "1.3.0",
+  "identifier": "com.nyx.vox",
   "build": {
     "frontendDist": "../out",
     "devUrl": "http://localhost:3002",

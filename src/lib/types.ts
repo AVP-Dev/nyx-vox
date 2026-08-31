@@ -8,6 +8,8 @@ export type AppLanguage = 'ru' | 'en';
 
 export type FormattingStyle = 'casual' | 'professional';
 
+export type CustomModelsMap = Record<string, string>;
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export interface TranslationDict {
     ui: Record<string, string>;

@@ -43,8 +43,13 @@ pub async fn refine_text<R: Runtime>(
         crate::prompts::REFINEMENT_USER_SUFFIX
     );
 
+    let format_model = app
+        .try_state::<crate::state::CustomModels>()
+        .and_then(|s| s.0.lock().ok().and_then(|m| m.get("qwen_format").cloned()))
+        .unwrap_or_else(|| "qwen3.7-flash".to_string());
+
     let body = json!({
-        "model": "qwen3.7-plus",
+        "model": format_model,
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_content}

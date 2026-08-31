@@ -1,5 +1,5 @@
 import React from 'react';
-import { ExternalLink, ShieldAlert, Mic2, Accessibility } from 'lucide-react';
+import { ExternalLink, ShieldAlert, Mic2, Accessibility, Timer } from 'lucide-react';
 import { Toggle, SectionTitle } from './Common';
 import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
@@ -28,6 +28,10 @@ interface GeneralTabProps {
     onSetNoiseGate: (v: number) => void;
     audioGain: number;
     onSetAudioGain: (v: number) => void;
+    vadAutoStop?: boolean;
+    onToggleVadAutoStop?: (v: boolean) => void;
+    vadSilenceTimeout?: number;
+    onSetVadSilenceTimeout?: (v: number) => void;
     addToast: (message: string, type?: ToastType) => void;
 }
 
@@ -37,6 +41,8 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({
     alwaysOnTop, onToggleAlwaysOnTop, lang,
     formattingStyle, onSetFormattingStyle, micGranted, accGranted,
     noiseGate, onSetNoiseGate, audioGain, onSetAudioGain,
+    vadAutoStop = false, onToggleVadAutoStop,
+    vadSilenceTimeout = 7.0, onSetVadSilenceTimeout,
     addToast
 }) => {
     const [resetting, setResetting] = React.useState(false);
@@ -125,7 +131,7 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({
                             <input
                                 type="range"
                                 min="0.001"
-                                max="0.05"
+                                max="0.025"
                                 step="0.001"
                                 value={noiseGate}
                                 onChange={(e) => onSetNoiseGate(parseFloat(e.target.value))}
@@ -163,6 +169,43 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({
                             />
                             <span className="text-[10px] font-bold text-white/30 uppercase tracking-wider">{c.settings.audioGainHigh}</span>
                         </div>
+                    </div>
+
+                    <div className="flex flex-col p-3.5 rounded-xl bg-surface border border-subtle gap-3">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2.5">
+                                <div className="p-1.5 rounded-lg bg-surface text-muted">
+                                    <Timer className="w-3.5 h-3.5" />
+                                </div>
+                                <div>
+                                    <div className="text-[13px] font-bold text-white/90">{c.settings.vadTitle}</div>
+                                    <div className="text-[10px] text-muted leading-none mt-0.5">{c.settings.vadDesc}</div>
+                                </div>
+                            </div>
+                            <Toggle checked={vadAutoStop} onChange={(v) => onToggleVadAutoStop?.(v)} />
+                        </div>
+
+                        {vadAutoStop && (
+                            <div className="pt-2 border-t border-subtle">
+                                <div className="flex items-center justify-between text-[11px] text-muted mb-1.5 px-0.5">
+                                    <span>{c.settings.vadTimeoutLabel}</span>
+                                    <span className="font-mono text-orange-400 font-bold">{vadSilenceTimeout.toFixed(0)} {c.settings.vadTimeoutUnit}</span>
+                                </div>
+                                <div className="px-1 flex items-center gap-3">
+                                    <span className="text-[10px] font-bold text-white/30 uppercase tracking-wider">3s</span>
+                                    <input
+                                        type="range"
+                                        min="3.0"
+                                        max="15.0"
+                                        step="1.0"
+                                        value={vadSilenceTimeout}
+                                        onChange={(e) => onSetVadSilenceTimeout?.(parseFloat(e.target.value))}
+                                        className="flex-1 accent-orange-500 h-1.5 bg-surface-hover rounded-full appearance-none cursor-pointer hover:bg-surface-hover transition-colors"
+                                    />
+                                    <span className="text-[10px] font-bold text-white/30 uppercase tracking-wider">15s</span>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>

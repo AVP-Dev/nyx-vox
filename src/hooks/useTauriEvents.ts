@@ -80,6 +80,16 @@ export function useTauriEvents(opts: UseTauriEventsOptions) {
                     listen<string>('formatting-status', (e) => {
                         opts.setFormattingStatus(e.payload === 'done' ? null : e.payload);
                     }),
+                    listen<void>('vad-auto-stop', () => {
+                        if (opts.phaseRef.current === 'recording') {
+                            opts.handlersRefs.current.triggerStop();
+                        }
+                    }),
+                    listen<string>('interim-transcription', (e) => {
+                        if (opts.phaseRef.current === 'recording' && e.payload) {
+                            opts.setTranscript(e.payload);
+                        }
+                    }),
                 ];
 
                 const settled = await Promise.all(handlers);

@@ -4,7 +4,7 @@
 
   [![Скачать](https://img.shields.io/github/v/release/AVP-Dev/nyx-vox?label=%D0%A1%D0%BA%D0%B0%D1%87%D0%B0%D1%82%D1%8C&style=for-the-badge&color=orange)](https://github.com/AVP-Dev/nyx-vox/releases/latest)
 
-  **Текущий релиз: v1.2.0**
+  **Текущий релиз: v1.3.0**
 
   <p>
     <a href="https://avp-dev.github.io/nyx-vox/" target="_blank" rel="noopener noreferrer">🌐 Лендинг</a> &nbsp;|&nbsp;
@@ -39,7 +39,7 @@ NYX Vox — это быстрый, локально-ориентированны
 3. **CLOUD (Gemini):** Google AI. Высокая точность для русской и английской диктовки, отличный запасной движок.
    <details>
    <summary><b>Как получить ключ Gemini</b></summary>
-   1. Перейдите в <a href="https://aistudio.google.com/apikey">Google AI Studio</a>.<br/>
+   1. Перейдите в <a href="https://aistudio.google.com/">Google AI Studio</a>.<br/>
    2. Создайте API-ключ и скопируйте его.
    </details>
 
@@ -53,7 +53,7 @@ NYX Vox — это быстрый, локально-ориентированны
 
 5. **OFFLINE (Whisper):** Локальная обработка на вашем Mac (модели Small/Medium/Turbo, ускорение Metal/Core ML). Полная приватность без интернета.
 
-## � Установка и запуск
+## 📦 Установка и запуск
 
 1. **Скачивание**: Возьмите последний `.dmg` файл на странице [Релизов](https://github.com/AVP-Dev/nyx-vox/releases).
 2. **Установка**: Откройте скачанный `.dmg` и перетяните **NYX Vox** в папку `Applications` (Программы).
@@ -81,11 +81,15 @@ NYX Vox — это быстрый, локально-ориентированны
 
 **Готово:**
 - [x] Пайплайн распознавания речи (Whisper офлайн / Groq / Deepgram / Gemini / GigaChat)
+- [x] **Универсальный Live-стриминг**: отображение фраз на лету с активным курсором во всех движках
+- [x] **100% Дословное AI-форматирование**: строгий запрет на пересказ и синонимы (Gemini, DeepSeek, Qwen, Groq, GigaChat)
+- [x] **Выбор и ввод кастомных AI-моделей**: пресеты и произвольные названия моделей на лету
+- [x] **Умный VAD (автостоп по паузе речи)**: настраиваемый таймер тишины (3.0–15.0 сек)
 - [x] Современный интерфейс (Glassmorphism) и динамические окна
 - [x] Нативная вставка текста (macOS HID) с проверкой Accessibility и статусом
 - [x] Локальная история и поиск по текстам
-- [x] **Интеллектуальное AI-форматирование**: модели (Gemini, DeepSeek, Qwen, Groq, GigaChat) для исправления грамматики, пунктуации и стиля (Casual / Professional)
-- [x] Шумодав (Noise Gate) и настраиваемое усиление микрофона
+- [x] Откалиброванный шумодав (Noise Gate) и настраиваемое усиление микрофона
+- [x] Защита от галлюцинаций тишины (`trim_silence`)
 - [x] Авто-пауза музыки во время диктовки
 - [x] Шифрование API-ключей (AES-256-GCM, привязка к machine-id)
 - [x] Компактный режим (idle-окно превращается в круглый бабл с микрофоном)
@@ -98,7 +102,6 @@ NYX Vox — это быстрый, локально-ориентированны
 - [ ] **Выбор микрофона** — выбор устройства ввода в настройках (сейчас используется системный по умолчанию)
 - [ ] **Автообновление** — проверка обновлений уже есть; дальше — автоматическая загрузка и установка
 - [ ] **Пользовательский словарь** — свои термины, имена, техническая лексика
-- [ ] **Детекция активности речи** — автопауза записи, когда вы замолчали
 - [ ] **Кроссплатформенность** — поддержка Linux
 
 > [!TIP]
@@ -116,12 +119,12 @@ NYX Vox — это проект, создаваемый с душой. Если 
 
 <br />
 <p align="center">
-  <a href="https://avpdev.com/en/"><b>Alexios Odos</b></a>
+  <a href="https://avpdev.com/ru/"><b>Алексей Пацкевич</b></a>
   &nbsp;|&nbsp;
-  <a href="https://avpdev.com/ru/"><b>Aliaksei Patskevich</b></a>
+  <a href="https://avpdev.com/en/"><b>Alexios Odos</b></a>
   <br />
   <sub>
-    <b>Modern Web Architect</b> • Code, Design & AI
+    <b>Архитектор Современного Веба</b> • Код, Дизайн и ИИ
     <br />
     <a href="https://github.com/AVP-Dev">GitHub</a> &bull; <a href="https://t.me/AVP_Dev">Telegram</a>
   </sub>
@@ -137,4 +140,3 @@ NYX Vox — это проект, создаваемый с душой. Если 
   <img src="https://img.shields.io/badge/Autodesk_Fusion_360-0696D7?style=flat-square&logo=autodesk&logoColor=white" />
   <img src="https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=flat-square&logo=tailwindcss&logoColor=white" />
 </p>
-

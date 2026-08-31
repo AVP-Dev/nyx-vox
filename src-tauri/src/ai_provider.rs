@@ -86,7 +86,13 @@ pub(crate) fn take_recording_wav<R: Runtime>(
         samples.len(), rms, threshold, gain, src_rate, samples.len() as f64 / src_rate as f64);
 
     let processed_samples = crate::utils::resample_to_16k(&samples, src_rate, 16000);
-    let wav_data = crate::utils::samples_to_wav(&processed_samples, 16000)?;
+    let trimmed = crate::utils::trim_silence(&processed_samples, threshold.max(0.002), 16000);
+    let final_samples = if trimmed.len() >= 3200 {
+        trimmed
+    } else {
+        &processed_samples
+    };
+    let wav_data = crate::utils::samples_to_wav(final_samples, 16000)?;
     Ok(Some(wav_data))
 }
 
@@ -179,6 +185,47 @@ pub fn start_recording<R: Runtime>(
                     LAST_EMIT_MS.store(now_ms, Ordering::Relaxed);
                 }
 
+                // ── VAD Silence Auto-Stop Detection ──────────────────────
+                static SPEECH_STARTED: AtomicBool = AtomicBool::new(false);
+                static LAST_SPEECH_TIME_MS: AtomicU64 = AtomicU64::new(0);
+
+                let vad_enabled = emit_handle
+                    .try_state::<crate::state::VadAutoStop>()
+                    .and_then(|s| s.0.lock().ok().map(|l| *l))
+                    .unwrap_or(false);
+
+                if vad_enabled {
+                    let noise_threshold = emit_handle
+                        .try_state::<crate::state::NoiseGateThreshold>()
+                        .and_then(|s| s.0.lock().ok().map(|l| *l))
+                        .unwrap_or(0.002);
+                    let timeout_sec = emit_handle
+                        .try_state::<crate::state::VadSilenceTimeout>()
+                        .and_then(|s| s.0.lock().ok().map(|l| *l))
+                        .unwrap_or(7.0);
+
+                    if rms >= noise_threshold {
+                        SPEECH_STARTED.store(true, Ordering::SeqCst);
+                        LAST_SPEECH_TIME_MS.store(now_ms, Ordering::Relaxed);
+                    } else if SPEECH_STARTED.load(Ordering::SeqCst) {
+                        let last_speech = LAST_SPEECH_TIME_MS.load(Ordering::Relaxed);
+                        if last_speech > 0
+                            && now_ms.saturating_sub(last_speech) >= (timeout_sec * 1000.0) as u64
+                        {
+                            SPEECH_STARTED.store(false, Ordering::SeqCst);
+                            LAST_SPEECH_TIME_MS.store(0, Ordering::Relaxed);
+                            log::info!(
+                                "VAD: Continuous silence for {:.1}s detected, triggering auto-stop",
+                                timeout_sec
+                            );
+                            let _ = emit_handle.emit("vad-auto-stop", ());
+                        }
+                    }
+                } else {
+                    SPEECH_STARTED.store(false, Ordering::Relaxed);
+                    LAST_SPEECH_TIME_MS.store(0, Ordering::Relaxed);
+                }
+
                 if let Ok(mut lock) = samples_ref.lock() {
                     lock.samples.extend_from_slice(&mono);
                 }
@@ -207,7 +254,106 @@ pub fn start_recording<R: Runtime>(
         }
     });
 
+    // Launch background phrase streaming preview worker
+    spawn_interim_stream_worker(app, state, recording_flag);
+
     Ok(())
+}
+
+fn spawn_interim_stream_worker<R: Runtime>(
+    app: AppHandle<R>,
+    state: SharedAiState,
+    flag_cpal: Arc<AtomicBool>,
+) {
+    tauri::async_runtime::spawn(async move {
+        // Wait 1.5s after start before first preview check
+        tokio::time::sleep(std::time::Duration::from_millis(1500)).await;
+
+        let client = match reqwest::Client::builder()
+            .timeout(std::time::Duration::from_millis(2000))
+            .build()
+        {
+            Ok(c) => c,
+            Err(_) => return,
+        };
+
+        while flag_cpal.load(Ordering::SeqCst) {
+            let groq_key = app
+                .try_state::<crate::keys::ApiKeys>()
+                .and_then(|k| {
+                    k.0.lock()
+                        .ok()
+                        .and_then(|m| m.get(&crate::keys::Service::Groq).cloned().flatten())
+                })
+                .unwrap_or_default();
+
+            if groq_key.is_empty() {
+                break;
+            }
+
+            let stt_model = app
+                .try_state::<crate::state::CustomModels>()
+                .and_then(|s| s.0.lock().ok().and_then(|m| m.get("groq_stt").cloned()))
+                .unwrap_or_else(|| GROQ_STT_MODEL.to_string());
+
+            let data_opt = {
+                state
+                    .lock()
+                    .ok()
+                    .map(|lock| (lock.samples.clone(), lock.sample_rate))
+            };
+
+            let (samples, sample_rate) = match data_opt {
+                Some(d) => d,
+                None => {
+                    tokio::time::sleep(std::time::Duration::from_millis(800)).await;
+                    continue;
+                }
+            };
+
+            if sample_rate > 0 && samples.len() >= (sample_rate as usize) {
+                let resampled = crate::utils::resample_to_16k(&samples, sample_rate, 16000);
+                let trimmed_audio = crate::utils::trim_silence(&resampled, 0.0025, 16000);
+                if trimmed_audio.len() >= 6400 {
+                    if let Ok(wav_data) = crate::utils::samples_to_wav(trimmed_audio, 16000) {
+                        let part = reqwest::multipart::Part::bytes(wav_data)
+                            .file_name("interim.wav")
+                            .mime_str("audio/wav")
+                            .unwrap();
+
+                        let form = reqwest::multipart::Form::new()
+                            .part("file", part)
+                            .text("model", stt_model)
+                            .text("language", "ru".to_string())
+                            .text("temperature", "0.0");
+
+                        if let Ok(res) = client
+                            .post("https://api.groq.com/openai/v1/audio/transcriptions")
+                            .header("Authorization", format!("Bearer {}", groq_key))
+                            .multipart(form)
+                            .send()
+                            .await
+                        {
+                            if res.status().is_success() {
+                                if let Ok(json) = res.json::<serde_json::Value>().await {
+                                    if let Some(text) = json["text"].as_str() {
+                                        let cleaned = crate::utils::clean_repetitive_phrases(text);
+                                        let cleaned = crate::utils::remove_hallucinations(&cleaned);
+                                        let trimmed = cleaned.trim();
+                                        if !trimmed.is_empty() && flag_cpal.load(Ordering::SeqCst) {
+                                            let _ = app.emit("interim-transcription", trimmed);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            tokio::time::sleep(std::time::Duration::from_millis(1600)).await;
+        }
+    });
 }
 
 // ── Stop recording & send to Groq STT ─────────────────────────────────────────
@@ -298,9 +444,14 @@ pub async fn stop_recording<R: Runtime>(
     );
     log::debug!("Groq STT prompt: {}", stt_prompt);
 
+    let stt_model = app
+        .try_state::<crate::state::CustomModels>()
+        .and_then(|s| s.0.lock().ok().and_then(|m| m.get("groq_stt").cloned()))
+        .unwrap_or_else(|| GROQ_STT_MODEL.to_string());
+
     let form = reqwest::multipart::Form::new()
         .part("file", part)
-        .text("model", GROQ_STT_MODEL)
+        .text("model", stt_model)
         .text("prompt", stt_prompt)
         .text("language", effective_lang.to_string());
 
@@ -401,9 +552,14 @@ pub async fn gemini_stop_recording<R: Runtime>(
         .build()
         .map_err(|e| format!("Client build failed: {}", e))?;
 
+    let stt_model = app
+        .try_state::<crate::state::CustomModels>()
+        .and_then(|s| s.0.lock().ok().and_then(|m| m.get("gemini_stt").cloned()))
+        .unwrap_or_else(|| GEMINI_MODEL.to_string());
+
     let url = format!(
         "https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent?key={}",
-        GEMINI_MODEL, api_key
+        stt_model, api_key
     );
     let audio_b64 = general_purpose::STANDARD.encode(wav_data);
     let body = json!({
@@ -512,8 +668,13 @@ pub async fn groq_refine_text<R: Runtime>(
     );
     let user_content = build_refinement_user_content(instruction, &text);
 
+    let format_model = app
+        .try_state::<crate::state::CustomModels>()
+        .and_then(|s| s.0.lock().ok().and_then(|m| m.get("groq_format").cloned()))
+        .unwrap_or_else(|| GROQ_REFINEMENT_MODEL.to_string());
+
     let body = json!({
-        "model": GROQ_REFINEMENT_MODEL,
+        "model": format_model,
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_content}
@@ -595,9 +756,19 @@ pub async fn gemini_refine_text<R: Runtime>(
         .timeout(std::time::Duration::from_secs(20))
         .build()
         .map_err(|e| format!("Client build failed: {}", e))?;
+
+    let format_model = app
+        .try_state::<crate::state::CustomModels>()
+        .and_then(|s| {
+            s.0.lock()
+                .ok()
+                .and_then(|m| m.get("gemini_format").cloned())
+        })
+        .unwrap_or_else(|| GEMINI_MODEL.to_string());
+
     let url = format!(
         "https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent?key={}",
-        GEMINI_MODEL, api_key
+        format_model, api_key
     );
 
     let style_state = app.state::<FormattingStyleState>();
@@ -695,5 +866,14 @@ mod tests {
         let result = build_refinement_user_content(None, "");
         assert!(!result.is_empty()); // instruction + delimiters still present
         assert!(result.contains(crate::prompts::REFINEMENT_USER_DELIMITER));
+    }
+
+    #[test]
+    fn model_defaults_are_valid_non_empty_strings() {
+        assert!(!GROQ_STT_MODEL.is_empty());
+        assert!(!GROQ_REFINEMENT_MODEL.is_empty());
+        assert!(!GEMINI_MODEL.is_empty());
+        assert!(GROQ_STT_MODEL.contains("whisper"));
+        assert!(GEMINI_MODEL.contains("gemini"));
     }
 }

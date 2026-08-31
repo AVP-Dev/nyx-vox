@@ -4,7 +4,29 @@
 
 ---
 
-## 📅 Unreleased (Post-1.2.0 Quality Improvements)
+## 📅 Version 1.3.0 (Current)
+
+### 🎙️ Universal Live Phrase Streaming
+- Added real-time interim transcription across all STT engines (Groq, Deepgram, Gemini, GigaChat, and Local Whisper).
+- Spoken phrases appear instantly on screen as you speak with an active typing indicator.
+- Polished streaming layout: window extended to 380px, auto-scrolling right with gradient left fade, eliminating text overlap over window controls.
+
+### 🎯 100% Verbatim AI Calibration
+- Completely revised system prompts (`REFINEMENT_SYSTEM_PROMPT`, `FORMAT_STYLE_LIGHT`, `FORMAT_STYLE_DEEP`) across all providers.
+- GigaChat, DeepSeek, Gemini, Qwen, and Groq now operate under strict verbatim constraints: zero synonym replacement, zero text restructuring, zero unsolicited answers or advice.
+
+### ⚙️ Custom AI Models & Presets
+- Added customizable model selectors under Settings → Keys for all providers (Groq, Gemini, DeepSeek, Qwen, GigaChat).
+- Users can choose from popular curated presets or input arbitrary model IDs with one-click reset to default.
+
+### ⏱️ Smart VAD Silence Auto-Stop
+- Added configurable silence pause auto-stop in Settings → General with adjustable duration (3.0s to 15.0s, default 7.0s).
+- Silence tracking activates only after speech begins, providing plenty of time for users to pause and think.
+
+### 🔇 Silence Trimming & Noise Gate Hardening
+- Added automatic leading/trailing silence trimming (`trim_silence`) before Whisper STT, completely eliminating music/subtitle hallucinations on silence.
+- Corrected inverted Noise Gate sensitivity labels and calibrated threshold range (0.001–0.025).
+- Added streaming fallback in `useRecording.ts` so recordings stopped by keyboard shortcuts are never dropped.
 
 ### 🆕 GigaChat STT (Transcription Engine)
 - Added GigaChat as a **speech-to-text engine** (button "GigaChat Pro" in EnginesTab)

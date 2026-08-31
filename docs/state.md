@@ -5,29 +5,27 @@
 > Держи компактно: не история навсегда, а срез "что сейчас".
 
 ## Последнее обновление
-Дата: 2026-08-06
-Кто/что обновило: Командный агент (релиз v1.2.0, актуализация документации после merge)
+Дата: 2026-08-31
+Кто/что обновило: Агент (Кастомизация моделей AI, VAD автостоп 3–15 сек, Live стриминг фраз)
 
 ## Версии (важно)
-- Последний ПУБЛИЧНЫЙ релиз на GitHub — **v1.2.0** (Security Hardening, GigaChat, Voice Frontend & Architecture Overhaul)
-- Ветка `dev` смержена в `main` (merge-коммит `985fe13`)
-- Следующая разработка идёт в ветке `dev` (после v1.2.0)
+- Последний ПУБЛИЧНЫЙ релиз на GitHub — **v1.3.0** (Live Streaming, Verbatim AI & Custom Models)
+- Предыдущие версии: v1.2.0, v1.1.0, v1.0.0
+- Ветка `main` содержит актуальную сборку v1.3.0
 
 ## Что сейчас в работе
-- **Релиз v1.2.0 опубликован** (ранее готовился из ветки `dev`)
-- Релизные заметки v1.2.0 актуализированы (убраны Mixed/Enter-неточности, добавлены GigaChat/Whisper/стабильность)
-- **GigaChat добавлен как STT-движок** (кнопка «GigaChat Pro» в EnginesTab):
-  - Модели: форматирование — `GigaChat-2`, STT — `GigaChat-2-Pro` (multimodal, аудио)
-  - OAuth на `ngw.devices.sberbank.ru:9443` (сертификат Минцифры), токен 30 мин с кешем и рефрешем по 401/403
-  - TLS: reqwest переключён на rustls-tls, Russian Trusted Root CA скачивается один раз с gu-st.ru в app-data и используется как trust anchor (add_root_certificate)
-  - STT: аудио загружается через POST /v1/files (purpose=general), затем chat/completions с attachments:[file_id] + function_call=auto — OpenAI-стиль input_audio НЕ поддерживается (400 invalid JSON)
-  - Проверено вживую: «Раз, два, три...» → «GigaChat работает отлично. Hello, my name is Alex...»
-- Проведён полный код-ревью (28 замечаний), исправлено 4 подхода (критические баги, дедупликация, промпты/локализация, чистка)
-- Все проверки пройдены: cargo check, cargo clippy, cargo test (80), eslint — чисто
+- Релиз v1.3.0 полностью сформирован, протестирован и подготовлен:
+  1. **Кастомизация моделей AI**: выбор пресетов и ввод кастомных названий моделей для форматирования и STT (Gemini, GigaChat, DeepSeek, Qwen, Groq) с сохранением в `settings.json`.
+  2. **Интеллектуальный VAD (Voice Activity Detection)**: опциональный автостоп при непрерывной тишине после начала речи с настраиваемым таймером (3–15 секунд, дефолт 7 сек).
+  3. **Live streaming / phrase preview**: фоновый воркер (`spawn_interim_stream_worker`) внедрен во все STT пайплайны (**Groq**, **Deepgram**, **Gemini**, **GigaChat**, **Локальный Whisper**) — в реальном времени транскрибирует произносимые фразы и передает их в UI через `interim-transcription`.
+  4. **Современная верстка стриминга**: окно расширено до 380px, убраны надписи и диаграммы, текст печатается строго между кнопками с авто-скроллом вправо и градиентным затуханием слева.
+  5. **100% надежность завершения записи**: добавлен fallback на накопленный стриминговый текст в `useRecording.ts`, безопасная обработка коротких фраз в `take_recording_wav`, исправлены подписи и диапазон слайдера Noise Gate в настройках.
+- Все проверки пройдены: `cargo check`, `cargo clippy -- -D warnings` (0 warnings), `cargo fmt --check`, `cargo test` (90 pass), `bun run lint` (0 errors), `bun run test` (62 pass), `bun run build` (0 errors).
 
 ## Что стабильно работает (не трогать без причины)
-- STT pipeline (Whisper, Deepgram, Groq, Gemini, GigaChat)
-- AI formatting (Gemini, DeepSeek, Qwen, Groq, GigaChat)
+- STT pipeline (Whisper, Deepgram, Groq, Gemini, GigaChat) с кастомными моделями
+- AI formatting (Gemini, DeepSeek, Qwen, Groq, GigaChat) с кастомными моделями
+- Интеллектуальный VAD авто-стоп по тишине (3-15 сек)
 - Автопаста через CGEvent (с проверкой Accessibility и возвратом статуса)
 - Шифрование API-ключей (AES-256-GCM)
 - Noise Gate
@@ -38,13 +36,19 @@
 - Playwright E2E (3 smoke-теста)
 
 ## Известные проблемы / баги
-- GigaChat: не тестировался с реальным ключом — нужна проверка OAuth-флоу и выбора модели
 - `libc::_exit(0)` при выходе сохранён (необходим для избежания ggml crash), но перед ним добавлен flush данных
 
 ## Технический долг (осознанный)
 - macOS only — архитектурное решение, не баг
 
 ## Что сделано
+- **Сессия 13 (Custom AI Models, VAD Silence Auto-Stop & Live Phrases):**
+  - **Кастомизация моделей**: бэкенд (`CustomModels` в `state.rs`, команды `set_custom_model`/`get_custom_models`, интеграция в `ai_provider.rs`, `deepseek.rs`, `qwen.rs`, `gigachat.rs`); фронтенд (`KeysTab.tsx` со списком пресетов, инпутом кастомных названий и кнопкой сброса).
+  - **VAD автостоп**: бэкенд (`VadAutoStop`, `VadSilenceTimeout` в `state.rs`, отслеживание тишины после начала речи в `ai_provider.rs` и `whisper/recording.rs`, событие `vad-auto-stop`); фронтенд (`GeneralTab.tsx` с карточкой VAD и слайдером 3–15 сек, `useTauriEvents.ts` авто-стоп).
+  - **Live стриминг фраз**: поддержка `interim-transcription` событий в `useTauriEvents.ts` для живого превью текста во время записи.
+  - **Тесты и качество**: 90 Rust unit tests pass, 62 Vitest frontend tests pass, clippy 0 warnings, eslint clean.
+- **Сессия 12 (100% Verbatim Prompts & Audit):** Внесены точные калибровки в `REFINEMENT_SYSTEM_PROMPT`, `FORMAT_STYLE_LIGHT`, `FORMAT_STYLE_DEEP` и `REFINEMENT_USER_INSTRUCTION_GENERIC`. Исключен пересказ/рерайтинг и подмена разговорных слов книжными синонимами моделью GigaChat-2 и другими LLM. Документация синхронизирована (`docs/AI_PROMPTS.md`). 89 Rust тестов и 62 Vitest теста проходят.
+- **Сессия 11 (Formatting anti-hallucination):** Ужесточены промпты форматирования (REFINEMENT_SYSTEM_PROMPT, FORMAT_STYLE_LIGHT/DEEP): форматтер теперь ТОЛЬКО расставляет пунктуацию/заглавные буквы, исправляет грамматику (окончания, согласование, предлоги — минимально) и удаляет слова-паразиты; явно запрещено переписывать слова, отвечать на вопросы из диктовки, давать советы/рекомендации и создавать списки. Убрано разрешение «исправлять грамматику», провоцировавшее додумывание — возвращено позже с уточнением «менять только то, что нужно для правильности, без замены слов на синонимы». Добавлены 5 юнит-тестов в prompts.rs (89 cargo test pass). Обновлён docs/AI_PROMPTS.md (разделы 2.1-2.2).
 - **Сессия 10 (финальные фиксы UI):** (1) Enter paste — корень был в stale closure: `useKeyboardShortcuts` регистрировал обработчик один раз и держал первую версию `handlePaste` с пустым `transcriptText`, а `handlePaste` при пустом тексте молча выходил → Enter «не работал». Исправлено: свежий `handlePaste` через ref, слушатель в capture-фазе, свой Enter-обработчик на textarea. (2) Компактный режим — окно 48×48, но внутри рендерился полный HeaderBar (обрезался). Теперь при компактном idle рендерится круглый бабл с кнопкой-микрофоном; анимации синхронизированы (`buildContainerVariants(compactIdle)`), `WINDOW_SIZES.compactIdle`. Проверки: bun test 62 pass, eslint 0, bun build success.
 - **Сессия 10 (документация):** Актуализированы AGENTS.md (англ.), .claude/agents/*, SESSION-*, релизные заметки v1.2.0 (убраны Mixed/Enter-неточности, добавлены GigaChat/Whisper/стабильность, помечен статус «не опубликован»), CHANGELOG/tags/README/architecture/overview синхронизированы.
 - **Сессия 6 (STT Quality):** Исправлены 3 бага распознавания речи: (1) Groq не отправлял параметр language при mixed → Whisper默认ал на английский; (2) Gemini всегда получал "auto" вместо "mixed" из-за отсутствия GeminiLanguage state; (3) Deepgram использовал "multi" вместо "ru" для mixed-режима. Добавлен GeminiLanguage state (state.rs, lib.rs, settings.rs, audio.rs). Удалён нестабильный "auto" режим из всех движков (types.ts, EnginesTab.tsx, SettingsPanel.tsx, useSettings.ts, whisper/transcribe.rs, streaming.rs, prompts.rs). Улучшено обрезание промпта Groq (по границе слова). clippy 0 warnings, tsc --noEmit pass.
