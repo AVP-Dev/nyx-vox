@@ -303,24 +303,58 @@ pub async fn stop_recording(
     }
 
     let batch_result = if mode == "deepgram" {
-        let api_key = api_keys
-            .0
-            .lock()
-            .map_err(|e| e.to_string())?
-            .get(&keys::Service::Deepgram)
-            .cloned()
-            .flatten()
-            .unwrap_or_default();
-        deepgram::stop_recording(
-            &app,
-            Arc::clone(&dg_state),
-            Arc::clone(&recording_flag.0),
-            api_key,
-            lang,
-            threshold,
-            gain,
-        )
-        .await?
+        if let Some(ref st) = streamed_text {
+            let trimmed = st.trim();
+            if !trimmed.is_empty()
+                && !trimmed.starts_with("Ошибка")
+                && !trimmed.starts_with("Error")
+            {
+                log::info!("stop_recording: using live Deepgram WebSocket stream directly (0 extra REST requests)");
+                recording_flag.0.store(false, Ordering::SeqCst);
+                if let Ok(mut lock) = dg_state.lock() {
+                    lock.samples.clear();
+                }
+                trimmed.to_string()
+            } else {
+                let api_key = api_keys
+                    .0
+                    .lock()
+                    .map_err(|e| e.to_string())?
+                    .get(&keys::Service::Deepgram)
+                    .cloned()
+                    .flatten()
+                    .unwrap_or_default();
+                deepgram::stop_recording(
+                    &app,
+                    Arc::clone(&dg_state),
+                    Arc::clone(&recording_flag.0),
+                    api_key,
+                    lang,
+                    threshold,
+                    gain,
+                )
+                .await?
+            }
+        } else {
+            let api_key = api_keys
+                .0
+                .lock()
+                .map_err(|e| e.to_string())?
+                .get(&keys::Service::Deepgram)
+                .cloned()
+                .flatten()
+                .unwrap_or_default();
+            deepgram::stop_recording(
+                &app,
+                Arc::clone(&dg_state),
+                Arc::clone(&recording_flag.0),
+                api_key,
+                lang,
+                threshold,
+                gain,
+            )
+            .await?
+        }
     } else if mode == "whisper" {
         whisper::stop_recording(
             &app,

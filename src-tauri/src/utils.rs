@@ -432,16 +432,18 @@ pub fn clean_repetitive_phrases(text: &str) -> String {
     result.join(" ")
 }
 
-/// A standalone hesitation sound: single/duplicated "э", "а", "у", "о", "и", "м".
+/// A standalone hesitation sound: "э", "ээ", "эээ", "мм", "ммм", "гм", "хм", "uh", "um", "er".
+/// Russian prepositions and conjunctions ("и", "а", "у", "о", "к", "в", "с") must NEVER be dropped!
 fn is_lone_filler(word: &str) -> bool {
     let lower = word.to_lowercase();
     let trimmed = lower.trim_matches(|c: char| !c.is_alphabetic());
     if trimmed.is_empty() {
         return false;
     }
-    trimmed
-        .chars()
-        .all(|c| matches!(c, 'э' | 'а' | 'у' | 'о' | 'и' | 'м'))
+    matches!(
+        trimmed,
+        "э" | "ээ" | "эээ" | "мм" | "ммм" | "гм" | "хм" | "uh" | "um" | "er" | "ah"
+    )
 }
 
 /// A robust Voice Activity Detection (VAD) tracker.
@@ -718,16 +720,15 @@ mod tests {
 
     #[test]
     fn clean_removes_loose_filler_words() {
-        let result = clean_repetitive_phrases("и э вот у этот а текст");
+        let result = clean_repetitive_phrases("и э вот ээ этот мм текст");
         assert_eq!(result, "и вот этот текст");
     }
 
     #[test]
     fn clean_keeps_short_real_words() {
-        // "и", "на", "у" (preposition) are real words — only single-letter
-        // hesitation sounds between real words are removed.
-        let result = clean_repetitive_phrases("и на у");
-        assert_eq!(result, "и на у");
+        // "и", "на", "у" (preposition), "а" (conjunction) are real words and must NEVER be deleted
+        let result = clean_repetitive_phrases("проверку у Сбера и этот а тот");
+        assert_eq!(result, "проверку у Сбера и этот а тот");
     }
 
     // ── strip_filler_phrases ─────────────────────────────────────────────────
