@@ -302,59 +302,52 @@ pub async fn stop_recording(
         crate::utils::system_media_control(0);
     }
 
-    let batch_result = if mode == "deepgram" {
-        if let Some(ref st) = streamed_text {
-            let trimmed = st.trim();
-            if !trimmed.is_empty()
-                && !trimmed.starts_with("Ошибка")
-                && !trimmed.starts_with("Error")
-            {
-                log::info!("stop_recording: using live Deepgram WebSocket stream directly (0 extra REST requests)");
-                recording_flag.0.store(false, Ordering::SeqCst);
-                if let Ok(mut lock) = dg_state.lock() {
-                    lock.samples.clear();
-                }
-                trimmed.to_string()
-            } else {
-                let api_key = api_keys
-                    .0
-                    .lock()
-                    .map_err(|e| e.to_string())?
-                    .get(&keys::Service::Deepgram)
-                    .cloned()
-                    .flatten()
-                    .unwrap_or_default();
-                deepgram::stop_recording(
-                    &app,
-                    Arc::clone(&dg_state),
-                    Arc::clone(&recording_flag.0),
-                    api_key,
-                    lang,
-                    threshold,
-                    gain,
-                )
-                .await?
-            }
-        } else {
-            let api_key = api_keys
-                .0
-                .lock()
-                .map_err(|e| e.to_string())?
-                .get(&keys::Service::Deepgram)
-                .cloned()
-                .flatten()
-                .unwrap_or_default();
-            deepgram::stop_recording(
-                &app,
-                Arc::clone(&dg_state),
-                Arc::clone(&recording_flag.0),
-                api_key,
-                lang,
-                threshold,
-                gain,
-            )
-            .await?
+    let has_streamed_preview = match streamed_text {
+        Some(ref st) => {
+            let t = st.trim();
+            !t.is_empty() && !t.starts_with("Ошибка") && !t.starts_with("Error")
         }
+        None => false,
+    };
+
+    let batch_result = if has_streamed_preview {
+        log::info!(
+            "stop_recording: using live streamed preview text directly (0 extra REST STT requests)"
+        );
+        recording_flag.0.store(false, Ordering::SeqCst);
+        if let Ok(mut lock) = state.lock() {
+            lock.samples.clear();
+        }
+        if let Ok(mut lock) = dg_state.lock() {
+            lock.samples.clear();
+        }
+        if let Ok(mut lock) = ai_state.lock() {
+            lock.samples.clear();
+        }
+        streamed_text
+            .as_deref()
+            .unwrap_or_default()
+            .trim()
+            .to_string()
+    } else if mode == "deepgram" {
+        let api_key = api_keys
+            .0
+            .lock()
+            .map_err(|e| e.to_string())?
+            .get(&keys::Service::Deepgram)
+            .cloned()
+            .flatten()
+            .unwrap_or_default();
+        deepgram::stop_recording(
+            &app,
+            Arc::clone(&dg_state),
+            Arc::clone(&recording_flag.0),
+            api_key,
+            lang,
+            threshold,
+            gain,
+        )
+        .await?
     } else if mode == "whisper" {
         whisper::stop_recording(
             &app,

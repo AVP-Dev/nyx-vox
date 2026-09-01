@@ -86,7 +86,7 @@ fn table() -> &'static Vec<TranslitEntry> {
                 replacement: "Rust",
             },
             TranslitEntry {
-                patterns: &["bun", "бан"],
+                patterns: &["bun", "бан", "бун", "буно", "buno"],
                 replacement: "Bun",
             },
             TranslitEntry {
