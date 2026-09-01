@@ -4,7 +4,7 @@
 // stop_recording flow that hands off audio to the transcription engine.
 
 use std::sync::{
-    atomic::{AtomicBool, AtomicU64, Ordering},
+    atomic::{AtomicBool, Ordering},
     Arc, Mutex,
 };
 use tauri::{AppHandle, Emitter, Manager, Runtime};
@@ -28,8 +28,6 @@ pub type SharedState = Arc<Mutex<RecordingState>>;
 const AUDIO_TAIL_PADDING_MS: u64 = 60;
 /// Minimum recording duration in seconds to consider for transcription.
 const MIN_DURATION_SECS: f64 = 0.3;
-/// Audio level emit throttle interval (ms).
-const LEVEL_EMIT_INTERVAL_MS: u64 = 50;
 /// Mic polling interval while recording (ms).
 const MIC_POLL_INTERVAL_MS: u64 = 50;
 
@@ -66,7 +64,8 @@ pub fn start_recording<R: Runtime>(
     // We capture immediately and warm the model in parallel because inference is
     // only needed after stop.
 
-    spawn_capture_thread(sample_store, flag_cpal, app_stream);
+    spawn_capture_thread(sample_store, flag_cpal.clone(), app_stream.clone());
+    spawn_interim_stream_worker(app, state, flag_cpal);
 
     Ok(())
 }
@@ -88,27 +87,32 @@ fn spawn_capture_thread(
         let device = match host.default_input_device() {
             Some(d) => d,
             None => {
-                let _ = app_stream.emit("recording-error", "No mic");
+                log::error!("No input audio device found");
+                let _ = app_stream.emit("recording-error", "Микрофон не найден");
+                flag_cpal.store(false, Ordering::SeqCst);
                 return;
             }
         };
         let config = match device.default_input_config() {
             Ok(c) => c,
             Err(e) => {
-                let _ = app_stream.emit("recording-error", e.to_string());
+                log::error!("Failed to get default input config: {}", e);
+                let _ = app_stream.emit("recording-error", "Ошибка настройки микрофона");
+                flag_cpal.store(false, Ordering::SeqCst);
                 return;
             }
         };
 
         let channels = config.channels() as usize;
-        let actual_sample_rate = config.sample_rate().0;
+        let sample_rate = config.sample_rate().0;
 
-        if let Ok(mut lock) = sample_store.lock() {
-            lock.sample_rate = actual_sample_rate;
+        {
+            if let Ok(mut lock) = sample_store.lock() {
+                lock.sample_rate = sample_rate;
+            }
         }
 
         let samples_ref = Arc::clone(&sample_store);
-        let flag_inner = Arc::clone(&flag_cpal);
         let emit_handle = app_stream.clone();
 
         let mut vad_tracker = crate::utils::VadTracker::new();
@@ -116,29 +120,20 @@ fn spawn_capture_thread(
         let stream = device.build_input_stream(
             &config.into(),
             move |data: &[f32], _: &cpal::InputCallbackInfo| {
-                if !flag_inner.load(Ordering::SeqCst) {
-                    return;
-                }
-
                 let mono: Vec<f32> = data
                     .chunks(channels)
-                    .map(|f| f.iter().sum::<f32>() / channels as f32)
+                    .map(|chunk| chunk.iter().sum::<f32>() / channels as f32)
                     .collect();
 
-                let rms = (mono.iter().map(|s| s * s).sum::<f32>() / mono.len() as f32).sqrt();
-                let level = (rms * 10.0).min(1.0_f32);
-
-                static LAST_EMIT_MS: AtomicU64 = AtomicU64::new(0);
-                let now_ms = std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap_or_default()
-                    .as_millis() as u64;
-
-                let last = LAST_EMIT_MS.load(Ordering::Relaxed);
-                if now_ms - last > LEVEL_EMIT_INTERVAL_MS {
-                    let _ = emit_handle.emit("audio-level", level);
-                    LAST_EMIT_MS.store(now_ms, Ordering::Relaxed);
+                let frame_size = (sample_rate / 20).max(1) as usize;
+                let mut peak_rms: f32 = 0.0;
+                for chunk in mono.chunks(frame_size) {
+                    let rms = (chunk.iter().map(|s| s * s).sum::<f32>() / chunk.len() as f32).sqrt();
+                    if rms > peak_rms {
+                        peak_rms = rms;
+                    }
                 }
+                let _ = emit_handle.emit("audio-level", peak_rms);
 
                 // VAD Silence Auto-Stop
                 let vad_enabled = emit_handle
@@ -158,7 +153,7 @@ fn spawn_capture_thread(
 
                     if vad_tracker.update(&mono, noise_threshold, timeout_sec) {
                         log::info!(
-                            "Whisper VAD: Continuous silence for {:.1}s detected, triggering auto-stop",
+                            "Local VAD: Continuous silence for {:.1}s detected, triggering auto-stop",
                             timeout_sec
                         );
                         let _ = emit_handle.emit("vad-auto-stop", ());
@@ -175,12 +170,7 @@ fn spawn_capture_thread(
 
         match stream {
             Ok(s) => {
-                if let Err(e) = s.play() {
-                    log::error!("Failed to start microphone stream: {}", e);
-                    let _ = app_stream.emit("recording-error", "Не удалось запустить микрофон");
-                    flag_cpal.store(false, Ordering::SeqCst);
-                    return;
-                }
+                let _ = s.play();
                 while flag_cpal.load(Ordering::SeqCst) {
                     std::thread::sleep(std::time::Duration::from_millis(MIC_POLL_INTERVAL_MS));
                 }
@@ -190,6 +180,107 @@ fn spawn_capture_thread(
                 let _ = app_stream.emit("recording-error", "Не удалось запустить микрофон");
                 flag_cpal.store(false, Ordering::SeqCst);
             }
+        }
+    });
+}
+
+fn spawn_interim_stream_worker<R: Runtime>(
+    app: AppHandle<R>,
+    state: SharedState,
+    flag_cpal: Arc<AtomicBool>,
+) {
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_millis(600)).await;
+
+        let client = crate::utils::shared_http_client();
+
+        while flag_cpal.load(Ordering::SeqCst) {
+            let groq_key = {
+                let keys_state = app.try_state::<crate::keys::ApiKeys>();
+                keys_state
+                    .as_ref()
+                    .and_then(|k| k.0.lock().ok())
+                    .and_then(|m| m.get(&crate::keys::Service::Groq).cloned().flatten())
+                    .unwrap_or_default()
+            };
+
+            if groq_key.is_empty() {
+                break;
+            }
+
+            let data_opt = {
+                state
+                    .lock()
+                    .ok()
+                    .map(|lock| (lock.samples.clone(), lock.sample_rate))
+            };
+
+            let (samples, sample_rate) = match data_opt {
+                Some(d) => d,
+                None => {
+                    tokio::time::sleep(std::time::Duration::from_millis(400)).await;
+                    continue;
+                }
+            };
+
+            if sample_rate > 0 && samples.len() >= (sample_rate as usize / 3) {
+                let frame_size = (sample_rate / 20).max(1) as usize;
+                let mut peak_rms: f32 = 0.0;
+                for chunk in samples.chunks(frame_size) {
+                    let chunk_rms =
+                        (chunk.iter().map(|s| s * s).sum::<f32>() / chunk.len() as f32).sqrt();
+                    if chunk_rms > peak_rms {
+                        peak_rms = chunk_rms;
+                    }
+                }
+                if peak_rms < 0.0012 {
+                    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+                    continue;
+                }
+
+                let resampled = crate::utils::resample_to_16k(&samples, sample_rate, 16000);
+                let trimmed_audio = crate::utils::trim_silence(&resampled, 0.0025, 16000);
+                if trimmed_audio.len() >= 4800 && !groq_key.is_empty() {
+                    if let Ok(wav_data) = crate::utils::samples_to_wav(trimmed_audio, 16000) {
+                        if let Ok(part) = reqwest::multipart::Part::bytes(wav_data)
+                            .file_name("interim.wav")
+                            .mime_str("audio/wav")
+                        {
+                            let form = reqwest::multipart::Form::new()
+                                .part("file", part)
+                                .text("model", "whisper-large-v3-turbo")
+                                .text("language", "ru".to_string())
+                                .text("temperature", "0.0");
+                            if let Ok(res) = client
+                                .post("https://api.groq.com/openai/v1/audio/transcriptions")
+                                .header("Authorization", format!("Bearer {}", groq_key))
+                                .multipart(form)
+                                .send()
+                                .await
+                            {
+                                if res.status().is_success() {
+                                    if let Ok(json) = res.json::<serde_json::Value>().await {
+                                        if let Some(text) = json["text"].as_str() {
+                                            let cleaned =
+                                                crate::utils::clean_repetitive_phrases(text);
+                                            let cleaned =
+                                                crate::utils::remove_hallucinations(&cleaned);
+                                            let trimmed = cleaned.trim();
+                                            if !trimmed.is_empty()
+                                                && flag_cpal.load(Ordering::SeqCst)
+                                            {
+                                                let _ = app.emit("interim-transcription", trimmed);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            tokio::time::sleep(std::time::Duration::from_millis(800)).await;
         }
     });
 }

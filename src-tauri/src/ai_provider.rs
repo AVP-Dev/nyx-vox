@@ -248,7 +248,116 @@ pub fn start_recording<R: Runtime>(
         }
     });
 
+    spawn_interim_stream_worker(app, state, recording_flag);
+
     Ok(())
+}
+
+fn spawn_interim_stream_worker<R: Runtime>(
+    app: AppHandle<R>,
+    state: SharedAiState,
+    flag_cpal: Arc<AtomicBool>,
+) {
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_millis(600)).await;
+
+        let client = crate::utils::shared_http_client();
+
+        while flag_cpal.load(Ordering::SeqCst) {
+            let groq_key = {
+                let keys_state = app.try_state::<crate::keys::ApiKeys>();
+                keys_state
+                    .as_ref()
+                    .and_then(|k| k.0.lock().ok())
+                    .and_then(|m| m.get(&crate::keys::Service::Groq).cloned().flatten())
+                    .unwrap_or_default()
+            };
+
+            if groq_key.is_empty() {
+                break;
+            }
+
+            let data_opt = {
+                state
+                    .lock()
+                    .ok()
+                    .map(|lock| (lock.samples.clone(), lock.sample_rate))
+            };
+
+            let (samples, sample_rate) = match data_opt {
+                Some(d) => d,
+                None => {
+                    tokio::time::sleep(std::time::Duration::from_millis(400)).await;
+                    continue;
+                }
+            };
+
+            if sample_rate > 0 && samples.len() >= (sample_rate as usize / 3) {
+                let frame_size = (sample_rate / 20).max(1) as usize;
+                let mut peak_rms: f32 = 0.0;
+                for chunk in samples.chunks(frame_size) {
+                    let chunk_rms =
+                        (chunk.iter().map(|s| s * s).sum::<f32>() / chunk.len() as f32).sqrt();
+                    if chunk_rms > peak_rms {
+                        peak_rms = chunk_rms;
+                    }
+                }
+                if peak_rms < 0.0012 {
+                    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+                    continue;
+                }
+
+                let resampled = crate::utils::resample_to_16k(&samples, sample_rate, 16000);
+                let trimmed_audio = crate::utils::trim_silence(&resampled, 0.0025, 16000);
+                if trimmed_audio.len() >= 4800 && !groq_key.is_empty() {
+                    if let Ok(wav_data) = crate::utils::samples_to_wav(trimmed_audio, 16000) {
+                        let stt_model = app
+                            .try_state::<crate::state::CustomModels>()
+                            .and_then(|s| s.0.lock().ok().and_then(|m| m.get("groq_stt").cloned()))
+                            .unwrap_or_else(|| GROQ_STT_MODEL.to_string());
+
+                        if let Ok(part) = reqwest::multipart::Part::bytes(wav_data)
+                            .file_name("interim.wav")
+                            .mime_str("audio/wav")
+                        {
+                            let form = reqwest::multipart::Form::new()
+                                .part("file", part)
+                                .text("model", stt_model)
+                                .text("language", "ru".to_string())
+                                .text("temperature", "0.0");
+
+                            if let Ok(res) = client
+                                .post("https://api.groq.com/openai/v1/audio/transcriptions")
+                                .header("Authorization", format!("Bearer {}", groq_key))
+                                .multipart(form)
+                                .send()
+                                .await
+                            {
+                                if res.status().is_success() {
+                                    if let Ok(json) = res.json::<serde_json::Value>().await {
+                                        if let Some(text) = json["text"].as_str() {
+                                            let cleaned =
+                                                crate::utils::clean_repetitive_phrases(text);
+                                            let cleaned =
+                                                crate::utils::remove_hallucinations(&cleaned);
+                                            let trimmed = cleaned.trim();
+                                            if !trimmed.is_empty()
+                                                && flag_cpal.load(Ordering::SeqCst)
+                                            {
+                                                let _ = app.emit("interim-transcription", trimmed);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            tokio::time::sleep(std::time::Duration::from_millis(800)).await;
+        }
+    });
 }
 
 // ── Stop recording & send to Groq STT ─────────────────────────────────────────
