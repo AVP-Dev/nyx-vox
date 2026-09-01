@@ -63,12 +63,11 @@ export function useTauriEvents(opts: UseTauriEventsOptions) {
                         if (t) opts.setTranscript(t);
                     }),
                     listen<string>('recording-error', (e) => {
-                        // Payload is already a human-readable, localized message
-                        // emitted by the backend (e.g. "Запись слишком тихая.
-                        // Говорите громче."), so show it directly.
                         const err = String(e.payload || 'Recording error');
-                        opts.setTranscript(err);
-                        opts.setPhase('result');
+                        opts.setAiStatus(err);
+                        opts.setTranscript('');
+                        opts.setPhase('idle');
+                        setTimeout(() => opts.setAiStatus(''), 2500);
                     }),
                     listen<string>('stt-fallback', (e) => {
                         opts.setTranscript(`[Fallback: ${e.payload}]`);

@@ -95,20 +95,22 @@ export function useRecording(opts: UseRecordingOptions) {
                     setPhase('result');
                 }
             } else {
-                const msg = appLanguageRef.current === 'ru' ? 'Речь не распознана (скажите громче)' : 'No speech detected (speak louder)';
-                setTranscript(msg);
-                setPhase('result');
+                // Nothing was spoken or recording was silent/cancelled — smoothly return to idle pill
+                setTranscript('');
+                setPhase('idle');
             }
         } catch (err) {
             if (err === 'ALREADY_IDLE') return;
             console.error('stop_recording failed:', err);
-            setTranscript(`Ошибка: ${err}`);
-            setPhase('result');
+            const errMsg = `Ошибка: ${err}`;
+            setAiStatus(errMsg);
+            setPhase('idle');
+            setTimeout(() => setAiStatus(''), 2500);
         } finally {
             setProcessing(false);
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [setTranscript, setProcessing]);
+    }, [setTranscript, setProcessing, setAiStatus]);
 
     const handlePaste = useCallback(async (explicitText?: string) => {
         const textToPaste = (typeof explicitText === 'string') ? explicitText : transcriptText;
