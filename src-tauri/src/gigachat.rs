@@ -302,7 +302,7 @@ pub async fn transcribe<R: Runtime>(
     app: AppHandle<R>,
     wav_data: Vec<u8>,
     api_key: String,
-    language: &str,
+    _language: &str,
 ) -> Result<String, String> {
     let auth_key = api_key.trim().to_string();
     if auth_key.is_empty() {
@@ -360,12 +360,6 @@ pub async fn transcribe<R: Runtime>(
         .to_string();
     log::info!("GigaChat: audio uploaded, file_id={}", file_id);
 
-    let stt_prompt = if language == "mixed" {
-        crate::prompts::MIXED_RU_EN_STT_PROMPT
-    } else {
-        crate::prompts::GEMINI_STT_PROMPT
-    };
-
     let stt_model = app
         .try_state::<crate::state::CustomModels>()
         .and_then(|s| s.0.lock().ok().and_then(|m| m.get("gigachat_stt").cloned()))
@@ -376,8 +370,12 @@ pub async fn transcribe<R: Runtime>(
         "function_call": "auto",
         "messages": [
             {
+                "role": "system",
+                "content": crate::prompts::MULTIMODAL_STT_SYSTEM_PROMPT
+            },
+            {
                 "role": "user",
-                "content": stt_prompt,
+                "content": crate::prompts::MULTIMODAL_STT_USER_PROMPT,
                 "attachments": [file_id]
             }
         ],

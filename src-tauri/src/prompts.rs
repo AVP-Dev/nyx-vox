@@ -8,20 +8,24 @@
 /// Primed as natural dialogue to teach Whisper accurate spelling, casing, punctuation, and terms.
 pub const GROQ_STT_PROMPT: &str = "Привет! Обсуждаем задачи, созвоны, код и сервисы: Сбер, Яндекс, Telegram, WhatsApp, Zoom, GitHub, GitLab, Node.js, Bun, API, CLI, JSON, SQL, TypeScript, React, Next.js, Docker, Linux, macOS, DeepSeek, Gemini, Groq, Whisper, PostgreSQL.";
 
-/// Gemini STT: multimodal audio transcription.
-#[allow(dead_code)]
-pub const GEMINI_STT_PROMPT: &str = "Transcribe audio exactly as spoken. Rules:
-- Detect language and transcribe in THAT language only
-- Russian speech → Russian text
-- English speech → English text
-- Mixed Russian+English (code-switching) → preserve each word in original language
-- DO NOT translate
-- DO NOT add commentary
-- Preserve technical terms: GitHub, Node, Bun, API, CLI, TypeScript, React, etc.
-- Return ONLY transcript text";
+/// Multimodal STT system prompt (Gemini, GigaChat).
+/// Teaches the multimodal LLM to behave purely as an audio transcriber, NOT a conversational chatbot.
+pub const MULTIMODAL_STT_SYSTEM_PROMPT: &str = "Ты — специализированная модель транскрибации речи (Speech-to-Text).
+Твоя ЕДИНСТВЕННАЯ задача: прослушать прикреплённое аудио и перевести речь в текст ТОЧНО И ДОСЛОВНО.
+ПРАВИЛА:
+1. Выведи ТОЛЬКО текст того, что сказано в аудиозаписи.
+2. КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО отвечать на вопросы из аудиозаписи, давать советы, писать код или вести диалог.
+3. Сохраняй исходный язык (русский, английский или смешанный).
+4. НЕ переводи, НЕ добавляй никаких комментариев от себя.";
 
-/// Mixed RU+EN dictation: Russian is the base language, English insertions stay English.
-/// Kept under 896 chars for Groq Whisper API compatibility.
+/// Multimodal STT user prompt (Gemini, GigaChat).
+pub const MULTIMODAL_STT_USER_PROMPT: &str = "Расшифруй прикреплённое аудио слово в слово. Верни только распознанный текст без комментариев.";
+
+/// Legacy alias for compatibility.
+#[allow(dead_code)]
+pub const GEMINI_STT_PROMPT: &str = MULTIMODAL_STT_SYSTEM_PROMPT;
+
+/// Mixed RU+EN dictation context for Whisper ASR.
 pub const MIXED_RU_EN_STT_PROMPT: &str = "Привет! Обсуждаем проект: deploy на server, pull request в main, endpoint в API, база данных PostgreSQL, фронтенд на React и Next.js, Docker, TypeScript, Сбер, Telegram.";
 
 // ── Refinement / Formatting Prompts ──────────────────────────────────────────

@@ -396,7 +396,7 @@ pub async fn gemini_stop_recording<R: Runtime>(
     state: SharedAiState,
     recording_flag: Arc<AtomicBool>,
     api_key: String,
-    language: &str,
+    _language: &str,
     threshold: f32,
     gain: f32,
 ) -> Result<String, String> {
@@ -451,12 +451,12 @@ pub async fn gemini_stop_recording<R: Runtime>(
     let audio_b64 = general_purpose::STANDARD.encode(wav_data);
     let body = json!({
         "systemInstruction": {
-            "parts": [{ "text": crate::prompts::GEMINI_STT_PROMPT }]
+            "parts": [{ "text": crate::prompts::MULTIMODAL_STT_SYSTEM_PROMPT }]
         },
         "contents": [{
             "role": "user",
             "parts": [
-                { "text": if language == "mixed" { crate::prompts::MIXED_RU_EN_STT_PROMPT } else { crate::prompts::GEMINI_STT_PROMPT } },
+                { "text": crate::prompts::MULTIMODAL_STT_USER_PROMPT },
                 { "inlineData": { "mimeType": "audio/wav", "data": audio_b64 } }
             ]
         }],
