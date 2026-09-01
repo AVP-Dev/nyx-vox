@@ -58,6 +58,9 @@ export function useRecording(opts: UseRecordingOptions) {
         setPhase('processing');
         setProcessing(true);
         try {
+            // Give 100ms for any in-flight interim streaming tick to write its final text
+            await new Promise((resolve) => setTimeout(resolve, 100));
+
             // 1. Snapshot live streamed text from real-time transcription
             const currentLiveText = useStore.getState().transcriptText;
             const hasValidLiveText = !!(currentLiveText && 
