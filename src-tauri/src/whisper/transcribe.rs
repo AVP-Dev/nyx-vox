@@ -44,24 +44,11 @@ const HALLUCINATION_PATTERNS: &[&str] = &[
     "subtitles by",
     "transcribed by",
     "copyright",
-    "subtitles",
-    "www.",
-    "http",
-    ".com",
-    ".ru",
-    "https://",
     "редактор субтитров",
-    "кулакова",
-    "игорь негода",
-    "игорь не года",
-    "а. кулаков",
-    "а. кулакова",
-    "диктор",
+    "автор субтитров",
     "подпишитесь на канал",
     "спасибо за просмотр",
     "с вами был",
-    "диктовка",
-    "диктовка.",
     "DimaTorzok",
     "Dima Torzok",
     "Hoje pursui",
@@ -69,42 +56,15 @@ const HALLUCINATION_PATTERNS: &[&str] = &[
     "uvoir",
     "продолжение следует",
     "to be continued",
-    "continued",
     "subtitles by amara.org",
     "amara.org",
     "amara",
-    "субтитры",
-    "перевод",
     "translated by",
-    "translation",
-    "специально для",
-    "благодарим за",
-    "автор субтитров",
-    "в выпуске",
-    "следующий выпуск",
-    "смотрите далее",
-    "реклама",
-    "спонсор",
-    "партнёр",
-    "sponsor",
+    "Translated by",
+    "Transcribed by",
     "end of transcript",
     "transcript end",
     "конец записи",
-    "тишина",
-    "пауза",
-    "pause",
-    "silence",
-    "неразборчиво",
-    "не разборчиво",
-    "inaudible",
-    "unclear",
-    "аплодисменты",
-    "смех",
-    "laughter",
-    "applause",
-    "music fades",
-    "music plays",
-    "играет музыка",
     "ИНТРИГУЮЩАЯ МУЗЫКА",
     "интригующая музыка",
     "intriguing music",
@@ -263,12 +223,13 @@ fn is_hallucination(text: &str) -> bool {
     let text_len = trimmed.len();
 
     for pattern in HALLUCINATION_PATTERNS {
-        if trimmed == *pattern {
+        let pat_lower = pattern.to_lowercase();
+        if trimmed == pat_lower {
             return true;
         }
         if text_len > 0
-            && trimmed.contains(pattern)
-            && pattern.len() as f32 / text_len as f32 > HALLUCINATION_OVERLAP_THRESHOLD
+            && trimmed.contains(&pat_lower)
+            && pat_lower.len() as f32 / text_len as f32 > HALLUCINATION_OVERLAP_THRESHOLD
         {
             return true;
         }
@@ -350,7 +311,7 @@ mod tests {
 
     #[test]
     fn hallucination_russian_subtitles_short() {
-        assert!(is_hallucination("Субтитры"));
+        assert!(is_hallucination("редактор субтитров"));
     }
 
     #[test]
@@ -402,8 +363,16 @@ mod tests {
 
     #[test]
     fn hallucination_pattern_covers_most_of_text() {
-        // Pattern "тишина" (6 bytes) with just a period -> covers most of text
-        assert!(is_hallucination("тишина."));
+        // Pattern "DimaTorzok" (10 bytes) with punctuation covers most of text
+        assert!(is_hallucination("DimaTorzok."));
+    }
+
+    #[test]
+    fn hallucination_preserves_vocabulary_words() {
+        // Real dictionary words like "тишина", "партнёр", "реклама", "перевод" are NOT hallucinations
+        assert!(!is_hallucination("наш партнёр запустил рекламу"));
+        assert!(!is_hallucination("в зале наступила тишина"));
+        assert!(!is_hallucination("нужен перевод текста"));
     }
 
     // ── convert_all_caps_to_normal ───────────────────────────────────────────

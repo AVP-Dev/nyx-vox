@@ -246,12 +246,6 @@ pub fn remove_hallucinations(text: &str) -> String {
     let patterns = [
         "DimaTorzok",
         "Dima Torzok",
-        "Субтитры",
-        "Отредактировано",
-        "Перевод",
-        "Транскрибация",
-        "Подпишитесь",
-        "продолжение следует",
         "Hoje pursui",
         "Não mais",
         "uvoir",
@@ -261,59 +255,22 @@ pub fn remove_hallucinations(text: &str) -> String {
         "Today pursui",
         "Subtitles by",
         "Amara.org",
-        "для сайта",
-        "специально для",
-        "благодарим за",
-        "автор субтитров",
+        "amara.org",
+        "продолжение следует",
         "Продолжение следует",
+        "to be continued",
         "Спасибо за просмотр",
+        "спасибо за просмотр",
         "Подписывайтесь на канал",
+        "подписывайтесь на канал",
         "редактор субтитров",
-        "кулакова",
-        "игорь негода",
-        "игорь не года",
-        "а. кулаков",
-        "а. кулакова",
-        "диктор",
-        "диктовка",
-        "диктовка.",
-        "субтитры",
-        "перевод",
+        "автор субтитров",
         "translated by",
-        "translation",
         "Translated by",
         "Transcribed by",
-        "в выпуске",
-        "следующий выпуск",
-        "смотрите далее",
-        "реклама",
-        "спонсор",
-        "партнёр",
-        "sponsor",
-        "Sponsor",
         "end of transcript",
         "transcript end",
         "конец записи",
-        "to be continued",
-        "continued",
-        "тишина",
-        "пауза",
-        "pause",
-        "silence",
-        "неразборчиво",
-        "не разборчиво",
-        "inaudible",
-        "unclear",
-        "аплодисменты",
-        "смех",
-        "laughter",
-        "applause",
-        "music fades",
-        "music plays",
-        "играет музыка",
-        "звучит музыка",
-        "фоновая музыка",
-        "музыкальное сопровождение",
     ];
 
     static HALLUCINATION_RES: OnceLock<Vec<Regex>> = OnceLock::new();
@@ -386,9 +343,9 @@ pub fn clean_repetitive_phrases(text: &str) -> String {
 
     let re_prefix =
         RE_PREFIX.get_or_init(|| Regex::new(r"(?i)([а-яёa-z])\s*-\s+([а-яёa-z])").unwrap());
-    // Longer hesitation/filler sequences: "э-э-э", "а-а", "у-у", "м-м-м", "типо", "короче"
-    let re_parasites = RE_PARASITES
-        .get_or_init(|| Regex::new(r"(?i)\b(аа+|ээ+|мм+|типо|короче)\b[\s,\.]*").unwrap());
+    // Longer hesitation/filler sounds: "э-э-э", "а-а", "у-у", "м-м-м"
+    let re_parasites =
+        RE_PARASITES.get_or_init(|| Regex::new(r"(?i)\b(аа+|ээ+|мм+)\b[\s,\.]*").unwrap());
     // Stuttered syllables joined with hyphens: "э-э", "а-а-а", "у-у", "м-м", "э-э-э-э".
     // (regex crate has no backreferences, so enumerate the common cases)
     let re_stutter = RE_STUTTER.get_or_init(|| {
@@ -552,15 +509,14 @@ pub fn strip_filler_phrases(text: &str) -> String {
         cleaned = re.replace(&cleaned, "").to_string();
     }
 
-    // If text is only punctuation or very short noise, return empty
+    // If text is only punctuation/symbols or empty, return empty
     let trimmed = cleaned.trim();
-    if trimmed.is_empty() || trimmed.len() < 2 {
+    if trimmed.is_empty() {
         return String::new();
     }
 
-    // Check if text is only punctuation/symbols
-    let alpha_count = trimmed.chars().filter(|c| c.is_alphabetic()).count();
-    if alpha_count == 0 {
+    let has_alphanumeric = trimmed.chars().any(|c| c.is_alphanumeric());
+    if !has_alphanumeric {
         return String::new();
     }
 
@@ -752,9 +708,11 @@ mod tests {
     }
 
     #[test]
-    fn strip_returns_empty_for_short_text() {
-        let result = strip_filler_phrases("a");
-        assert_eq!(result, "");
+    fn strip_preserves_single_character() {
+        let result = strip_filler_phrases("5");
+        assert_eq!(result, "5");
+        let result_letter = strip_filler_phrases("A");
+        assert_eq!(result_letter, "A");
     }
 
     #[test]
@@ -772,9 +730,10 @@ mod tests {
     }
 
     #[test]
-    fn hallucination_removes_subtitles() {
-        let result = remove_hallucinations("текст Субтитры далее");
-        assert_eq!(result, "текст далее");
+    fn hallucination_preserves_vocabulary_words() {
+        // Words like "партнёр", "реклама", "перевод", "тишина", "короче" must NEVER be stripped!
+        let result = remove_hallucinations("наш партнёр спонсор запустил рекламу и перевод");
+        assert_eq!(result, "наш партнёр спонсор запустил рекламу и перевод");
     }
 
     #[test]

@@ -33,8 +33,7 @@ describe('cleanHallucinations', () => {
     // ── Music / sound markers ───────────────────────────────────────────────
 
     it('removes [music]', () => {
-        // Capitalize runs before junk removal, so leading junk means no uppercase
-        expect(cleanHallucinations('[music] hello world')).toBe('hello world');
+        expect(cleanHallucinations('[music] hello world')).toBe('Hello world');
     });
 
     it('removes [silence]', () => {
@@ -46,11 +45,11 @@ describe('cleanHallucinations', () => {
     });
 
     it('removes ♪ markers', () => {
-        expect(cleanHallucinations('♪ hello world ♪')).toBe('hello world');
+        expect(cleanHallucinations('♪ hello world ♪')).toBe('Hello world');
     });
 
     it('removes (музыка)', () => {
-        expect(cleanHallucinations('(музыка) привет мир')).toBe('привет мир');
+        expect(cleanHallucinations('(музыка) привет мир')).toBe('Привет мир');
     });
 
     // ── Subtitle credits ────────────────────────────────────────────────────
@@ -106,8 +105,8 @@ describe('cleanHallucinations', () => {
         expect(cleanHallucinations('текст конец записи')).toBe('Текст');
     });
 
-    it('removes "тишина"', () => {
-        expect(cleanHallucinations('привет тишина мир')).toBe('Привет мир');
+    it('preserves real vocabulary words like "тишина", "партнёр", "реклама"', () => {
+        expect(cleanHallucinations('привет тишина мир наш партнёр')).toBe('Привет тишина мир наш партнёр');
     });
 
     // ── Trailing junk ───────────────────────────────────────────────────────
@@ -130,8 +129,9 @@ describe('cleanHallucinations', () => {
         expect(cleanHallucinations('[music]')).toBe('');
     });
 
-    it('returns empty if result is single char', () => {
-        expect(cleanHallucinations('[music] a [noise]')).toBe('');
+    it('preserves single character answer', () => {
+        expect(cleanHallucinations('[music] a [noise]')).toBe('A');
+        expect(cleanHallucinations('5')).toBe('5');
     });
 
     // ── Normal text preserved ───────────────────────────────────────────────
