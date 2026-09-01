@@ -4,9 +4,9 @@
 
 // ── Transcription Prompts (STT) ──────────────────────────────────────────────
 
-/// Groq Whisper STT: handles mixed Russian + English tech speech.
-/// Vocabulary hint teaches the model common tech terms to avoid mishearing them.
-pub const GROQ_STT_PROMPT: &str = "RAG, векторная база, PostgreSQL, Worker, статус New, GitHub, GitLab, Cursor, Node, Node.js, Bun, npm, API, CLI, UI, UX, JSON, SQL, CSS, HTML, TypeScript, JavaScript, Rust, Python, Docker, Nginx, Linux, macOS, iOS, Android, React, Next.js, Tailwind, Prisma, Supabase, Antigravity, DeepSeek, Gemini, Groq, Whisper, Deepgram, Tauri, VS Code, Xcode";
+/// Groq Whisper STT: handles natural Russian and mixed Russian + English speech.
+/// Primed as natural dialogue to teach Whisper accurate spelling, casing, punctuation, and terms.
+pub const GROQ_STT_PROMPT: &str = "Привет! Обсуждаем задачи, созвоны, код и сервисы: Сбер, Яндекс, Telegram, WhatsApp, Zoom, GitHub, GitLab, Node.js, Bun, API, CLI, JSON, SQL, TypeScript, React, Next.js, Docker, Linux, macOS, DeepSeek, Gemini, Groq, Whisper, PostgreSQL.";
 
 /// Gemini STT: multimodal audio transcription.
 #[allow(dead_code)]
@@ -22,10 +22,7 @@ pub const GEMINI_STT_PROMPT: &str = "Transcribe audio exactly as spoken. Rules:
 
 /// Mixed RU+EN dictation: Russian is the base language, English insertions stay English.
 /// Kept under 896 chars for Groq Whisper API compatibility.
-pub const MIXED_RU_EN_STT_PROMPT: &str = "Transcribe mixed Russian-English speech exactly as spoken.
-NEVER transliterate English into Cyrillic (API NOT апи, React NOT реакт).
-NEVER translate Russian into English.
-English IT terms: GitHub, pull request, branch, endpoint, deploy, token, API, cache, React, TypeScript, Node.js, Next.js, Docker, CLI, JSON, SQL, Rust, Python, Bun, npm, Tauri, Linux, macOS";
+pub const MIXED_RU_EN_STT_PROMPT: &str = "Привет! Обсуждаем проект: deploy на server, pull request в main, endpoint в API, база данных PostgreSQL, фронтенд на React и Next.js, Docker, TypeScript, Сбер, Telegram.";
 
 // ── Refinement / Formatting Prompts ──────────────────────────────────────────
 // CORE PRINCIPLE: 100% Verbatim Formatting. Do NOT rewrite, rephrase, or substitute words.
@@ -37,7 +34,7 @@ pub const REFINEMENT_SYSTEM_PROMPT: &str = "Ты — стенографист-к
 
 ПРИНЦИП 100% ДОСЛОВНОСТИ (VERBATIM):
 1. Сохраняй каждое авторское слово, падеж, грамматическую форму и порядок слов БУКВАЛЬНО. Никакого перефразирования!
-2. ЗАПРЕЩЕНО МЕНЯТЬ ПАДЕЖИ И ФОРМЫ СЛОВ: если сказано «проверку онлайн вещания Сбера» — должно остаться «Проверку онлайн вещания Сбера», а НЕ «Проверка Сбера»!
+2. ЗАПРЕЩЕНО МЕНЯТЬ ПАДЕЖИ И ФОРМЫ СЛОВ: если сказано «проверку онлайн вещания Сбера» — должно остаться «Проверку онлайн вещания Сбера.», а НЕ «Проверка Сбера».
 3. ЗАПРЕЩЕНО ВЫБРАСЫВАТЬ ИЛИ СОКРАЩАТЬ СЛОВА: ни одно слово автора нельзя удалять, сжимать или превращать в заголовок.
 4. Если фраза разговорная, неполная или простая — она ОБЯЗАНА остаться именно такой. Не пытайся сделать речь «книжной», «литературной» или «деловой».
 5. Не заменяй разговорные слова на синонимы, не перестраивай предложения, не объединяй и не дроби авторские мысли.
@@ -45,7 +42,7 @@ pub const REFINEMENT_SYSTEM_PROMPT: &str = "Ты — стенографист-к
 
 РАЗРЕШЕНО (делай ТОЛЬКО это):
 - Расставить знаки препинания: точки, запятые, вопросительные и восклицательные знаки, двоеточия, тире, кавычки.
-- Сделать первые буквы предложений, имена собственные и названия заглавными.
+- Сделать первые буквы предложений, имена собственные и названия заглавными (Москва, Сбер, Яндекс, Apple, Google, Telegram, WhatsApp и т.д.).
 - Удалить явные звуки запинок и мычания: эээ, ммм, ааа, э-э, а-а, м-м.
 - Разбить текст на логические абзацы (пустые строки), если мысль явно переключилась.
 - Английские и технические термины сохранять в оригинале (API, React, GitHub, Rust, Docker и т.д.).
@@ -56,6 +53,19 @@ pub const REFINEMENT_SYSTEM_PROMPT: &str = "Ты — стенографист-к
 - ЗАПРЕЩЕНО заменять слова автора на свои синонимы.
 - ЗАПРЕЩЕНО выбрасывать или пропускать любые слова, сказанные автором.
 - ЗАПРЕЩЕНО добавлять отсебятину, вводные слова, пояснения, комментарии или приветствия.
+
+ПРИМЕРЫ ОБРАБОТКИ (FEW-SHOT EXAMPLES):
+Вход: проверку онлайн вещания сбера
+Выход: Проверку онлайн вещания Сбера.
+
+Вход: мы настроили роутинг в некст джс и задеплоили на докер
+Выход: Мы настроили роутинг в Next.js и задеплоили на Docker.
+
+Вход: привет как дела давай созвонимся в зуме в три часа
+Выход: Привет, как дела? Давай созвонимся в Zoom в три часа.
+
+Вход: эээ напиши пожалуйста функцию на тайпскрипте
+Выход: Напиши, пожалуйста, функцию на TypeScript.
 
 ВЕРНИ ТОЛЬКО ОТФОРМАТИРОВАННЫЙ ТЕКСТ. Никаких комментариев до или после текста.
 

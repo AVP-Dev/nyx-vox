@@ -121,9 +121,6 @@ const HALLUCINATION_PATTERNS: &[&str] = &[
 
 // ── Constants ───────────────────────────────────────────────────────────────
 
-/// Vocabulary hint for technical terms used in initial_prompt.
-const VOCAB_HINT: &str = "GitHub, GitLab, Node, Node.js, Bun, npm, API, CLI, JSON, TypeScript, JavaScript, React, Next.js, Docker, Linux, macOS, Tauri, DeepSeek, Groq, Whisper, Antigravity";
-
 /// Ratio threshold for ALL CAPS detection (0.0–1.0).
 const ALL_CAPS_THRESHOLD: f32 = 0.8;
 /// Ratio threshold for hallucination substring overlap (0.0–1.0).
@@ -215,22 +212,13 @@ fn configure_params<'a>(language: &'a str, samples: &'a [f32]) -> FullParams<'a,
 }
 
 /// Constructs the initial prompt for Whisper based on language setting.
+/// Primed as natural dialogue & vocabulary to teach Whisper correct casing,
+/// punctuation, and common terms without instructional commands.
 fn build_initial_prompt(language: &str) -> String {
-    // System context with base IT vocabulary.
-    // Russian prompt is written in Russian to avoid biasing the decoder
-    // toward English hallucinations.
-    // For mixed mode: language is forced to Russian, initial_prompt handles English terms.
     match language {
-        "en" => format!("Transcribe all speech accurately. Tech terms: {}", VOCAB_HINT),
-        "auto" => format!("Точная транскрипция речи. {}", VOCAB_HINT),
-        "mixed" => format!(
-            "Русская речь с английскими техническими терминами. {}",
-            crate::prompts::MIXED_RU_EN_STT_PROMPT
-        ),
-        _ => format!(
-            "Точная транскрипция русской речи. Сохраняйте английские технические термины. Словарь: {}",
-            VOCAB_HINT
-        ),
+        "en" => "Hello! We are discussing tasks, meetings, services, and software development: GitHub, GitLab, Node.js, Bun, API, CLI, JSON, TypeScript, React, Next.js, Docker, Linux, macOS, Telegram, WhatsApp, DeepSeek, Gemini, Groq, Whisper, PostgreSQL.".to_string(),
+        "mixed" => crate::prompts::MIXED_RU_EN_STT_PROMPT.to_string(),
+        _ => "Привет! Обсуждаем задачи, встречи, код и сервисы: Сбер, Яндекс, Telegram, WhatsApp, Zoom, GitHub, GitLab, Node.js, Bun, API, CLI, JSON, TypeScript, React, Next.js, Docker, Linux, macOS, DeepSeek, Gemini, Groq, Whisper, PostgreSQL.".to_string(),
     }
 }
 
