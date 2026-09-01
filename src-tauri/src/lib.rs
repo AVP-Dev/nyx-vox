@@ -351,6 +351,21 @@ pub fn run() {
                 }
             }
 
+            // Pre-warm Whisper model in background if downloaded, so the first dictation has 0ms cold start
+            if let Some(state) = app.try_state::<WhisperModel>() {
+                if let Ok(lock) = state.0.lock() {
+                    let m_type = *lock;
+                    tauri::async_runtime::spawn(async move {
+                        let _ = tokio::task::spawn_blocking(move || {
+                            if whisper::is_model_available(m_type) {
+                                whisper::preload_model(m_type);
+                            }
+                        })
+                        .await;
+                    });
+                }
+            }
+
             if should_show_window {
                 let handle = app.handle().clone();
                 let welcome_seen_captured = welcome_seen;

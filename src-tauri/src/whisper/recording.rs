@@ -25,7 +25,7 @@ pub type SharedState = Arc<Mutex<RecordingState>>;
 // ── Constants ───────────────────────────────────────────────────────────────
 
 /// Audio-tail padding before killing the mic (ms). Prevents cutoff hallucination.
-const AUDIO_TAIL_PADDING_MS: u64 = 500;
+const AUDIO_TAIL_PADDING_MS: u64 = 60;
 /// Minimum recording duration in seconds to consider for transcription.
 const MIN_DURATION_SECS: f64 = 0.3;
 /// Audio level emit throttle interval (ms).
@@ -206,11 +206,11 @@ fn spawn_interim_stream_worker<R: Runtime>(
     flag_cpal: Arc<AtomicBool>,
 ) {
     tauri::async_runtime::spawn(async move {
-        // Quick start: wait 350ms before checking speech
-        tokio::time::sleep(std::time::Duration::from_millis(350)).await;
+        // Quick start: wait 500ms before checking speech
+        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
 
         let client = match reqwest::Client::builder()
-            .timeout(std::time::Duration::from_millis(1800))
+            .timeout(std::time::Duration::from_millis(4000))
             .build()
         {
             Ok(c) => c,
@@ -227,6 +227,10 @@ fn spawn_interim_stream_worker<R: Runtime>(
                     .unwrap_or_default()
             };
 
+            if groq_key.is_empty() {
+                break;
+            }
+
             let data_opt = {
                 state
                     .lock()
@@ -237,7 +241,7 @@ fn spawn_interim_stream_worker<R: Runtime>(
             let (samples, sample_rate) = match data_opt {
                 Some(d) => d,
                 None => {
-                    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+                    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
                     continue;
                 }
             };
@@ -254,7 +258,7 @@ fn spawn_interim_stream_worker<R: Runtime>(
                     }
                 }
                 if peak_rms < 0.0012 {
-                    tokio::time::sleep(std::time::Duration::from_millis(350)).await;
+                    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
                     continue;
                 }
 
@@ -295,7 +299,7 @@ fn spawn_interim_stream_worker<R: Runtime>(
                 }
             }
 
-            tokio::time::sleep(std::time::Duration::from_millis(400)).await;
+            tokio::time::sleep(std::time::Duration::from_millis(1500)).await;
         }
     });
 }

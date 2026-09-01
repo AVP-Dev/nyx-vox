@@ -88,6 +88,21 @@ pub fn resample_to_16k(samples: &[f32], from_rate: u32, to_rate: u32) -> Vec<f32
     result
 }
 
+/// Returns a shared, pooled reqwest Client with Keep-Alive and TLS session caching.
+pub fn shared_http_client() -> &'static reqwest::Client {
+    use std::sync::OnceLock;
+    static CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
+    CLIENT.get_or_init(|| {
+        reqwest::Client::builder()
+            .connect_timeout(std::time::Duration::from_secs(8))
+            .timeout(std::time::Duration::from_secs(45))
+            .pool_idle_timeout(std::time::Duration::from_secs(90))
+            .tcp_keepalive(std::time::Duration::from_secs(60))
+            .build()
+            .expect("Failed to build shared HTTP client")
+    })
+}
+
 /// Convert float samples to 16-bit mono WAV bytes in memory.
 pub fn samples_to_wav(samples: &[f32], sample_rate: u32) -> Result<Vec<u8>, String> {
     use std::io::Cursor;

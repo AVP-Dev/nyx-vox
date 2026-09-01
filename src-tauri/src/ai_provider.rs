@@ -260,11 +260,11 @@ fn spawn_interim_stream_worker<R: Runtime>(
     flag_cpal: Arc<AtomicBool>,
 ) {
     tauri::async_runtime::spawn(async move {
-        // Quick start: wait only 350ms before checking speech
-        tokio::time::sleep(std::time::Duration::from_millis(350)).await;
+        // Initial wait to collect speech samples
+        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
 
         let client = match reqwest::Client::builder()
-            .timeout(std::time::Duration::from_millis(1800))
+            .timeout(std::time::Duration::from_millis(4000))
             .build()
         {
             Ok(c) => c,
@@ -437,7 +437,7 @@ pub async fn stop_recording<R: Runtime>(
     threshold: f32,
     gain: f32,
 ) -> Result<String, String> {
-    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+    tokio::time::sleep(std::time::Duration::from_millis(60)).await;
     recording_flag.store(false, Ordering::SeqCst);
 
     // 1. Acquisition of Semaphore — with a timeout so a stuck previous request
@@ -476,11 +476,7 @@ pub async fn stop_recording<R: Runtime>(
         return Err("API ключ Groq не найден.".to_string());
     }
 
-    let client = reqwest::Client::builder()
-        .connect_timeout(std::time::Duration::from_secs(8))
-        .timeout(std::time::Duration::from_secs(45))
-        .build()
-        .map_err(|e| format!("Client build failed: {}", e))?;
+    let client = crate::utils::shared_http_client();
     let part = reqwest::multipart::Part::bytes(wav_data)
         .file_name("audio.wav")
         .mime_str("audio/wav")
@@ -580,7 +576,7 @@ pub async fn gemini_stop_recording<R: Runtime>(
     threshold: f32,
     gain: f32,
 ) -> Result<String, String> {
-    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+    tokio::time::sleep(std::time::Duration::from_millis(60)).await;
     recording_flag.store(false, Ordering::SeqCst);
 
     let semaphore = app.state::<AiSemaphore>();
@@ -617,11 +613,7 @@ pub async fn gemini_stop_recording<R: Runtime>(
         return Err("API ключ Gemini не найден.".to_string());
     }
 
-    let client = reqwest::Client::builder()
-        .connect_timeout(std::time::Duration::from_secs(8))
-        .timeout(std::time::Duration::from_secs(45))
-        .build()
-        .map_err(|e| format!("Client build failed: {}", e))?;
+    let client = crate::utils::shared_http_client();
 
     let stt_model = app
         .try_state::<crate::state::CustomModels>()
@@ -716,11 +708,7 @@ pub async fn groq_refine_text<R: Runtime>(
         return Err("API ключ Groq не найден.".to_string());
     }
 
-    let client = reqwest::Client::builder()
-        .connect_timeout(std::time::Duration::from_secs(8))
-        .timeout(std::time::Duration::from_secs(20))
-        .build()
-        .map_err(|e| format!("Client build failed: {}", e))?;
+    let client = crate::utils::shared_http_client();
     let url = "https://api.groq.com/openai/v1/chat/completions";
 
     let style_state = app.state::<FormattingStyleState>();
@@ -822,11 +810,7 @@ pub async fn gemini_refine_text<R: Runtime>(
         return Err("Gemini key empty".to_string());
     }
 
-    let client = reqwest::Client::builder()
-        .connect_timeout(std::time::Duration::from_secs(8))
-        .timeout(std::time::Duration::from_secs(20))
-        .build()
-        .map_err(|e| format!("Client build failed: {}", e))?;
+    let client = crate::utils::shared_http_client();
 
     let format_model = app
         .try_state::<crate::state::CustomModels>()

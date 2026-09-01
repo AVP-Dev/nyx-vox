@@ -187,11 +187,11 @@ fn spawn_interim_stream_worker<R: Runtime>(
             );
         }
 
-        // 2. High-speed HTTP polling fallback (Groq or Deepgram REST)
-        tokio::time::sleep(std::time::Duration::from_millis(350)).await;
+        // 2. HTTP polling fallback (Groq or Deepgram REST)
+        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
 
         let client = match reqwest::Client::builder()
-            .timeout(std::time::Duration::from_millis(1500))
+            .timeout(std::time::Duration::from_millis(4000))
             .build()
         {
             Ok(c) => c,
@@ -209,7 +209,7 @@ fn spawn_interim_stream_worker<R: Runtime>(
             let (samples, sample_rate) = match data_opt {
                 Some(d) => d,
                 None => {
-                    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+                    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
                     continue;
                 }
             };
@@ -226,7 +226,7 @@ fn spawn_interim_stream_worker<R: Runtime>(
                     }
                 }
                 if peak_rms < 0.0012 {
-                    tokio::time::sleep(std::time::Duration::from_millis(350)).await;
+                    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
                     continue;
                 }
 
@@ -302,7 +302,7 @@ fn spawn_interim_stream_worker<R: Runtime>(
                 }
             }
 
-            tokio::time::sleep(std::time::Duration::from_millis(400)).await;
+            tokio::time::sleep(std::time::Duration::from_millis(1500)).await;
         }
     });
 }
@@ -425,7 +425,7 @@ pub async fn stop_recording<R: Runtime>(
     gain: f32,
 ) -> Result<String, String> {
     // Small sleep to catch the last buffer segments
-    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+    tokio::time::sleep(std::time::Duration::from_millis(60)).await;
     recording_flag.store(false, Ordering::SeqCst);
 
     let (samples, src_rate) = {
@@ -498,11 +498,7 @@ pub async fn stop_recording<R: Runtime>(
     let wav_data = crate::utils::samples_to_wav(&processed_samples, 16000)?;
 
     // REST API Request
-    let client = reqwest::Client::builder()
-        .connect_timeout(std::time::Duration::from_secs(8))
-        .timeout(std::time::Duration::from_secs(25))
-        .build()
-        .map_err(|e| format!("Deepgram client init failed: {}", e))?;
+    let client = crate::utils::shared_http_client();
 
     // Build query params
     let mut query_params: Vec<(&str, &str)> = vec![

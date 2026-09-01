@@ -9,11 +9,7 @@ pub async fn refine_text<R: Runtime>(
     api_key: String,
     instruction: Option<String>,
 ) -> Result<String, String> {
-    let client = reqwest::Client::builder()
-        .connect_timeout(std::time::Duration::from_secs(8))
-        .timeout(std::time::Duration::from_secs(20))
-        .build()
-        .map_err(|e| format!("Client build failed: {}", e))?;
+    let client = crate::utils::shared_http_client();
     let url = "https://api.deepseek.com/chat/completions";
 
     let style_state = app.state::<FormattingStyleState>();

@@ -1,5 +1,4 @@
 use crate::state::{FormattingStyle, FormattingStyleState};
-use reqwest::Client;
 use serde_json::json;
 use tauri::{AppHandle, Manager, Runtime};
 
@@ -9,10 +8,7 @@ pub async fn refine_text<R: Runtime>(
     api_key: String,
     _instruction: Option<String>,
 ) -> Result<String, String> {
-    let client = Client::builder()
-        .timeout(std::time::Duration::from_secs(15))
-        .build()
-        .map_err(|e| format!("Client build failed: {}", e))?;
+    let client = crate::utils::shared_http_client();
 
     // Default to Alibaba DashScope (OpenAI Compatible)
     // For OpenRouter, use: https://openrouter.ai/api/v1/chat/completions

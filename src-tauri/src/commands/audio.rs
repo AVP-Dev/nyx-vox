@@ -302,108 +302,7 @@ pub async fn stop_recording(
         crate::utils::system_media_control(0);
     }
 
-    let result = if let Some(ref st) = streamed_text {
-        let trimmed = st.trim();
-        if !trimmed.is_empty() && !trimmed.starts_with("Ошибка") && !trimmed.starts_with("Error")
-        {
-            log::info!(
-                "stop_recording: using live streamed transcript directly (single-pass, 0 extra requests)"
-            );
-            recording_flag.0.store(false, Ordering::SeqCst);
-            if let Ok(mut lock) = dg_state.lock() {
-                lock.samples.clear();
-            }
-            if let Ok(mut lock) = ai_state.lock() {
-                lock.samples.clear();
-            }
-            trimmed.to_string()
-        } else {
-            // Streamed text is empty or error, run batch fallback
-            if mode == "deepgram" {
-                let api_key = api_keys
-                    .0
-                    .lock()
-                    .map_err(|e| e.to_string())?
-                    .get(&keys::Service::Deepgram)
-                    .cloned()
-                    .flatten()
-                    .unwrap_or_default();
-                deepgram::stop_recording(
-                    &app,
-                    Arc::clone(&dg_state),
-                    Arc::clone(&recording_flag.0),
-                    api_key,
-                    lang,
-                    threshold,
-                    gain,
-                )
-                .await?
-            } else if mode == "whisper" {
-                whisper::stop_recording(
-                    &app,
-                    Arc::clone(&state),
-                    Arc::clone(&recording_flag.0),
-                    lang,
-                    model_type,
-                    threshold,
-                    gain,
-                )
-                .await?
-            } else if mode == "gigachat" {
-                let api_key = api_keys
-                    .0
-                    .lock()
-                    .map_err(|e| e.to_string())?
-                    .get(&keys::Service::Gigachat)
-                    .cloned()
-                    .flatten()
-                    .unwrap_or_default();
-                recording_flag.0.store(false, Ordering::SeqCst);
-                let Some(wav) = ai_provider::take_recording_wav(&app, &ai_state, threshold, gain)?
-                else {
-                    return Ok(String::new());
-                };
-                crate::gigachat::transcribe(app.clone(), wav, api_key, lang).await?
-            } else {
-                let service = if mode == "groq" {
-                    keys::Service::Groq
-                } else {
-                    keys::Service::Gemini
-                };
-                let api_key = api_keys
-                    .0
-                    .lock()
-                    .map_err(|e| e.to_string())?
-                    .get(&service)
-                    .cloned()
-                    .flatten()
-                    .unwrap_or_default();
-                if mode == "gemini" {
-                    ai_provider::gemini_stop_recording(
-                        app.clone(),
-                        Arc::clone(&ai_state),
-                        Arc::clone(&recording_flag.0),
-                        api_key,
-                        lang,
-                        threshold,
-                        gain,
-                    )
-                    .await?
-                } else {
-                    ai_provider::stop_recording(
-                        app.clone(),
-                        Arc::clone(&ai_state),
-                        Arc::clone(&recording_flag.0),
-                        api_key,
-                        lang,
-                        threshold,
-                        gain,
-                    )
-                    .await?
-                }
-            }
-        }
-    } else if mode == "deepgram" {
+    let batch_result = if mode == "deepgram" {
         let api_key = api_keys
             .0
             .lock()
@@ -484,6 +383,28 @@ pub async fn stop_recording(
             )
             .await?
         }
+    };
+
+    // If batch STT returned empty or silence, fallback to live streamed text if available
+    let result = if batch_result.trim().is_empty() {
+        if let Some(ref st) = streamed_text {
+            let trimmed = st.trim();
+            if !trimmed.is_empty()
+                && !trimmed.starts_with("Ошибка")
+                && !trimmed.starts_with("Error")
+            {
+                log::info!(
+                    "stop_recording: batch STT returned empty, falling back to streamed preview"
+                );
+                trimmed.to_string()
+            } else {
+                batch_result
+            }
+        } else {
+            batch_result
+        }
+    } else {
+        batch_result
     };
 
     if let Ok(mut lock) = active_stt_mode.0.lock() {

@@ -184,6 +184,7 @@ fn configure_params<'a>(language: &'a str, samples: &'a [f32]) -> FullParams<'a,
     params.set_print_timestamps(false);
     params.set_suppress_blank(true);
     params.set_suppress_nst(true);
+    params.set_no_timestamps(true);
     params.set_split_on_word(false);
     params.set_no_context(true);
     params.set_translate(false);
