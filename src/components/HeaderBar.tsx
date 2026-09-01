@@ -4,7 +4,6 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mic, X } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
-import { WaveformVisualizer } from '@/components/WaveformVisualizer';
 import { QuickMenu } from '@/components/QuickMenu';
 import type { Phase, FormattingMode, AppLanguage } from '@/lib/types';
 

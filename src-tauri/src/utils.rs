@@ -121,6 +121,17 @@ pub fn samples_to_wav(samples: &[f32], sample_rate: u32) -> Result<Vec<u8>, Stri
     Ok(wav_data)
 }
 
+/// Convert float samples [-1.0, 1.0] to raw 16-bit little-endian PCM bytes.
+pub fn samples_to_i16_pcm(samples: &[f32]) -> Vec<u8> {
+    let mut bytes = Vec::with_capacity(samples.len() * 2);
+    for &sample in samples {
+        let val = sample * 32767.0;
+        let amplitude = val.clamp(-32768.0, 32767.0) as i16;
+        bytes.extend_from_slice(&amplitude.to_le_bytes());
+    }
+    bytes
+}
+
 pub fn get_frontmost_app_info() -> (String, String) {
     #[cfg(target_os = "macos")]
     {
@@ -773,5 +784,18 @@ mod tests {
         let loud_speech = vec![0.05; 1600]; // 100ms loud speech
         assert!(!vad.update(&loud_speech, 0.002, 0.5));
         assert!(vad.speech_started);
+    }
+
+    #[test]
+    fn samples_to_i16_pcm_converts_correctly() {
+        let input = vec![0.0_f32, 1.0_f32, -1.0_f32];
+        let pcm = samples_to_i16_pcm(&input);
+        assert_eq!(pcm.len(), 6);
+        let sample_0 = i16::from_le_bytes([pcm[0], pcm[1]]);
+        let sample_1 = i16::from_le_bytes([pcm[2], pcm[3]]);
+        let sample_2 = i16::from_le_bytes([pcm[4], pcm[5]]);
+        assert_eq!(sample_0, 0);
+        assert_eq!(sample_1, 32767);
+        assert_eq!(sample_2, -32767);
     }
 }

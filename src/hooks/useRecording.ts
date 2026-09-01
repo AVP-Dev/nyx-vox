@@ -79,13 +79,8 @@ export function useRecording(opts: UseRecordingOptions) {
                 }
             }
 
-            // If backend STT returned empty or shorter text than what was already
-            // transcribed live to the UI, prioritize the full live streaming text!
-            if (hasValidLiveText) {
-                if (!processedText || processedText.trim().length < currentLiveText.trim().length) {
-                    processedText = currentLiveText;
-                }
-            } else if (!processedText && currentLiveText) {
+            // If backend STT returned empty or failed, fallback to the full live streaming text
+            if (!processedText && hasValidLiveText) {
                 processedText = currentLiveText;
             }
 

@@ -151,10 +151,47 @@ fn spawn_interim_stream_worker<R: Runtime>(
     flag_cpal: Arc<AtomicBool>,
 ) {
     tauri::async_runtime::spawn(async move {
-        tokio::time::sleep(std::time::Duration::from_millis(1500)).await;
+        // Fetch keys
+        let (dg_key, groq_key): (String, String) = {
+            let keys_state = app.try_state::<crate::keys::ApiKeys>();
+            let dg = keys_state
+                .as_ref()
+                .and_then(|k| k.0.lock().ok())
+                .and_then(|m| m.get(&crate::keys::Service::Deepgram).cloned().flatten())
+                .unwrap_or_default();
+            let groq = keys_state
+                .as_ref()
+                .and_then(|k| k.0.lock().ok())
+                .and_then(|m| m.get(&crate::keys::Service::Groq).cloned().flatten())
+                .unwrap_or_default();
+            (dg, groq)
+        };
+
+        // 1. First priority: native Deepgram WebSocket streaming if Deepgram key is present
+        if !dg_key.is_empty() {
+            log::info!("Deepgram: attempting real-time WebSocket stream...");
+            if try_websocket_stream(
+                app.clone(),
+                Arc::clone(&state),
+                Arc::clone(&flag_cpal),
+                dg_key.clone(),
+            )
+            .await
+            .is_ok()
+            {
+                log::info!("Deepgram: WebSocket stream finished normally");
+                return;
+            }
+            log::warn!(
+                "Deepgram: WebSocket streaming unavailable, falling back to fast interim HTTP"
+            );
+        }
+
+        // 2. High-speed HTTP polling fallback (Groq or Deepgram REST)
+        tokio::time::sleep(std::time::Duration::from_millis(350)).await;
 
         let client = match reqwest::Client::builder()
-            .timeout(std::time::Duration::from_millis(2000))
+            .timeout(std::time::Duration::from_millis(1500))
             .build()
         {
             Ok(c) => c,
@@ -162,35 +199,6 @@ fn spawn_interim_stream_worker<R: Runtime>(
         };
 
         while flag_cpal.load(Ordering::SeqCst) {
-            let (dg_key, groq_key): (String, String) = {
-                let keys_state = app.try_state::<crate::keys::ApiKeys>();
-                let dg = keys_state
-                    .as_ref()
-                    .and_then(|k| k.0.lock().ok())
-                    .and_then(
-                        |m: std::sync::MutexGuard<
-                            '_,
-                            std::collections::HashMap<crate::keys::Service, Option<String>>,
-                        >| {
-                            m.get(&crate::keys::Service::Deepgram).cloned().flatten()
-                        },
-                    )
-                    .unwrap_or_default();
-                let groq = keys_state
-                    .as_ref()
-                    .and_then(|k| k.0.lock().ok())
-                    .and_then(
-                        |m: std::sync::MutexGuard<
-                            '_,
-                            std::collections::HashMap<crate::keys::Service, Option<String>>,
-                        >| {
-                            m.get(&crate::keys::Service::Groq).cloned().flatten()
-                        },
-                    )
-                    .unwrap_or_default();
-                (dg, groq)
-            };
-
             let data_opt = {
                 state
                     .lock()
@@ -201,12 +209,12 @@ fn spawn_interim_stream_worker<R: Runtime>(
             let (samples, sample_rate) = match data_opt {
                 Some(d) => d,
                 None => {
-                    tokio::time::sleep(std::time::Duration::from_millis(800)).await;
+                    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
                     continue;
                 }
             };
 
-            if sample_rate > 0 && samples.len() >= (sample_rate as usize) {
+            if sample_rate > 0 && samples.len() >= (sample_rate as usize / 3) {
                 // Speech presence check: do not query STT on silence to prevent hallucinations
                 let frame_size = (sample_rate / 20).max(1) as usize;
                 let mut peak_rms: f32 = 0.0;
@@ -218,13 +226,13 @@ fn spawn_interim_stream_worker<R: Runtime>(
                     }
                 }
                 if peak_rms < 0.0012 {
-                    tokio::time::sleep(std::time::Duration::from_millis(800)).await;
+                    tokio::time::sleep(std::time::Duration::from_millis(350)).await;
                     continue;
                 }
 
                 let resampled = crate::utils::resample_to_16k(&samples, sample_rate, 16000);
                 let trimmed_audio = crate::utils::trim_silence(&resampled, 0.0025, 16000);
-                if trimmed_audio.len() >= 6400 {
+                if trimmed_audio.len() >= 4800 {
                     if let Ok(wav_data) = crate::utils::samples_to_wav(trimmed_audio, 16000) {
                         if !groq_key.is_empty() {
                             let part = reqwest::multipart::Part::bytes(wav_data)
@@ -260,7 +268,7 @@ fn spawn_interim_stream_worker<R: Runtime>(
                                 }
                             }
                         } else if !dg_key.is_empty() {
-                            let url = "https://api.deepgram.com/v1/listen?model=nova-2&language=ru&smart_format=true";
+                            let url = "https://api.deepgram.com/v1/listen?model=nova-2-general&language=multi&smart_format=true";
                             if let Ok(res) = client
                                 .post(url)
                                 .header("Authorization", format!("Token {}", dg_key))
@@ -294,9 +302,97 @@ fn spawn_interim_stream_worker<R: Runtime>(
                 }
             }
 
-            tokio::time::sleep(std::time::Duration::from_millis(1600)).await;
+            tokio::time::sleep(std::time::Duration::from_millis(400)).await;
         }
     });
+}
+
+async fn try_websocket_stream<R: Runtime>(
+    app: AppHandle<R>,
+    state: SharedDeepgramState,
+    flag_cpal: Arc<AtomicBool>,
+    dg_key: String,
+) -> Result<(), String> {
+    use futures_util::{SinkExt, StreamExt};
+    use tokio_tungstenite::tungstenite::client::IntoClientRequest;
+    use tokio_tungstenite::tungstenite::http::HeaderValue;
+    use tokio_tungstenite::tungstenite::Message;
+
+    let url_str = "wss://api.deepgram.com/v1/listen?model=nova-2-general&smart_format=true&interim_results=true&language=multi&encoding=linear16&sample_rate=16000&channels=1";
+    let mut request = url_str.into_client_request().map_err(|e| e.to_string())?;
+    request.headers_mut().insert(
+        "Authorization",
+        HeaderValue::from_str(&format!("Token {}", dg_key)).map_err(|e| e.to_string())?,
+    );
+
+    let (ws_stream, _) = tokio::time::timeout(
+        std::time::Duration::from_millis(2500),
+        tokio_tungstenite::connect_async(request),
+    )
+    .await
+    .map_err(|_| "Deepgram WebSocket connect timeout".to_string())?
+    .map_err(|e| format!("Deepgram WebSocket connect failed: {}", e))?;
+
+    let (mut write, mut read) = ws_stream.split();
+
+    let flag_read = Arc::clone(&flag_cpal);
+    let app_read = app.clone();
+
+    // Reader task
+    let reader_handle = tokio::spawn(async move {
+        while flag_read.load(Ordering::SeqCst) {
+            match tokio::time::timeout(std::time::Duration::from_millis(400), read.next()).await {
+                Ok(Some(Ok(Message::Text(text)))) => {
+                    if let Ok(json) = serde_json::from_str::<serde_json::Value>(&text) {
+                        let transcript = json["channel"]["alternatives"][0]["transcript"]
+                            .as_str()
+                            .or_else(|| {
+                                json["results"]["channels"][0]["alternatives"][0]["transcript"]
+                                    .as_str()
+                            })
+                            .unwrap_or("");
+                        if !transcript.trim().is_empty() && flag_read.load(Ordering::SeqCst) {
+                            let cleaned = crate::utils::clean_repetitive_phrases(transcript);
+                            let cleaned = crate::utils::remove_hallucinations(&cleaned);
+                            let trimmed = cleaned.trim();
+                            if !trimmed.is_empty() {
+                                let _ = app_read.emit("interim-transcription", trimmed);
+                            }
+                        }
+                    }
+                }
+                Ok(Some(Ok(Message::Close(_)))) | Ok(None) => break,
+                _ => {}
+            }
+        }
+    });
+
+    let mut sent_samples = 0usize;
+    while flag_cpal.load(Ordering::SeqCst) {
+        tokio::time::sleep(std::time::Duration::from_millis(120)).await;
+
+        let (samples, sample_rate) = {
+            let lock = state.lock().map_err(|e| e.to_string())?;
+            (lock.samples.clone(), lock.sample_rate)
+        };
+
+        if sample_rate > 0 && samples.len() > sent_samples {
+            let new_slice = &samples[sent_samples..];
+            sent_samples = samples.len();
+
+            let resampled = crate::utils::resample_to_16k(new_slice, sample_rate, 16000);
+            let pcm_bytes = crate::utils::samples_to_i16_pcm(&resampled);
+            if !pcm_bytes.is_empty() && write.send(Message::Binary(pcm_bytes)).await.is_err() {
+                break;
+            }
+        }
+    }
+
+    let _ = write.send(Message::Binary(vec![])).await;
+    let _ = write.send(Message::Close(None)).await;
+    let _ = reader_handle.await;
+
+    Ok(())
 }
 
 // ── Stop recording & send to Deepgram REST API ────────────────────────────────

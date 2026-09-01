@@ -170,6 +170,8 @@ export const DICTIONARY = {
             rawText: 'Исходный текст',
             finalText: 'Результат',
             copy: 'Копировать',
+            copied: 'Скопировано!',
+            copiedRaw: 'Исходник скопирован!',
             periods: {
                 never: 'Никогда',
                 '1d': '1 день',
@@ -403,6 +405,8 @@ export const DICTIONARY = {
             rawText: 'Raw Text',
             finalText: 'Final Result',
             copy: 'Copy',
+            copied: 'Copied!',
+            copiedRaw: 'Copied Raw!',
             periods: {
                 never: 'Never',
                 '1d': '1 day',

@@ -260,11 +260,11 @@ fn spawn_interim_stream_worker<R: Runtime>(
     flag_cpal: Arc<AtomicBool>,
 ) {
     tauri::async_runtime::spawn(async move {
-        // Wait 1.5s after start before first preview check
-        tokio::time::sleep(std::time::Duration::from_millis(1500)).await;
+        // Quick start: wait only 350ms before checking speech
+        tokio::time::sleep(std::time::Duration::from_millis(350)).await;
 
         let client = match reqwest::Client::builder()
-            .timeout(std::time::Duration::from_millis(2000))
+            .timeout(std::time::Duration::from_millis(1800))
             .build()
         {
             Ok(c) => c,
@@ -272,23 +272,24 @@ fn spawn_interim_stream_worker<R: Runtime>(
         };
 
         while flag_cpal.load(Ordering::SeqCst) {
-            let groq_key = app
-                .try_state::<crate::keys::ApiKeys>()
-                .and_then(|k| {
-                    k.0.lock()
-                        .ok()
-                        .and_then(|m| m.get(&crate::keys::Service::Groq).cloned().flatten())
-                })
-                .unwrap_or_default();
+            let (groq_key, gemini_key): (String, String) = {
+                let keys_state = app.try_state::<crate::keys::ApiKeys>();
+                let groq = keys_state
+                    .as_ref()
+                    .and_then(|k| k.0.lock().ok())
+                    .and_then(|m| m.get(&crate::keys::Service::Groq).cloned().flatten())
+                    .unwrap_or_default();
+                let gemini = keys_state
+                    .as_ref()
+                    .and_then(|k| k.0.lock().ok())
+                    .and_then(|m| m.get(&crate::keys::Service::Gemini).cloned().flatten())
+                    .unwrap_or_default();
+                (groq, gemini)
+            };
 
-            if groq_key.is_empty() {
+            if groq_key.is_empty() && gemini_key.is_empty() {
                 break;
             }
-
-            let stt_model = app
-                .try_state::<crate::state::CustomModels>()
-                .and_then(|s| s.0.lock().ok().and_then(|m| m.get("groq_stt").cloned()))
-                .unwrap_or_else(|| GROQ_STT_MODEL.to_string());
 
             let data_opt = {
                 state
@@ -300,12 +301,12 @@ fn spawn_interim_stream_worker<R: Runtime>(
             let (samples, sample_rate) = match data_opt {
                 Some(d) => d,
                 None => {
-                    tokio::time::sleep(std::time::Duration::from_millis(800)).await;
+                    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
                     continue;
                 }
             };
 
-            if sample_rate > 0 && samples.len() >= (sample_rate as usize) {
+            if sample_rate > 0 && samples.len() >= (sample_rate as usize / 3) {
                 // Speech presence check: do not query STT on silence to prevent hallucinations
                 let frame_size = (sample_rate / 20).max(1) as usize;
                 let mut peak_rms: f32 = 0.0;
@@ -317,40 +318,101 @@ fn spawn_interim_stream_worker<R: Runtime>(
                     }
                 }
                 if peak_rms < 0.0012 {
-                    tokio::time::sleep(std::time::Duration::from_millis(800)).await;
+                    tokio::time::sleep(std::time::Duration::from_millis(350)).await;
                     continue;
                 }
 
                 let resampled = crate::utils::resample_to_16k(&samples, sample_rate, 16000);
                 let trimmed_audio = crate::utils::trim_silence(&resampled, 0.0025, 16000);
-                if trimmed_audio.len() >= 6400 {
+                if trimmed_audio.len() >= 4800 {
                     if let Ok(wav_data) = crate::utils::samples_to_wav(trimmed_audio, 16000) {
-                        let part = reqwest::multipart::Part::bytes(wav_data)
-                            .file_name("interim.wav")
-                            .mime_str("audio/wav")
-                            .unwrap();
+                        if !groq_key.is_empty() {
+                            let stt_model = app
+                                .try_state::<crate::state::CustomModels>()
+                                .and_then(|s| {
+                                    s.0.lock().ok().and_then(|m| m.get("groq_stt").cloned())
+                                })
+                                .unwrap_or_else(|| GROQ_STT_MODEL.to_string());
 
-                        let form = reqwest::multipart::Form::new()
-                            .part("file", part)
-                            .text("model", stt_model)
-                            .text("language", "ru".to_string())
-                            .text("temperature", "0.0");
+                            let part = reqwest::multipart::Part::bytes(wav_data)
+                                .file_name("interim.wav")
+                                .mime_str("audio/wav")
+                                .unwrap();
 
-                        if let Ok(res) = client
-                            .post("https://api.groq.com/openai/v1/audio/transcriptions")
-                            .header("Authorization", format!("Bearer {}", groq_key))
-                            .multipart(form)
-                            .send()
-                            .await
-                        {
-                            if res.status().is_success() {
-                                if let Ok(json) = res.json::<serde_json::Value>().await {
-                                    if let Some(text) = json["text"].as_str() {
-                                        let cleaned = crate::utils::clean_repetitive_phrases(text);
-                                        let cleaned = crate::utils::remove_hallucinations(&cleaned);
-                                        let trimmed = cleaned.trim();
-                                        if !trimmed.is_empty() && flag_cpal.load(Ordering::SeqCst) {
-                                            let _ = app.emit("interim-transcription", trimmed);
+                            let form = reqwest::multipart::Form::new()
+                                .part("file", part)
+                                .text("model", stt_model)
+                                .text("language", "ru".to_string())
+                                .text("temperature", "0.0");
+
+                            if let Ok(res) = client
+                                .post("https://api.groq.com/openai/v1/audio/transcriptions")
+                                .header("Authorization", format!("Bearer {}", groq_key))
+                                .multipart(form)
+                                .send()
+                                .await
+                            {
+                                if res.status().is_success() {
+                                    if let Ok(json) = res.json::<serde_json::Value>().await {
+                                        if let Some(text) = json["text"].as_str() {
+                                            let cleaned =
+                                                crate::utils::clean_repetitive_phrases(text);
+                                            let cleaned =
+                                                crate::utils::remove_hallucinations(&cleaned);
+                                            let trimmed = cleaned.trim();
+                                            if !trimmed.is_empty()
+                                                && flag_cpal.load(Ordering::SeqCst)
+                                            {
+                                                let _ = app.emit("interim-transcription", trimmed);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        } else if !gemini_key.is_empty() {
+                            let audio_b64 = general_purpose::STANDARD.encode(&wav_data);
+                            let gemini_stt_model = app
+                                .try_state::<crate::state::CustomModels>()
+                                .and_then(|s| {
+                                    s.0.lock().ok().and_then(|m| m.get("gemini_stt").cloned())
+                                })
+                                .unwrap_or_else(|| GEMINI_MODEL.to_string());
+
+                            let url = format!(
+                                "https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent?key={}",
+                                gemini_stt_model, gemini_key
+                            );
+                            let body = json!({
+                                "contents": [{
+                                    "role": "user",
+                                    "parts": [
+                                        { "text": "Transcribe this Russian/English speech into text accurately and concisely." },
+                                        { "inlineData": { "mimeType": "audio/wav", "data": audio_b64 } }
+                                    ]
+                                }],
+                                "generationConfig": {
+                                    "temperature": 0.0,
+                                    "maxOutputTokens": 512
+                                }
+                            });
+
+                            if let Ok(res) = client.post(&url).json(&body).send().await {
+                                if res.status().is_success() {
+                                    if let Ok(json) = res.json::<serde_json::Value>().await {
+                                        if let Some(text) = json["candidates"][0]["content"]
+                                            ["parts"][0]["text"]
+                                            .as_str()
+                                        {
+                                            let cleaned =
+                                                crate::utils::clean_repetitive_phrases(text);
+                                            let cleaned =
+                                                crate::utils::remove_hallucinations(&cleaned);
+                                            let trimmed = cleaned.trim();
+                                            if !trimmed.is_empty()
+                                                && flag_cpal.load(Ordering::SeqCst)
+                                            {
+                                                let _ = app.emit("interim-transcription", trimmed);
+                                            }
                                         }
                                     }
                                 }
