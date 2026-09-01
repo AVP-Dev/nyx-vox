@@ -10,7 +10,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui"
+    "test:e2e:ui": "playwright test --ui",
+    "install:app": "pkill -f 'NYX Vox' || true && rm -rf /Applications/'NYX Vox.app' && cp -R 'src-tauri/target/release/bundle/macos/NYX Vox.app' /Applications/ && xattr -cr '/Applications/NYX Vox.app' && echo '✅ NYX Vox успешно скопирован в /Applications!'",
+    "build:install": "bun tauri build && bun run install:app"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.90.21",

@@ -338,25 +338,44 @@ async fn try_websocket_stream<R: Runtime>(
     let flag_read = Arc::clone(&flag_cpal);
     let app_read = app.clone();
 
-    // Reader task
+    // Reader task with phrase accumulation
     let reader_handle = tokio::spawn(async move {
+        let mut accumulated = String::new();
         while flag_read.load(Ordering::SeqCst) {
             match tokio::time::timeout(std::time::Duration::from_millis(400), read.next()).await {
                 Ok(Some(Ok(Message::Text(text)))) => {
                     if let Ok(json) = serde_json::from_str::<serde_json::Value>(&text) {
+                        let is_final = json["is_final"].as_bool().unwrap_or(false);
                         let transcript = json["channel"]["alternatives"][0]["transcript"]
                             .as_str()
                             .or_else(|| {
                                 json["results"]["channels"][0]["alternatives"][0]["transcript"]
                                     .as_str()
                             })
-                            .unwrap_or("");
-                        if !transcript.trim().is_empty() && flag_read.load(Ordering::SeqCst) {
+                            .unwrap_or("")
+                            .trim();
+
+                        if !transcript.is_empty() && flag_read.load(Ordering::SeqCst) {
                             let cleaned = crate::utils::clean_repetitive_phrases(transcript);
                             let cleaned = crate::utils::remove_hallucinations(&cleaned);
                             let trimmed = cleaned.trim();
-                            if !trimmed.is_empty() {
-                                let _ = app_read.emit("interim-transcription", trimmed);
+
+                            if is_final {
+                                if !trimmed.is_empty() {
+                                    if !accumulated.is_empty() {
+                                        accumulated.push(' ');
+                                    }
+                                    accumulated.push_str(trimmed);
+                                    let _ =
+                                        app_read.emit("interim-transcription", accumulated.clone());
+                                }
+                            } else if !trimmed.is_empty() {
+                                let live = if accumulated.is_empty() {
+                                    trimmed.to_string()
+                                } else {
+                                    format!("{} {}", accumulated, trimmed)
+                                };
+                                let _ = app_read.emit("interim-transcription", live);
                             }
                         }
                     }

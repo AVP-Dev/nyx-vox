@@ -429,14 +429,13 @@ fn is_lone_filler(word: &str) -> bool {
         .all(|c| matches!(c, 'э' | 'а' | 'у' | 'о' | 'и' | 'м'))
 }
 
-/// A robust, smoothed Voice Activity Detection (VAD) tracker with adaptive noise floor.
+/// A robust Voice Activity Detection (VAD) tracker.
 #[derive(Debug, Clone)]
 pub struct VadTracker {
     pub speech_started: bool,
     pub last_speech_time: Option<std::time::Instant>,
     pub smoothed_rms: f32,
     pub noise_floor: f32,
-    pub frames_count: usize,
 }
 
 impl Default for VadTracker {
@@ -446,7 +445,6 @@ impl Default for VadTracker {
             last_speech_time: None,
             smoothed_rms: 0.0,
             noise_floor: 0.001,
-            frames_count: 0,
         }
     }
 }
@@ -456,27 +454,29 @@ impl VadTracker {
         Self::default()
     }
 
-    /// Feeds a new audio buffer and returns `true` if continuous silence
+    /// Feeds a new audio buffer and returns `true` ONLY if continuous silence
     /// has exceeded `timeout_secs` after speech was already detected.
-    pub fn update(&mut self, samples: &[f32], threshold: f32, timeout_secs: f32) -> bool {
+    pub fn update(&mut self, samples: &[f32], _noise_gate: f32, timeout_secs: f32) -> bool {
         if samples.is_empty() {
             return false;
         }
         let buffer_rms = (samples.iter().map(|s| s * s).sum::<f32>() / samples.len() as f32).sqrt();
 
-        self.frames_count = self.frames_count.saturating_add(1);
-        // Exponential moving average for smooth energy
+        // 1. Smooth RMS energy
         self.smoothed_rms = self.smoothed_rms * 0.70 + buffer_rms * 0.30;
 
-        // Adapt background noise floor dynamically
-        if self.frames_count <= 20 || buffer_rms < self.noise_floor {
+        // 2. Adapt noise floor (fast downward, slow upward drift for ambient floor)
+        if buffer_rms < self.noise_floor {
             self.noise_floor = self.noise_floor * 0.90 + buffer_rms * 0.10;
+        } else if buffer_rms < 0.005 {
+            self.noise_floor = self.noise_floor * 0.998 + buffer_rms * 0.002;
         }
+        self.noise_floor = self.noise_floor.clamp(0.0003, 0.004);
 
-        // Active speech threshold: speech is detected when energy rises above the noise threshold
-        let speech_threshold = threshold.max(0.0012);
+        // 3. Speech threshold: any speech energy above the noise floor
+        let voice_threshold = (self.noise_floor * 1.8).max(0.0020);
 
-        if self.smoothed_rms >= speech_threshold {
+        if self.smoothed_rms >= voice_threshold {
             self.speech_started = true;
             self.last_speech_time = Some(std::time::Instant::now());
             false
@@ -783,7 +783,24 @@ mod tests {
         let mut vad = VadTracker::new();
         let loud_speech = vec![0.05; 1600]; // 100ms loud speech
         assert!(!vad.update(&loud_speech, 0.002, 0.5));
+        assert!(!vad.update(&loud_speech, 0.002, 0.5));
         assert!(vad.speech_started);
+    }
+
+    #[test]
+    fn vad_tracker_triggers_after_silence_timeout() {
+        let mut vad = VadTracker::new();
+        let loud_speech = vec![0.05; 1600];
+        assert!(!vad.update(&loud_speech, 0.002, 0.05));
+        assert!(!vad.update(&loud_speech, 0.002, 0.05));
+        assert!(vad.speech_started);
+
+        let silence = vec![0.0001; 1600];
+        for _ in 0..15 {
+            let _ = vad.update(&silence, 0.002, 0.05);
+        }
+        std::thread::sleep(std::time::Duration::from_millis(70));
+        assert!(vad.update(&silence, 0.002, 0.05));
     }
 
     #[test]

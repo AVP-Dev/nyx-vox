@@ -302,8 +302,108 @@ pub async fn stop_recording(
         crate::utils::system_media_control(0);
     }
 
-    let stt_res = if mode == "deepgram" {
-        log::debug!("stop_recording: calling Deepgram...");
+    let result = if let Some(ref st) = streamed_text {
+        let trimmed = st.trim();
+        if !trimmed.is_empty() && !trimmed.starts_with("Ошибка") && !trimmed.starts_with("Error")
+        {
+            log::info!(
+                "stop_recording: using live streamed transcript directly (single-pass, 0 extra requests)"
+            );
+            recording_flag.0.store(false, Ordering::SeqCst);
+            if let Ok(mut lock) = dg_state.lock() {
+                lock.samples.clear();
+            }
+            if let Ok(mut lock) = ai_state.lock() {
+                lock.samples.clear();
+            }
+            trimmed.to_string()
+        } else {
+            // Streamed text is empty or error, run batch fallback
+            if mode == "deepgram" {
+                let api_key = api_keys
+                    .0
+                    .lock()
+                    .map_err(|e| e.to_string())?
+                    .get(&keys::Service::Deepgram)
+                    .cloned()
+                    .flatten()
+                    .unwrap_or_default();
+                deepgram::stop_recording(
+                    &app,
+                    Arc::clone(&dg_state),
+                    Arc::clone(&recording_flag.0),
+                    api_key,
+                    lang,
+                    threshold,
+                    gain,
+                )
+                .await?
+            } else if mode == "whisper" {
+                whisper::stop_recording(
+                    &app,
+                    Arc::clone(&state),
+                    Arc::clone(&recording_flag.0),
+                    lang,
+                    model_type,
+                    threshold,
+                    gain,
+                )
+                .await?
+            } else if mode == "gigachat" {
+                let api_key = api_keys
+                    .0
+                    .lock()
+                    .map_err(|e| e.to_string())?
+                    .get(&keys::Service::Gigachat)
+                    .cloned()
+                    .flatten()
+                    .unwrap_or_default();
+                recording_flag.0.store(false, Ordering::SeqCst);
+                let Some(wav) = ai_provider::take_recording_wav(&app, &ai_state, threshold, gain)?
+                else {
+                    return Ok(String::new());
+                };
+                crate::gigachat::transcribe(app.clone(), wav, api_key, lang).await?
+            } else {
+                let service = if mode == "groq" {
+                    keys::Service::Groq
+                } else {
+                    keys::Service::Gemini
+                };
+                let api_key = api_keys
+                    .0
+                    .lock()
+                    .map_err(|e| e.to_string())?
+                    .get(&service)
+                    .cloned()
+                    .flatten()
+                    .unwrap_or_default();
+                if mode == "gemini" {
+                    ai_provider::gemini_stop_recording(
+                        app.clone(),
+                        Arc::clone(&ai_state),
+                        Arc::clone(&recording_flag.0),
+                        api_key,
+                        lang,
+                        threshold,
+                        gain,
+                    )
+                    .await?
+                } else {
+                    ai_provider::stop_recording(
+                        app.clone(),
+                        Arc::clone(&ai_state),
+                        Arc::clone(&recording_flag.0),
+                        api_key,
+                        lang,
+                        threshold,
+                        gain,
+                    )
+                    .await?
+                }
+            }
+        }
+    } else if mode == "deepgram" {
         let api_key = api_keys
             .0
             .lock()
@@ -321,9 +421,8 @@ pub async fn stop_recording(
             threshold,
             gain,
         )
-        .await
+        .await?
     } else if mode == "whisper" {
-        log::debug!("stop_recording: calling Whisper...");
         whisper::stop_recording(
             &app,
             Arc::clone(&state),
@@ -333,88 +432,57 @@ pub async fn stop_recording(
             threshold,
             gain,
         )
-        .await
-    } else if mode == "groq" || mode == "gemini" || mode == "gigachat" {
-        log::debug!("stop_recording: calling {}...", mode.to_uppercase());
-        if mode == "gigachat" {
-            let api_key = api_keys
-                .0
-                .lock()
-                .map_err(|e| e.to_string())?
-                .get(&keys::Service::Gigachat)
-                .cloned()
-                .flatten()
-                .unwrap_or_default();
-            recording_flag.0.store(false, Ordering::SeqCst);
-            let Some(wav) = ai_provider::take_recording_wav(&app, &ai_state, threshold, gain)?
-            else {
-                return Ok(String::new());
-            };
-            crate::gigachat::transcribe(app.clone(), wav, api_key, lang).await
-        } else {
-            let service = if mode == "groq" {
-                keys::Service::Groq
-            } else {
-                keys::Service::Gemini
-            };
-            let api_key = api_keys
-                .0
-                .lock()
-                .map_err(|e| e.to_string())?
-                .get(&service)
-                .cloned()
-                .flatten()
-                .unwrap_or_default();
-            if mode == "gemini" {
-                ai_provider::gemini_stop_recording(
-                    app.clone(),
-                    Arc::clone(&ai_state),
-                    Arc::clone(&recording_flag.0),
-                    api_key,
-                    lang,
-                    threshold,
-                    gain,
-                )
-                .await
-            } else {
-                ai_provider::stop_recording(
-                    app.clone(),
-                    Arc::clone(&ai_state),
-                    Arc::clone(&recording_flag.0),
-                    api_key,
-                    lang,
-                    threshold,
-                    gain,
-                )
-                .await
-            }
-        }
+        .await?
+    } else if mode == "gigachat" {
+        let api_key = api_keys
+            .0
+            .lock()
+            .map_err(|e| e.to_string())?
+            .get(&keys::Service::Gigachat)
+            .cloned()
+            .flatten()
+            .unwrap_or_default();
+        recording_flag.0.store(false, Ordering::SeqCst);
+        let Some(wav) = ai_provider::take_recording_wav(&app, &ai_state, threshold, gain)? else {
+            return Ok(String::new());
+        };
+        crate::gigachat::transcribe(app.clone(), wav, api_key, lang).await?
     } else {
-        Ok(String::new())
-    };
-
-    let result = match stt_res {
-        Ok(ref t) if !t.trim().is_empty() => t.clone(),
-        Ok(_) => streamed_text.clone().unwrap_or_default(),
-        Err(e) => {
-            if let Some(ref st) = streamed_text {
-                let trimmed_st = st.trim();
-                if !trimmed_st.is_empty()
-                    && !trimmed_st.starts_with("Ошибка")
-                    && !trimmed_st.starts_with("Error")
-                {
-                    log::warn!(
-                        "STT error ({}), falling back to live streamed text: {}",
-                        e,
-                        st
-                    );
-                    st.clone()
-                } else {
-                    return Err(e);
-                }
-            } else {
-                return Err(e);
-            }
+        let service = if mode == "groq" {
+            keys::Service::Groq
+        } else {
+            keys::Service::Gemini
+        };
+        let api_key = api_keys
+            .0
+            .lock()
+            .map_err(|e| e.to_string())?
+            .get(&service)
+            .cloned()
+            .flatten()
+            .unwrap_or_default();
+        if mode == "gemini" {
+            ai_provider::gemini_stop_recording(
+                app.clone(),
+                Arc::clone(&ai_state),
+                Arc::clone(&recording_flag.0),
+                api_key,
+                lang,
+                threshold,
+                gain,
+            )
+            .await?
+        } else {
+            ai_provider::stop_recording(
+                app.clone(),
+                Arc::clone(&ai_state),
+                Arc::clone(&recording_flag.0),
+                api_key,
+                lang,
+                threshold,
+                gain,
+            )
+            .await?
         }
     };
 
