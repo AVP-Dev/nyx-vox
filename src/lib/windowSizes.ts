@@ -4,7 +4,8 @@ import type { Phase } from './types';
 export const WINDOW_SIZES = {
     idle: [150, 48] as const,
     compactIdle: [48, 48] as const,
-    recording: [380, 48] as const,
+    recording: [320, 48] as const,
+    recordingCompact: [220, 48] as const,
     quickMenu: [200, 230] as const,
     editing: [400, 360] as const,
     overlay: [440, 540] as const,
@@ -35,6 +36,7 @@ interface WindowSizeParams {
     isOverlay: boolean;
     isCompact: boolean;
     compactResultWindow: boolean;
+    liveStreamPreview?: boolean;
     showSettings: boolean;
     showWelcome: boolean;
     showQuickMenu: boolean;
@@ -47,7 +49,7 @@ interface WindowSizeParams {
 export function resolveWindowSize(params: WindowSizeParams): [number, number] {
     const {
         phase, isIdle, isOverlay, isCompact,
-        compactResultWindow,
+        compactResultWindow, liveStreamPreview = true,
         showSettings, showWelcome, showQuickMenu,
         transcriptTextLength,
     } = params;
@@ -61,5 +63,9 @@ export function resolveWindowSize(params: WindowSizeParams): [number, number] {
         return [WINDOW_SIZES.resultBase[0], computeResultHeight(transcriptTextLength)];
     }
     if (isIdle) return compactResultWindow ? [...WINDOW_SIZES.compactIdle] : [...WINDOW_SIZES.idle];
+    if ((phase === 'recording' || phase === 'processing') && !liveStreamPreview) {
+        return [...WINDOW_SIZES.recordingCompact];
+    }
     return [...WINDOW_SIZES.recording];
 }
+

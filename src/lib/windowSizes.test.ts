@@ -99,9 +99,22 @@ describe('resolveWindowSize', () => {
         expect(result).toEqual([...WINDOW_SIZES.quickMenu]);
     });
 
-    it('returns recording size when recording', () => {
-        const result = resolveWindowSize({ ...baseParams, phase: 'recording', isIdle: false });
+    it('returns recording size when recording with liveStreamPreview true', () => {
+        const result = resolveWindowSize({ ...baseParams, phase: 'recording', isIdle: false, liveStreamPreview: true });
         expect(result).toEqual([...WINDOW_SIZES.recording]);
+        expect(result[0]).toBe(320);
+    });
+
+    it('returns recordingCompact size when recording with liveStreamPreview false', () => {
+        const result = resolveWindowSize({ ...baseParams, phase: 'recording', isIdle: false, liveStreamPreview: false });
+        expect(result).toEqual([...WINDOW_SIZES.recordingCompact]);
+        expect(result[0]).toBe(220);
+    });
+
+    it('returns recordingCompact size when processing with liveStreamPreview false', () => {
+        const result = resolveWindowSize({ ...baseParams, phase: 'processing', isIdle: false, liveStreamPreview: false });
+        expect(result).toEqual([...WINDOW_SIZES.recordingCompact]);
+        expect(result[0]).toBe(220);
     });
 
     it('prioritizes settings over welcome', () => {

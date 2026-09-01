@@ -16,16 +16,19 @@ export const windowEntrance: Variants = {
  * Build the container shape-variants keyed by logical state.
  * Requires the computed result height for the "result" key.
  * `compactIdle` shrinks the idle pill into a round mic bubble.
+ * `liveStreamPreview` controls whether recording uses the full text pill or compact waveform pill.
  */
 export function buildContainerVariants(
     transcriptTextLength: number,
     compactIdle = false,
+    liveStreamPreview = true,
 ): Variants {
     const resultH = computeResultHeight(transcriptTextLength);
+    const recW = liveStreamPreview ? WINDOW_SIZES.recording[0] : WINDOW_SIZES.recordingCompact[0];
     return {
         idle:       { width: compactIdle ? 48 : WINDOW_SIZES.idle[0], height: 48, borderRadius: compactIdle ? 24 : 24 },
         quickMenu:  { width: WINDOW_SIZES.quickMenu[0],  height: WINDOW_SIZES.quickMenu[1],  borderRadius: 24 },
-        recording:  { width: WINDOW_SIZES.recording[0],  height: WINDOW_SIZES.recording[1],  borderRadius: 24 },
+        recording:  { width: recW,  height: WINDOW_SIZES.recording[1],  borderRadius: 24 },
         result:     { width: WINDOW_SIZES.resultBase[0], height: resultH,                    borderRadius: 24 },
         editing:    { width: WINDOW_SIZES.editing[0],     height: WINDOW_SIZES.editing[1],    borderRadius: 24 },
         overlay:    { width: WINDOW_SIZES.overlay[0],     height: WINDOW_SIZES.overlay[1],    borderRadius: 24 },

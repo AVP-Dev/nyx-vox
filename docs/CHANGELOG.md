@@ -4,7 +4,33 @@
 
 ---
 
-## 📅 Version 1.3.0 (Current)
+## 📅 Version 1.3.1 (Current)
+
+### 🎧 Pre-Speech FIFO Ring Buffer
+- Implemented a 300ms (4800 samples @ 16kHz) pre-speech FIFO ring buffer in `utils.rs`, `recording.rs`, and `ai_provider.rs`.
+- Flushes lead-in audio on VAD speech trigger, ensuring unvoiced and plosive consonants («п», «т», «к», «с», «ш») are never clipped.
+- Configured `trim_silence` with 300ms pre-speech and 200ms post-speech padding.
+
+### ⏱️ Pure Pause-Based VAD Auto-Stop
+- Removed artificial continuous speech limits from `VadTracker`.
+- Auto-stop now triggers strictly when continuous silence reaches the user-configured timeout in Settings (3.0–15.0s, default 7.0s), preventing premature cut-offs during long dictations.
+
+### 💊 Compact Waveform Pill Mode & Ergonomic Dimensions
+- Added a "Live Speech Preview" ("Живой предпросмотр речи") toggle under Settings → Interface.
+- When disabled, the recording window shrinks into a sleek 220px pill displaying the animated audio `WaveformVisualizer`, saving screen space, CPU cycles, and network requests.
+- Reduced standard live recording width from 380px to a cleaner 320px.
+
+### 🎯 Smart Disfluency Removal vs Emotional Interjections
+- Enhanced `REFINEMENT_SYSTEM_PROMPT` and formatting styles across all LLM engines (Gemini, DeepSeek, Qwen, Groq, GigaChat).
+- Automatically removes hesitations and stutters («эээ», «нуу», «хмм», «ммм», false starts) while strictly preserving emotional and semantic interjections («М-м, как вкусно!», «Ого!», «Эх!», «Увы!»).
+
+### ⚡ Interim Stream Backpressure & UI Stabilization
+- Added atomic `is_inflight` backpressure protection to interim stream workers, dropping lagging requests and eliminating latency buildup.
+- Implemented `splitCommittedAndDraft` in UI, separating solid white committed text from a dynamic translucent italic draft tail to eliminate visual jitter.
+
+---
+
+## 📅 Version 1.3.0
 
 ### 🎙️ Universal Live Phrase Streaming
 - Added real-time interim transcription across all STT engines (Groq, Deepgram, Gemini, GigaChat, and Local Whisper).

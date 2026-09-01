@@ -166,7 +166,10 @@ pub fn start_recording<R: Runtime>(
         let samples_ref = Arc::clone(&sample_store);
         let flag_inner = Arc::clone(&flag_cpal);
         let emit_handle = app_stream.clone();
+
         let mut vad_tracker = crate::utils::VadTracker::new();
+        let mut pre_speech_ring = crate::utils::PreSpeechRingBuffer::new(300, actual_sample_rate);
+        let mut speech_flushed = false;
 
         let stream = device.build_input_stream(
             &config.into(),
@@ -221,6 +224,15 @@ pub fn start_recording<R: Runtime>(
                 }
 
                 if let Ok(mut lock) = samples_ref.lock() {
+                    if vad_tracker.speech_started && !speech_flushed {
+                        let pre_samples = pre_speech_ring.extract();
+                        if !pre_samples.is_empty() && lock.samples.is_empty() {
+                            lock.samples.extend_from_slice(&pre_samples);
+                        }
+                        speech_flushed = true;
+                    } else if !vad_tracker.speech_started {
+                        pre_speech_ring.push(&mono);
+                    }
                     lock.samples.extend_from_slice(&mono);
                 }
             },
@@ -259,9 +271,10 @@ fn spawn_interim_stream_worker<R: Runtime>(
     flag_cpal: Arc<AtomicBool>,
 ) {
     tauri::async_runtime::spawn(async move {
-        tokio::time::sleep(std::time::Duration::from_millis(600)).await;
+        tokio::time::sleep(std::time::Duration::from_millis(400)).await;
 
         let client = crate::utils::shared_http_client();
+        let is_inflight = Arc::new(AtomicBool::new(false));
 
         while flag_cpal.load(Ordering::SeqCst) {
             let groq_key = {
@@ -277,6 +290,12 @@ fn spawn_interim_stream_worker<R: Runtime>(
                 break;
             }
 
+            // Backpressure check
+            if is_inflight.load(Ordering::SeqCst) {
+                tokio::time::sleep(std::time::Duration::from_millis(150)).await;
+                continue;
+            }
+
             let data_opt = {
                 state
                     .lock()
@@ -287,7 +306,7 @@ fn spawn_interim_stream_worker<R: Runtime>(
             let (samples, sample_rate) = match data_opt {
                 Some(d) => d,
                 None => {
-                    tokio::time::sleep(std::time::Duration::from_millis(400)).await;
+                    tokio::time::sleep(std::time::Duration::from_millis(250)).await;
                     continue;
                 }
             };
@@ -303,7 +322,7 @@ fn spawn_interim_stream_worker<R: Runtime>(
                     }
                 }
                 if peak_rms < 0.0012 {
-                    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+                    tokio::time::sleep(std::time::Duration::from_millis(350)).await;
                     continue;
                 }
 
@@ -324,38 +343,51 @@ fn spawn_interim_stream_worker<R: Runtime>(
                                 .part("file", part)
                                 .text("model", stt_model)
                                 .text("language", "ru".to_string())
+                                .text("prompt", crate::prompts::GROQ_STT_PROMPT.to_string())
                                 .text("temperature", "0.0");
 
-                            if let Ok(res) = client
-                                .post("https://api.groq.com/openai/v1/audio/transcriptions")
-                                .header("Authorization", format!("Bearer {}", groq_key))
-                                .multipart(form)
-                                .send()
-                                .await
-                            {
-                                if res.status().is_success() {
-                                    if let Ok(json) = res.json::<serde_json::Value>().await {
-                                        if let Some(text) = json["text"].as_str() {
-                                            let cleaned =
-                                                crate::utils::clean_repetitive_phrases(text);
-                                            let cleaned =
-                                                crate::utils::remove_hallucinations(&cleaned);
-                                            let trimmed = cleaned.trim();
-                                            if !trimmed.is_empty()
-                                                && flag_cpal.load(Ordering::SeqCst)
-                                            {
-                                                let _ = app.emit("interim-transcription", trimmed);
+                            let app_emit = app.clone();
+                            let flag_check = flag_cpal.clone();
+                            let inflight_guard = is_inflight.clone();
+                            inflight_guard.store(true, Ordering::SeqCst);
+
+                            let client_req = client.clone();
+                            let key = groq_key.clone();
+
+                            tauri::async_runtime::spawn(async move {
+                                if let Ok(res) = client_req
+                                    .post("https://api.groq.com/openai/v1/audio/transcriptions")
+                                    .header("Authorization", format!("Bearer {}", key))
+                                    .multipart(form)
+                                    .send()
+                                    .await
+                                {
+                                    if res.status().is_success() {
+                                        if let Ok(json) = res.json::<serde_json::Value>().await {
+                                            if let Some(text) = json["text"].as_str() {
+                                                let cleaned =
+                                                    crate::utils::clean_repetitive_phrases(text);
+                                                let cleaned =
+                                                    crate::utils::remove_hallucinations(&cleaned);
+                                                let trimmed = cleaned.trim();
+                                                if !trimmed.is_empty()
+                                                    && flag_check.load(Ordering::SeqCst)
+                                                {
+                                                    let _ = app_emit
+                                                        .emit("interim-transcription", trimmed);
+                                                }
                                             }
                                         }
                                     }
                                 }
-                            }
+                                inflight_guard.store(false, Ordering::SeqCst);
+                            });
                         }
                     }
                 }
             }
 
-            tokio::time::sleep(std::time::Duration::from_millis(800)).await;
+            tokio::time::sleep(std::time::Duration::from_millis(350)).await;
         }
     });
 }

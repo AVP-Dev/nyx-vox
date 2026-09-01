@@ -31,7 +31,13 @@ const WelcomeOverlay = lazy(() =>
 );
 
 export default function Home() {
-    const { transcriptText, setProcessing, setTranscript, compactResultWindow } = useStore();
+    const {
+        transcriptText,
+        setProcessing,
+        setTranscript,
+        compactResultWindow,
+        liveStreamPreview,
+    } = useStore();
 
     // --- Settings ---
     const settings = useSettings();
@@ -91,6 +97,7 @@ export default function Home() {
         isOverlay,
         isCompact,
         compactResultWindow,
+        liveStreamPreview,
         isVisible,
         showSettings: settings.showSettings,
         showWelcome,
@@ -140,7 +147,7 @@ export default function Home() {
     const lang = settings.appLanguage;
     const resultTextLen = transcriptText?.length || 0;
     const isCompactIdle = compactResultWindow && rec.isIdle && !settings.showQuickMenu;
-    const containerVariants = buildContainerVariants(resultTextLen, isCompactIdle);
+    const containerVariants = buildContainerVariants(resultTextLen, isCompactIdle, liveStreamPreview);
 
     return (
         <main className="w-screen h-screen flex flex-col items-center justify-start bg-transparent font-sans antialiased overflow-hidden pointer-events-none z-[9999]">

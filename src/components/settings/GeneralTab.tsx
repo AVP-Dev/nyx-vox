@@ -48,7 +48,8 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({
     const [resetting, setResetting] = React.useState(false);
 
     const {
-        compactResultWindow, setCompactResultWindow
+        compactResultWindow, setCompactResultWindow,
+        liveStreamPreview, setLiveStreamPreview,
     } = useStore();
 
     // Automatic focus back when settings/permissions are granted
@@ -233,6 +234,13 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({
             <div>
                 <SectionTitle>{lang === 'ru' ? 'Интерфейс' : 'Interface'}</SectionTitle>
                 <div className="space-y-2">
+                    <div className="flex items-center justify-between p-3.5 rounded-xl bg-white/4 border border-white/8">
+                        <div>
+                            <div className="text-[13px] font-semibold text-white/90">{lang === 'ru' ? 'Живой предпросмотр речи' : 'Live Speech Preview'}</div>
+                            <div className="text-[11px] text-muted mt-0.5">{lang === 'ru' ? 'Отображать бегущий текст при записи' : 'Stream live text during recording'}</div>
+                        </div>
+                        <Toggle checked={liveStreamPreview} onChange={setLiveStreamPreview} />
+                    </div>
                     <div className="flex items-center justify-between p-3.5 rounded-xl bg-white/4 border border-white/8">
                         <div>
                             <div className="text-[13px] font-semibold text-white/90">{lang === 'ru' ? 'Компактный режим' : 'Compact Mode'}</div>

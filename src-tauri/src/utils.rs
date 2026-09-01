@@ -302,7 +302,10 @@ pub fn trim_silence(samples: &[f32], threshold: f32, sample_rate: u32) -> &[f32]
         return samples;
     }
     let frame_size = (sample_rate / 50).max(160) as usize; // 20ms frames
-    let pad_samples = (sample_rate as usize * 150) / 1000; // 150ms padding
+                                                           // 300ms pre-speech padding prevents clipping initial unvoiced plosive/fricative consonants
+    let pre_pad_samples = (sample_rate as usize * 300) / 1000;
+    // 200ms post-speech padding prevents abrupt word endings
+    let post_pad_samples = (sample_rate as usize * 200) / 1000;
 
     let mut start_idx = 0;
     for chunk_start in (0..samples.len()).step_by(frame_size) {
@@ -310,7 +313,7 @@ pub fn trim_silence(samples: &[f32], threshold: f32, sample_rate: u32) -> &[f32]
         let frame = &samples[chunk_start..chunk_end];
         let rms = (frame.iter().map(|s| s * s).sum::<f32>() / frame.len() as f32).sqrt();
         if rms >= threshold {
-            start_idx = chunk_start.saturating_sub(pad_samples);
+            start_idx = chunk_start.saturating_sub(pre_pad_samples);
             break;
         }
     }
@@ -321,7 +324,7 @@ pub fn trim_silence(samples: &[f32], threshold: f32, sample_rate: u32) -> &[f32]
         let frame = &samples[chunk_start..chunk_end];
         let rms = (frame.iter().map(|s| s * s).sum::<f32>() / frame.len() as f32).sqrt();
         if rms >= threshold {
-            end_idx = (chunk_end + pad_samples).min(samples.len());
+            end_idx = (chunk_end + post_pad_samples).min(samples.len());
             break;
         }
     }
@@ -401,6 +404,60 @@ fn is_lone_filler(word: &str) -> bool {
         trimmed,
         "э" | "ээ" | "эээ" | "мм" | "ммм" | "гм" | "хм" | "uh" | "um" | "er" | "ah"
     )
+}
+
+/// A ring buffer for maintaining pre-speech audio samples (e.g. 250–300 ms).
+/// Ensures that unvoiced plosive and fricative consonants at the beginning
+/// of phrases are not clipped when speech detection triggers.
+#[derive(Debug, Clone)]
+pub struct PreSpeechRingBuffer {
+    buffer: Vec<f32>,
+    capacity: usize,
+    write_pos: usize,
+    is_full: bool,
+}
+
+impl PreSpeechRingBuffer {
+    /// Creates a buffer for the given duration in milliseconds at the target sample rate.
+    pub fn new(duration_ms: u32, sample_rate: u32) -> Self {
+        let capacity = ((sample_rate as usize * duration_ms as usize) / 1000).max(1);
+        Self {
+            buffer: vec![0.0; capacity],
+            capacity,
+            write_pos: 0,
+            is_full: false,
+        }
+    }
+
+    /// Pushes a slice of audio samples into the ring buffer.
+    pub fn push(&mut self, samples: &[f32]) {
+        for &sample in samples {
+            self.buffer[self.write_pos] = sample;
+            self.write_pos = (self.write_pos + 1) % self.capacity;
+            if self.write_pos == 0 {
+                self.is_full = true;
+            }
+        }
+    }
+
+    /// Extracts all buffered pre-speech samples in chronological order.
+    pub fn extract(&self) -> Vec<f32> {
+        if !self.is_full {
+            self.buffer[..self.write_pos].to_vec()
+        } else {
+            let mut result = Vec::with_capacity(self.capacity);
+            result.extend_from_slice(&self.buffer[self.write_pos..]);
+            result.extend_from_slice(&self.buffer[..self.write_pos]);
+            result
+        }
+    }
+
+    /// Resets the ring buffer.
+    #[allow(dead_code)]
+    pub fn clear(&mut self) {
+        self.write_pos = 0;
+        self.is_full = false;
+    }
 }
 
 /// A robust Voice Activity Detection (VAD) tracker.
@@ -789,5 +846,33 @@ mod tests {
         assert_eq!(sample_0, 0);
         assert_eq!(sample_1, 32767);
         assert_eq!(sample_2, -32767);
+    }
+
+    // ── PreSpeechRingBuffer ──────────────────────────────────────────────────
+
+    #[test]
+    fn pre_speech_ring_buffer_handles_wraparound_and_order() {
+        let mut ring = PreSpeechRingBuffer::new(10, 1000); // 10 samples capacity
+        ring.push(&[1.0, 2.0, 3.0, 4.0, 5.0]);
+        let extracted_partial = ring.extract();
+        assert_eq!(extracted_partial, vec![1.0, 2.0, 3.0, 4.0, 5.0]);
+
+        // Push more samples to wrap around
+        ring.push(&[6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0]);
+        let extracted_wrapped = ring.extract();
+        // Total capacity is 10, oldest (1.0, 2.0) dropped, retaining [3.0..12.0]
+        assert_eq!(extracted_wrapped.len(), 10);
+        assert_eq!(
+            extracted_wrapped,
+            vec![3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0]
+        );
+    }
+
+    #[test]
+    fn pre_speech_ring_buffer_clear() {
+        let mut ring = PreSpeechRingBuffer::new(10, 1000);
+        ring.push(&[1.0, 2.0, 3.0]);
+        ring.clear();
+        assert_eq!(ring.extract(), Vec::<f32>::new());
     }
 }

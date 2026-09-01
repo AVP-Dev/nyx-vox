@@ -33,7 +33,6 @@ export const FUTURE_ITEMS = {
         'Выбор микрофона',
         'Автообновление',
         'Пользовательский словарь',
-        'Детекция активности речи',
         'Кроссплатформенность (Linux)',
         '💛 Донаты — поддержите проект!'
     ],
@@ -45,7 +44,6 @@ export const FUTURE_ITEMS = {
         'Microphone selection',
         'Auto-updates',
         'Custom dictionary',
-        'Speech activity detection',
         'Cross-platform (Linux)',
         '💛 Donations — support the project!'
     ]

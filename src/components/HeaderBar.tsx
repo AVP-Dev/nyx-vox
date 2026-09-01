@@ -5,6 +5,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Mic, X } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { QuickMenu } from '@/components/QuickMenu';
+import { WaveformVisualizer } from '@/components/WaveformVisualizer';
+import { useStore } from '@/store/useStore';
+import { splitCommittedAndDraft } from '@/lib/text';
 import type { Phase, FormattingMode, AppLanguage } from '@/lib/types';
 
 export interface HeaderBarProps {
@@ -65,6 +68,8 @@ export function HeaderBar(props: HeaderBarProps) {
         onSetPhase('idle');
     };
 
+    const liveStreamPreview = useStore(s => s.liveStreamPreview);
+
     // Auto-scroll to the latest spoken words
     React.useEffect(() => {
         if (scrollRef.current) {
@@ -85,7 +90,7 @@ export function HeaderBar(props: HeaderBarProps) {
             </div>
 
             {/* Center: Status / Live Speech Stream Display */}
-            <div data-tauri-drag-region className="flex-1 flex items-center h-full mx-10 overflow-hidden pointer-events-none">
+            <div data-tauri-drag-region className={`flex-1 flex items-center h-full ${!liveStreamPreview ? 'mx-6' : 'mx-8'} overflow-hidden pointer-events-none`}>
                 <AnimatePresence mode="wait">
                     {isRec || isProc || (autoPaste && phase === 'result' && !isOverlay) ? (
                         <motion.div key="rec-lbl" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="w-full overflow-hidden flex items-center">
@@ -94,20 +99,30 @@ export function HeaderBar(props: HeaderBarProps) {
                                 className="w-full overflow-hidden whitespace-nowrap text-[12px] text-white/90 font-medium tracking-tight flex items-center scroll-smooth [mask-image:linear-gradient(to_right,transparent_0%,black_16px,black_100%)]"
                             >
                                 {isRec ? (
-                                    transcriptText ? (
-                                        <div className="flex items-center gap-1 min-w-full justify-end pr-1">
-                                            <span className="text-white/95">{transcriptText}</span>
-                                            <span className="inline-block w-1.5 h-3.5 bg-red-500 rounded-full animate-pulse shrink-0" />
+                                    !liveStreamPreview ? (
+                                        <div className="w-full flex justify-center items-center">
+                                            <WaveformVisualizer isActive={isRec} />
                                         </div>
+                                    ) : transcriptText ? (
+                                        (() => {
+                                            const { committed, draft } = splitCommittedAndDraft(transcriptText);
+                                            return (
+                                                <div className="flex items-center gap-1 min-w-full justify-end pr-1">
+                                                    {committed && <span className="text-white/95 font-medium">{committed}&nbsp;</span>}
+                                                    <span className="text-white/70 italic transition-all duration-150">{draft}</span>
+                                                    <span className="inline-block w-1.5 h-3.5 bg-red-500 rounded-full animate-pulse shrink-0 ml-0.5" />
+                                                </div>
+                                            );
+                                        })()
                                     ) : (
                                         <div className="w-full flex justify-center">
                                             <span className="text-white/30 text-[11px] font-mono tracking-widest animate-pulse">● ● ●</span>
                                         </div>
                                     )
                                 ) : (
-                                    <div className="w-full flex justify-center items-center gap-1.5 text-[11px] text-white/80 font-bold">
-                                        <span>{aiStatus || (lang === 'ru' ? 'Обработка...' : 'Processing...')}</span>
-                                        <div className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" />
+                                    <div className="w-full flex justify-center items-center gap-1.5 text-[11px] text-white/80 font-bold whitespace-nowrap">
+                                        <span className="truncate">{aiStatus || (lang === 'ru' ? 'Обработка...' : 'Processing...')}</span>
+                                        <div className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse shrink-0" />
                                     </div>
                                 )}
                             </div>
