@@ -25,7 +25,7 @@ pub type SharedState = Arc<Mutex<RecordingState>>;
 // ── Constants ───────────────────────────────────────────────────────────────
 
 /// Audio-tail padding before killing the mic (ms). Prevents cutoff hallucination.
-const AUDIO_TAIL_PADDING_MS: u64 = 60;
+const AUDIO_TAIL_PADDING_MS: u64 = 150;
 /// Minimum recording duration in seconds to consider for transcription.
 const MIN_DURATION_SECS: f64 = 0.3;
 /// Mic polling interval while recording (ms).

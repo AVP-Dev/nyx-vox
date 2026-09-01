@@ -296,23 +296,26 @@ pub fn remove_hallucinations(text: &str) -> String {
 }
 
 /// Trims leading and trailing silence from audio samples based on RMS threshold,
-/// keeping a small padding (150ms) to avoid clipping spoken consonants.
+/// keeping generous padding (350ms pre / 400ms post) to ensure consonants and trailing
+/// word endings are never clipped.
 pub fn trim_silence(samples: &[f32], threshold: f32, sample_rate: u32) -> &[f32] {
     if samples.is_empty() {
         return samples;
     }
     let frame_size = (sample_rate / 50).max(160) as usize; // 20ms frames
-                                                           // 300ms pre-speech padding prevents clipping initial unvoiced plosive/fricative consonants
-    let pre_pad_samples = (sample_rate as usize * 300) / 1000;
-    // 200ms post-speech padding prevents abrupt word endings
-    let post_pad_samples = (sample_rate as usize * 200) / 1000;
+                                                           // 350ms pre-speech padding prevents clipping initial unvoiced plosive/fricative consonants
+    let pre_pad_samples = (sample_rate as usize * 350) / 1000;
+    // 400ms post-speech padding ensures quiet word endings and fading vowels are fully preserved
+    let post_pad_samples = (sample_rate as usize * 400) / 1000;
+
+    let boundary_threshold = (threshold * 0.65).max(0.0010);
 
     let mut start_idx = 0;
     for chunk_start in (0..samples.len()).step_by(frame_size) {
         let chunk_end = (chunk_start + frame_size).min(samples.len());
         let frame = &samples[chunk_start..chunk_end];
         let rms = (frame.iter().map(|s| s * s).sum::<f32>() / frame.len() as f32).sqrt();
-        if rms >= threshold {
+        if rms >= boundary_threshold {
             start_idx = chunk_start.saturating_sub(pre_pad_samples);
             break;
         }
@@ -323,7 +326,7 @@ pub fn trim_silence(samples: &[f32], threshold: f32, sample_rate: u32) -> &[f32]
         let chunk_end = (chunk_start + frame_size).min(samples.len());
         let frame = &samples[chunk_start..chunk_end];
         let rms = (frame.iter().map(|s| s * s).sum::<f32>() / frame.len() as f32).sqrt();
-        if rms >= threshold {
+        if rms >= boundary_threshold {
             end_idx = (chunk_end + post_pad_samples).min(samples.len());
             break;
         }

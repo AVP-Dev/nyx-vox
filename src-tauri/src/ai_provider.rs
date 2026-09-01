@@ -402,7 +402,7 @@ pub async fn stop_recording<R: Runtime>(
     threshold: f32,
     gain: f32,
 ) -> Result<String, String> {
-    tokio::time::sleep(std::time::Duration::from_millis(60)).await;
+    tokio::time::sleep(std::time::Duration::from_millis(150)).await;
     recording_flag.store(false, Ordering::SeqCst);
 
     // 1. Acquisition of Semaphore — with a timeout so a stuck previous request
@@ -541,7 +541,7 @@ pub async fn gemini_stop_recording<R: Runtime>(
     threshold: f32,
     gain: f32,
 ) -> Result<String, String> {
-    tokio::time::sleep(std::time::Duration::from_millis(60)).await;
+    tokio::time::sleep(std::time::Duration::from_millis(150)).await;
     recording_flag.store(false, Ordering::SeqCst);
 
     let semaphore = app.state::<AiSemaphore>();
