@@ -6,6 +6,7 @@
 
 | Version | Date | Focus | Release Notes |
 |---|---|---|---|
+| v1.3.2 | 2026-09 | Multi-Level Fallback Pipeline & Long Speech Resilience | [v1.3.2](v1.3.2/release.md) |
 | v1.3.1 | 2026-09 | Real-Time Architecture, Pre-Speech Buffer & Compact Waveform Pill | [v1.3.1](v1.3.1/release.md) |
 | v1.3.0 | 2026-08 | Live Streaming, Verbatim AI Calibration & Custom Models | [v1.3.0](v1.3.0/release.md) |
 | v1.2.0 | 2026-08 | Security Hardening, GigaChat & Architecture Overhaul | [v1.2.0](v1.2.0/release.md) |

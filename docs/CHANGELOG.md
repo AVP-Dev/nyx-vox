@@ -4,7 +4,27 @@
 
 ---
 
-## 📅 Version 1.3.1 (Current)
+## 📅 Version 1.3.2 (Current)
+
+### 🛡️ Stream Completeness Verification & Speech Density Check
+- Implemented word density and speech duration verification in `stop_recording`.
+- If recording duration exceeds 5 seconds and word density falls below expectations (indicating interim stream freeze or API rate-limit), the engine automatically triggers an authoritative batch STT transcription over the full audio buffer.
+
+### ⚡ Engine-Agnostic Multi-Level Fallback Pipeline
+- Standardized fallback architecture across all supported engines (GigaChat, Groq, Whisper, Gemini, Deepgram, DeepSeek, Qwen).
+- If LLM formatting encounters network or quota errors, the raw transcribed text is safely preserved and pasted immediately without discarding the user's speech.
+
+### 🔄 Automatic 429/503 Rate Limit Retry & Token Ceiling
+- Added automated retry logic with a 1.2-second pause when LLM providers (GigaChat, Gemini, Groq, DeepSeek) return transient rate-limiting or server overload responses.
+- Expanded output token limit to `max_tokens: 4096`, guaranteeing continuous monologues of up to 20–25 minutes without output truncation.
+
+### ❓ Question Mark Punctuation & Stream Optimization
+- Upgraded `REFINEMENT_SYSTEM_PROMPT` with strict rules and few-shot examples for detecting interrogative intonations, questions, and rhetorical phrasing (`?`).
+- Adjusted interim streaming interval to 650ms with adaptive 429 backoff.
+
+---
+
+## 📅 Version 1.3.1
 
 ### 🎧 Pre-Speech FIFO Ring Buffer
 - Implemented a 300ms (4800 samples @ 16kHz) pre-speech FIFO ring buffer in `utils.rs`, `recording.rs`, and `ai_provider.rs`.
