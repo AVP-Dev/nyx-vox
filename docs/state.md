@@ -6,10 +6,10 @@
 
 ## Последнее обновление
 Дата: 2026-09-02
-Кто/что обновило: Агент (Подготовка релиза v1.3.1: Pre-Speech буфер, VAD автостоп по тишине, компактная пилюля с волной звука)
+Кто/что обновило: Агент (Релиз v1.3.1: Real-Time Architecture, Pre-Speech буфер, Single-Pass 0ms STT, VAD автостоп по тишине, компактная пилюля с волной звука)
 
 ## Версии (важно)
-- Готовящийся релиз на GitHub — **v1.3.1** (Real-Time Architecture, Pre-Speech Buffer & Compact Waveform Pill)
+- Последний ПУБЛИЧНЫЙ релиз на GitHub — **v1.3.1** (Real-Time Architecture, Pre-Speech Buffer & Compact Waveform Pill)
 - Предыдущие версии: v1.3.0, v1.2.0, v1.1.0, v1.0.0
 - Ветка `main` содержит актуальную сборку v1.3.1
 
