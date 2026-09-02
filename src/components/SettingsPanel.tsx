@@ -20,8 +20,8 @@ import { InfoTab } from './settings/InfoTab';
 import { ToastContainer, useToast } from './ui/Toast';
 import { ConfirmDialog, useConfirm } from './ui/ConfirmDialog';
 import type { FormattingMode } from '@/lib/types';
-
-export const APP_VERSION = '1.3.0';
+import { APP_VERSION } from '@/constants/version';
+export { APP_VERSION };
 
 interface EngineHelpItem {
     title: string;

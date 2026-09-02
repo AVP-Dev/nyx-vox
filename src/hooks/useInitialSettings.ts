@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import { APP_VERSION } from '@/components/SettingsPanel';
+import { APP_VERSION } from '@/constants/version';
 import type {
     SttMode, AppLanguage, FormattingMode, FormattingStyle,
 } from '@/lib/types';

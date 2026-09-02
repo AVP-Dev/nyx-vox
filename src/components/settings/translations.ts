@@ -1,3 +1,5 @@
+import { APP_VERSION } from '@/constants/version';
+
 export const DICTIONARY = {
     ru: {
         guide: {
@@ -27,7 +29,7 @@ export const DICTIONARY = {
         about: {
             title: 'О приложении',
             app: 'NYX VOX',
-            version: 'v1.3.0',
+            version: `v${APP_VERSION}`,
             desc: 'Премиальный инструмент диктовки для macOS, который сокращает путь от мысли до текста. Мгновенная транскрибация голоса через Deepgram, Groq или локальный Whisper AI.',
             author: 'Разработчик',
             mission: 'Миссия',
@@ -262,7 +264,7 @@ export const DICTIONARY = {
         about: {
             title: 'Info',
             app: 'NYX VOX',
-            version: '1.3.0',
+            version: `v${APP_VERSION}`,
             desc: 'A premium macOS dictation tool. Convert voice to text instantly using Deepgram, Groq, or offline Whisper AI.',
             author: 'Developer',
             mission: 'Mission',

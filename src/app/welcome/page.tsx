@@ -5,7 +5,8 @@ import { invoke } from '@tauri-apps/api/core';
 import { ShieldCheck, Zap, Mic2, Accessibility, BookOpen, AlertTriangle, ShieldAlert, Check, X, Info, Keyboard, UserCircle, Globe, Github, MessageCircle, Send, Instagram, Linkedin } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
-import { CONTENT, APP_VERSION } from '@/components/SettingsPanel';
+import { CONTENT } from '@/components/SettingsPanel';
+import { APP_VERSION } from '@/constants/version';
 
 type Tab = 'welcome' | 'perms' | 'help' | 'quarantine' | 'about';
 
