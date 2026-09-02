@@ -362,7 +362,8 @@ fn spawn_interim_stream_worker<R: Runtime>(
                                     .send()
                                     .await
                                 {
-                                    if res.status().is_success() {
+                                    let status = res.status();
+                                    if status.is_success() {
                                         if let Ok(json) = res.json::<serde_json::Value>().await {
                                             if let Some(text) = json["text"].as_str() {
                                                 let cleaned =
@@ -378,6 +379,9 @@ fn spawn_interim_stream_worker<R: Runtime>(
                                                 }
                                             }
                                         }
+                                    } else if status.as_u16() == 429 {
+                                        log::warn!("Groq interim STT: rate limited (429), pausing interim stream for 1.5s");
+                                        tokio::time::sleep(std::time::Duration::from_millis(1500)).await;
                                     }
                                 }
                                 inflight_guard.store(false, Ordering::SeqCst);
@@ -387,7 +391,7 @@ fn spawn_interim_stream_worker<R: Runtime>(
                 }
             }
 
-            tokio::time::sleep(std::time::Duration::from_millis(350)).await;
+            tokio::time::sleep(std::time::Duration::from_millis(650)).await;
         }
     });
 }

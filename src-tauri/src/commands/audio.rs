@@ -302,10 +302,48 @@ pub async fn stop_recording(
         crate::utils::system_media_control(0);
     }
 
+    let audio_duration_secs = match mode.as_str() {
+        "deepgram" => dg_state
+            .lock()
+            .ok()
+            .map(|l| l.samples.len() as f32 / l.sample_rate.max(1) as f32)
+            .unwrap_or(0.0),
+        "whisper" => state
+            .lock()
+            .ok()
+            .map(|l| l.samples.len() as f32 / l.sample_rate.max(1) as f32)
+            .unwrap_or(0.0),
+        _ => ai_state
+            .lock()
+            .ok()
+            .map(|l| l.samples.len() as f32 / l.sample_rate.max(1) as f32)
+            .unwrap_or(0.0),
+    };
+
     let has_streamed_preview = match streamed_text {
         Some(ref st) => {
             let t = st.trim();
-            !t.is_empty() && !t.starts_with("Ошибка") && !t.starts_with("Error")
+            let is_valid = !t.is_empty() && !t.starts_with("Ошибка") && !t.starts_with("Error");
+            if is_valid {
+                let word_count = t.split_whitespace().count();
+                // If the user recorded more than 5s of speech, verify streamed word density.
+                // If word density is suspiciously low (stream throttled/frozen mid-speech),
+                // fallback to authoritative batch STT on the full audio buffer.
+                let is_complete = if audio_duration_secs > 5.0 {
+                    (word_count as f32) >= (audio_duration_secs * 0.7)
+                } else {
+                    true
+                };
+                if !is_complete {
+                    log::warn!(
+                        "stop_recording: stream appears incomplete (duration: {:.1}s, words: {}), running authoritative batch STT",
+                        audio_duration_secs, word_count
+                    );
+                }
+                is_complete
+            } else {
+                false
+            }
         }
         None => false,
     };
