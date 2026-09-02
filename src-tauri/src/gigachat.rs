@@ -184,7 +184,8 @@ async fn chat_once(
             {"role": "user", "content": user_content}
         ],
         "temperature": crate::prompts::DEFAULT_TEMPERATURE,
-        "top_p": crate::prompts::DEFAULT_TOP_P
+        "top_p": crate::prompts::DEFAULT_TOP_P,
+        "max_tokens": 4096
     });
 
     let res = client
@@ -254,8 +255,8 @@ pub async fn refine_text<R: Runtime>(
             Ok(crate::utils::strip_filler_phrases(&cleaned))
         }
         Err(e) => {
-            // Distinguish auth failures (401/403) — token expired → refresh once.
             let code = e.split('|').next().unwrap_or("").to_string();
+            // Distinguish auth failures (401/403) — token expired → refresh once.
             if code == "401" || code == "403" {
                 if let Ok(mut cache) = TOKEN_CACHE.lock() {
                     *cache = None; // invalidate
@@ -276,17 +277,47 @@ pub async fn refine_text<R: Runtime>(
                     }
                     Err(e2) => {
                         let code2 = e2.split('|').next().unwrap_or("").to_string();
-                        if code2 == "429" {
-                            return Err(
-                                "GigaChat: превышен лимит запросов (429). Попробуйте позже."
-                                    .to_string(),
+                        if code2 == "429" || code2 == "503" || code2 == "500" {
+                            log::warn!(
+                                "GigaChat: rate limited ({}), retrying once after 1.2s",
+                                code2
                             );
+                            tokio::time::sleep(std::time::Duration::from_millis(1200)).await;
+                            if let Ok(out) = chat_once(
+                                &client,
+                                &token,
+                                &format_model,
+                                &system_prompt,
+                                &user_content,
+                            )
+                            .await
+                            {
+                                let cleaned = crate::utils::clean_repetitive_phrases(&out);
+                                return Ok(crate::utils::strip_filler_phrases(&cleaned));
+                            }
                         }
                         return Err(format!("GigaChat AI Refinement Failed: {}", e2));
                     }
                 }
             }
-            if code == "429" {
+            if code == "429" || code == "503" || code == "500" {
+                log::warn!(
+                    "GigaChat: rate limited ({}), retrying once after 1.2s",
+                    code
+                );
+                tokio::time::sleep(std::time::Duration::from_millis(1200)).await;
+                if let Ok(out) = chat_once(
+                    &client,
+                    &token,
+                    &format_model,
+                    &system_prompt,
+                    &user_content,
+                )
+                .await
+                {
+                    let cleaned = crate::utils::clean_repetitive_phrases(&out);
+                    return Ok(crate::utils::strip_filler_phrases(&cleaned));
+                }
                 return Err(
                     "GigaChat: превышен лимит запросов (429). Попробуйте позже.".to_string()
                 );
@@ -380,7 +411,7 @@ pub async fn transcribe<R: Runtime>(
             }
         ],
         "temperature": 0.0,
-        "max_tokens": 2048
+        "max_tokens": 4096
     });
 
     let res = client

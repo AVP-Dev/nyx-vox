@@ -381,7 +381,8 @@ fn spawn_interim_stream_worker<R: Runtime>(
                                         }
                                     } else if status.as_u16() == 429 {
                                         log::warn!("Groq interim STT: rate limited (429), pausing interim stream for 1.5s");
-                                        tokio::time::sleep(std::time::Duration::from_millis(1500)).await;
+                                        tokio::time::sleep(std::time::Duration::from_millis(1500))
+                                            .await;
                                     }
                                 }
                                 inflight_guard.store(false, Ordering::SeqCst);
