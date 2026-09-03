@@ -467,6 +467,7 @@ impl PreSpeechRingBuffer {
 #[derive(Debug, Clone)]
 pub struct VadTracker {
     pub speech_started: bool,
+    pub speech_start_time: Option<std::time::Instant>,
     pub last_speech_time: Option<std::time::Instant>,
     pub smoothed_rms: f32,
     pub noise_floor: f32,
@@ -476,6 +477,7 @@ impl Default for VadTracker {
     fn default() -> Self {
         Self {
             speech_started: false,
+            speech_start_time: None,
             last_speech_time: None,
             smoothed_rms: 0.0,
             noise_floor: 0.001,
@@ -511,6 +513,9 @@ impl VadTracker {
         let voice_threshold = (self.noise_floor * 1.8).max(0.0020);
 
         if self.smoothed_rms >= voice_threshold {
+            if !self.speech_started {
+                self.speech_start_time = Some(std::time::Instant::now());
+            }
             self.speech_started = true;
             self.last_speech_time = Some(std::time::Instant::now());
             false
@@ -518,6 +523,7 @@ impl VadTracker {
             if let Some(last_speech) = self.last_speech_time {
                 if last_speech.elapsed().as_secs_f32() >= timeout_secs {
                     self.speech_started = false;
+                    self.speech_start_time = None;
                     self.last_speech_time = None;
                     return true;
                 }
@@ -527,6 +533,174 @@ impl VadTracker {
             false
         }
     }
+
+    /// Checks if continuous silence duration has exceeded `threshold_secs` (e.g. 0.8s)
+    /// to trigger a Rolling Commit segment finalization.
+    #[allow(dead_code)]
+    pub fn is_segment_silence(&self, threshold_secs: f32) -> bool {
+        if self.speech_started {
+            if let Some(last_speech) = self.last_speech_time {
+                return last_speech.elapsed().as_secs_f32() >= threshold_secs;
+            }
+        }
+        false
+    }
+
+    /// Checks if continuous speech without a pause has reached `max_duration_secs` (e.g. 12-15s)
+    /// to trigger a Hard Cutoff chunk commit.
+    #[allow(dead_code)]
+    pub fn is_hard_cutoff(&self, max_duration_secs: f32) -> bool {
+        if self.speech_started {
+            if let Some(start_time) = self.speech_start_time {
+                return start_time.elapsed().as_secs_f32() >= max_duration_secs;
+            }
+        }
+        false
+    }
+
+    /// Resets speech detection timers after a segment has been committed.
+    #[allow(dead_code)]
+    pub fn reset_segment(&mut self) {
+        self.speech_started = false;
+        self.speech_start_time = None;
+        self.last_speech_time = None;
+    }
+}
+
+/// Finds the index of the local energy minimum in samples within a given time window.
+/// Used by Hard Cutoff (12-15s) to cut chunks at natural inter-word pauses without clipping phonemes.
+#[allow(dead_code)]
+pub fn find_local_energy_minimum(
+    samples: &[f32],
+    sample_rate: u32,
+    window_start_sec: f32,
+    window_end_sec: f32,
+) -> usize {
+    let start_idx = ((sample_rate as f32 * window_start_sec) as usize).min(samples.len());
+    let end_idx = ((sample_rate as f32 * window_end_sec) as usize).min(samples.len());
+    if start_idx >= end_idx {
+        return end_idx;
+    }
+
+    let frame_size = (sample_rate as usize * 30 / 1000).max(1); // 30ms frame (480 samples @ 16k)
+    let search_slice = &samples[start_idx..end_idx];
+
+    let mut min_rms = f32::MAX;
+    let mut min_pos = start_idx;
+
+    for (chunk_idx, chunk) in search_slice.chunks(frame_size).enumerate() {
+        if chunk.is_empty() {
+            continue;
+        }
+        let rms = (chunk.iter().map(|s| s * s).sum::<f32>() / chunk.len() as f32).sqrt();
+        if rms < min_rms {
+            min_rms = rms;
+            min_pos = start_idx + chunk_idx * frame_size;
+        }
+    }
+
+    min_pos
+}
+
+/// Concatenates committed text and tail with normalized spacing.
+/// Prevents duplicate spaces or awkward punctuation spacing.
+pub fn safe_space_concatenate(committed: &str, tail: &str) -> String {
+    let c_trimmed = committed.trim();
+    let t_trimmed = tail.trim();
+
+    if c_trimmed.is_empty() {
+        return t_trimmed.to_string();
+    }
+    if t_trimmed.is_empty() {
+        return c_trimmed.to_string();
+    }
+
+    let first_char = t_trimmed.chars().next().unwrap_or(' ');
+    if matches!(
+        first_char,
+        '.' | ',' | '!' | '?' | ':' | ';' | '…' | '—' | '–'
+    ) {
+        format!("{}{}", c_trimmed, t_trimmed)
+    } else {
+        format!("{} {}", c_trimmed, t_trimmed)
+    }
+}
+
+/// Normalizes a word token for deduplication comparison:
+/// Converts to lowercase and removes non-alphanumeric leading/trailing characters.
+fn normalize_word_for_match(w: &str) -> String {
+    w.trim_matches(|c: char| !c.is_alphanumeric())
+        .to_lowercase()
+}
+
+/// Extracts the last `n` words from text to construct context prompts for Whisper.
+pub fn get_last_n_words(text: &str, n: usize) -> String {
+    let words: Vec<&str> = text.split_whitespace().collect();
+    if words.is_empty() {
+        return String::new();
+    }
+    let take_count = n.min(words.len());
+    words[words.len() - take_count..].join(" ")
+}
+
+/// Performs Suffix-Prefix Match deduplication on chunk boundaries.
+///
+/// Due to acoustic overlap (300-400 ms) and language model priming, Whisper often
+/// re-emits the last 1-2 words of the previous chunk in the tail.
+/// This function:
+/// 1. Checks if the first 2 words of `tail` match the last 2 words of `committed`.
+/// 2. If not, checks if the first 1 word of `tail` matches the last 1 word of `committed`.
+/// 3. Drops the duplicate words from `tail` before returning the concatenated result
+///    with normalized spacing.
+pub fn deduplicate_chunk_boundary(committed: &str, tail: &str) -> String {
+    let c_trimmed = committed.trim();
+    let t_trimmed = tail.trim();
+
+    if c_trimmed.is_empty() {
+        return t_trimmed.to_string();
+    }
+    if t_trimmed.is_empty() {
+        return c_trimmed.to_string();
+    }
+
+    let c_words: Vec<&str> = c_trimmed.split_whitespace().collect();
+    let t_words: Vec<&str> = t_trimmed.split_whitespace().collect();
+
+    if c_words.is_empty() || t_words.is_empty() {
+        return safe_space_concatenate(c_trimmed, t_trimmed);
+    }
+
+    let c_norms: Vec<String> = c_words
+        .iter()
+        .map(|w| normalize_word_for_match(w))
+        .collect();
+    let t_norms: Vec<String> = t_words
+        .iter()
+        .map(|w| normalize_word_for_match(w))
+        .collect();
+
+    // Check 2-word suffix-prefix match
+    if c_norms.len() >= 2 && t_norms.len() >= 2 {
+        let c_len = c_norms.len();
+        if !c_norms[c_len - 2].is_empty()
+            && !c_norms[c_len - 1].is_empty()
+            && c_norms[c_len - 2] == t_norms[0]
+            && c_norms[c_len - 1] == t_norms[1]
+        {
+            let remaining_tail = t_words[2..].join(" ");
+            return safe_space_concatenate(c_trimmed, &remaining_tail);
+        }
+    }
+
+    // Check 1-word suffix-prefix match
+    let c_last = &c_norms[c_norms.len() - 1];
+    let t_first = &t_norms[0];
+    if !c_last.is_empty() && c_last == t_first {
+        let remaining_tail = t_words[1..].join(" ");
+        return safe_space_concatenate(c_trimmed, &remaining_tail);
+    }
+
+    safe_space_concatenate(c_trimmed, t_trimmed)
 }
 
 pub fn strip_filler_phrases(text: &str) -> String {
@@ -877,5 +1051,111 @@ mod tests {
         ring.push(&[1.0, 2.0, 3.0]);
         ring.clear();
         assert_eq!(ring.extract(), Vec::<f32>::new());
+    }
+
+    // ── Rolling Commit & Deduplication ───────────────────────────────────────
+
+    #[test]
+    fn safe_space_concatenate_normal_words() {
+        assert_eq!(safe_space_concatenate("Привет", "мир"), "Привет мир");
+        assert_eq!(
+            safe_space_concatenate("  Привет  ", "  мир  "),
+            "Привет мир"
+        );
+    }
+
+    #[test]
+    fn safe_space_concatenate_handles_empty() {
+        assert_eq!(safe_space_concatenate("", "мир"), "мир");
+        assert_eq!(safe_space_concatenate("Привет", ""), "Привет");
+        assert_eq!(safe_space_concatenate("", ""), "");
+    }
+
+    #[test]
+    fn safe_space_concatenate_punctuation_no_extra_space() {
+        assert_eq!(
+            safe_space_concatenate("Привет", ", как дела?"),
+            "Привет, как дела?"
+        );
+        assert_eq!(
+            safe_space_concatenate("Привет", ". Это круто."),
+            "Привет. Это круто."
+        );
+        assert_eq!(safe_space_concatenate("Привет", "! Ура!"), "Привет! Ура!");
+    }
+
+    #[test]
+    fn get_last_n_words_extracts_correct_count() {
+        let text = "один два три четыре пять шесть семь восемь девять десять";
+        assert_eq!(get_last_n_words(text, 3), "восемь девять десять");
+        assert_eq!(get_last_n_words(text, 5), "шесть семь восемь девять десять");
+        assert_eq!(get_last_n_words("один два", 5), "один два");
+        assert_eq!(get_last_n_words("", 5), "");
+    }
+
+    #[test]
+    fn deduplicate_chunk_boundary_two_words_match() {
+        let committed = "мы настроили роутинг в Next.js";
+        let tail = "в Next.js и задеплоили на Docker";
+        let result = deduplicate_chunk_boundary(committed, tail);
+        assert_eq!(
+            result,
+            "мы настроили роутинг в Next.js и задеплоили на Docker"
+        );
+    }
+
+    #[test]
+    fn deduplicate_chunk_boundary_one_word_match() {
+        let committed = "мы пошли в кино";
+        let tail = "кино было классным";
+        let result = deduplicate_chunk_boundary(committed, tail);
+        assert_eq!(result, "мы пошли в кино было классным");
+    }
+
+    #[test]
+    fn deduplicate_chunk_boundary_no_overlap() {
+        let committed = "первое предложение";
+        let tail = "второе предложение";
+        let result = deduplicate_chunk_boundary(committed, tail);
+        assert_eq!(result, "первое предложение второе предложение");
+    }
+
+    #[test]
+    fn deduplicate_chunk_boundary_with_punctuation() {
+        let committed = "Привет, мир!";
+        let tail = "мир! Как дела?";
+        let result = deduplicate_chunk_boundary(committed, tail);
+        assert_eq!(result, "Привет, мир! Как дела?");
+    }
+
+    #[test]
+    fn find_local_energy_minimum_locates_dip() {
+        let sample_rate = 1000;
+        let mut samples = vec![0.5_f32; 15000]; // 15s of audio
+                                                // Insert silence dip between 13.0s and 13.2s
+        for s in &mut samples[13000..13200] {
+            *s = 0.0001;
+        }
+        let min_idx = find_local_energy_minimum(&samples, sample_rate, 12.0, 15.0);
+        assert!(min_idx >= 13000 && min_idx <= 13200);
+    }
+
+    #[test]
+    fn vad_tracker_segment_silence_and_hard_cutoff() {
+        let mut vad = VadTracker::new();
+        assert!(!vad.is_segment_silence(0.8));
+        assert!(!vad.is_hard_cutoff(12.0));
+
+        let speech = vec![0.05_f32; 1600];
+        vad.update(&speech, 0.002, 5.0);
+        assert!(vad.speech_started);
+
+        // Sleep to simulate silence pause
+        std::thread::sleep(std::time::Duration::from_millis(50));
+        assert!(vad.is_segment_silence(0.04));
+
+        vad.reset_segment();
+        assert!(!vad.speech_started);
+        assert!(!vad.is_segment_silence(0.01));
     }
 }

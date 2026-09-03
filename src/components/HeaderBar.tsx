@@ -69,13 +69,15 @@ export function HeaderBar(props: HeaderBarProps) {
     };
 
     const liveStreamPreview = useStore(s => s.liveStreamPreview);
+    const committedText = useStore(s => s.committedText);
+    const draftText = useStore(s => s.draftText);
 
     // Auto-scroll to the latest spoken words
     React.useEffect(() => {
         if (scrollRef.current) {
             scrollRef.current.scrollLeft = scrollRef.current.scrollWidth;
         }
-    }, [transcriptText, scrollRef]);
+    }, [transcriptText, committedText, draftText, scrollRef]);
 
     return (
         <div data-tauri-drag-region className="flex items-center h-10 w-full relative px-2 shrink-0 cursor-default">
@@ -103,13 +105,14 @@ export function HeaderBar(props: HeaderBarProps) {
                                         <div className="w-full flex justify-center items-center">
                                             <WaveformVisualizer isActive={isRec} />
                                         </div>
-                                    ) : transcriptText ? (
+                                    ) : (transcriptText || committedText || draftText) ? (
                                         (() => {
-                                            const { committed, draft } = splitCommittedAndDraft(transcriptText);
+                                            const fullText = transcriptText || (committedText ? `${committedText} ${draftText}`.trim() : draftText);
+                                            const { committed, draft } = splitCommittedAndDraft(fullText);
                                             return (
                                                 <div className="flex items-center gap-1 min-w-full justify-end pr-1">
                                                     {committed && <span className="text-white/95 font-medium">{committed}&nbsp;</span>}
-                                                    <span className="text-white/70 italic transition-all duration-150">{draft}</span>
+                                                    {draft && <span className="text-white/70 italic transition-all duration-150">{draft}</span>}
                                                     <span className="inline-block w-1.5 h-3.5 bg-red-500 rounded-full animate-pulse shrink-0 ml-0.5" />
                                                 </div>
                                             );

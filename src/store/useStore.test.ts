@@ -49,15 +49,32 @@ describe('useStore', () => {
 
     // ── setTranscript ─────────────────────────────────────────────────────
 
-    it('setTranscript with string sets transcriptText', () => {
+    it('setTranscript with string sets transcriptText and committedText', () => {
         useStore.getState().setTranscript('hello world');
         expect(useStore.getState().transcriptText).toBe('hello world');
+        expect(useStore.getState().committedText).toBe('hello world');
+        expect(useStore.getState().draftText).toBe('');
     });
 
-    it('setTranscript with empty string clears transcriptText', () => {
+    it('setTranscript with empty string clears transcriptText and committedText', () => {
         useStore.getState().setTranscript('hello');
         useStore.getState().setTranscript('');
         expect(useStore.getState().transcriptText).toBe('');
+        expect(useStore.getState().committedText).toBe('');
+        expect(useStore.getState().draftText).toBe('');
+    });
+
+    it('setStreamChunks sets committed and draft and combines full text', () => {
+        useStore.getState().setStreamChunks({ committed: 'Мы начали', draft: 'делать проект' });
+        expect(useStore.getState().committedText).toBe('Мы начали');
+        expect(useStore.getState().draftText).toBe('делать проект');
+        expect(useStore.getState().transcriptText).toBe('Мы начали делать проект');
+
+        // When chunk is committed, draft clears
+        useStore.getState().setStreamChunks({ committed: 'Мы начали делать проект', draft: '' });
+        expect(useStore.getState().committedText).toBe('Мы начали делать проект');
+        expect(useStore.getState().draftText).toBe('');
+        expect(useStore.getState().transcriptText).toBe('Мы начали делать проект');
     });
 
     it('setTranscript with function uses previous value', () => {

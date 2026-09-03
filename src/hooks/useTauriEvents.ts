@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { cleanHallucinations } from '@/lib/text';
+import { useStore } from '@/store/useStore';
 import type { Phase, SttMode, AppLanguage } from '@/lib/types';
 import type { MutableRefObject } from 'react';
 
@@ -86,6 +87,17 @@ export function useTauriEvents(opts: UseTauriEventsOptions) {
                     }),
                     listen<string>('interim-transcription', (e) => {
                         if (opts.phaseRef.current === 'recording' && e.payload) {
+                            try {
+                                if (e.payload.startsWith('{') && e.payload.endsWith('}')) {
+                                    const parsed = JSON.parse(e.payload);
+                                    if (typeof parsed === 'object' && parsed !== null && (parsed.committed !== undefined || parsed.draft !== undefined)) {
+                                        useStore.getState().setStreamChunks(parsed);
+                                        return;
+                                    }
+                                }
+                            } catch {
+                                // fallback to plain string
+                            }
                             opts.setTranscript(e.payload);
                         }
                     }),

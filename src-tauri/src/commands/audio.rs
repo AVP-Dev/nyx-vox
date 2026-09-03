@@ -348,7 +348,18 @@ pub async fn stop_recording(
         None => false,
     };
 
-    let batch_result = if has_streamed_preview {
+    let batch_result = if mode == "whisper" {
+        whisper::stop_recording(
+            &app,
+            Arc::clone(&state),
+            Arc::clone(&recording_flag.0),
+            lang,
+            model_type,
+            threshold,
+            gain,
+        )
+        .await?
+    } else if has_streamed_preview {
         log::info!(
             "stop_recording: Single-Pass instant finish using live streamed preview text directly (0 extra REST STT requests)"
         );
@@ -382,17 +393,6 @@ pub async fn stop_recording(
             Arc::clone(&recording_flag.0),
             api_key,
             lang,
-            threshold,
-            gain,
-        )
-        .await?
-    } else if mode == "whisper" {
-        whisper::stop_recording(
-            &app,
-            Arc::clone(&state),
-            Arc::clone(&recording_flag.0),
-            lang,
-            model_type,
             threshold,
             gain,
         )

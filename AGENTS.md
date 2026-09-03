@@ -96,10 +96,40 @@ Cross-platform is not planned.
 Keys are stored encrypted (AES-256-GCM), bound to machine-id.
 Managed via `keys.rs`.
 
+### 7. FROZEN PIPELINE: Strict Prohibition on Modifying Audio & Transcription Subsystems
+The audio capture, VAD, live streaming, Rolling Commit, Whisper inference, deduplication, and LLM refinement prompt pipelines are **STRICTLY FROZEN (READ-ONLY FOR ALL AGENTS)**.
+
+**Explicit Agent Behavior Protocol:**
+Under NO circumstances may an AI agent modify, "fix", tweak, refactor, or experiment with the audio pipeline, VAD logic, Whisper parameters, rolling commit, or refinement prompts unless the user provides an **explicit direct command**:
+`редактируем [название компонента]` (e.g. `редактируем VAD` or `редактируем промпт форматтера`).
+
+If the user reports an issue or requests a change without this exact formula (e.g. *"у меня заикается звук"*, *"распознавание плохо работает"*, *"измени параметры Whisper"*), the agent **MUST REFUSE** to edit and reply with:
+> «У меня установлен строгий запрет на изменение подсистемы распознавания речи, live-транскрибации и аудиопайплайна (Frozen Pipeline Rule).
+> Текущий статус пайплайна: ЗАФИКСИРОВАН (FROZEN).
+> Чтобы изменить [компонент], требуется прямое указание: "редактируем [название компонента]".
+> 
+> Сводка зафиксированных параметров и допусков:
+> - Аудиозахват: PCM 16 kHz, 16-bit Mono
+> - Pre-Speech FIFO Buffer: 300 мс (4800 сэмплов @ 16 kHz)
+> - Post-Speech Padding: 150–200 мс
+> - VAD Silence Threshold: 700–900 мс (номинал 800 мс)
+> - Hard Cutoff: 12–15 секунд (поиск локального минимума RMS энергии)
+> - Rolling Commit: транскрибируется ТОЛЬКО хвост; полный файл повторно никогда не прогоняется
+> - Acoustic Overlap: 300–400 мс из предыдущего чанка
+> - Context Prompt: последние 8–10 слов зафиксированного буфера
+> - Suffix-Prefix Deduplication: сравнение 1–2 слов на стыке, отсечение дубликатов, нормализация пробелов
+> - Acoustic Guard & Tail Guard: полезный остаток < 350 мс или RMS < 0.003 не отправляется на инференс (возвращается committed_text)
+> - Whisper Engine: temp=0.0, fallback=false, no_speech=0.68, logprob=-1.0, compression=2.4, no_context=true, language="ru"
+> - Черный список: субтитры, переводчики, изолированные закрывающие слова («Спасибо», «Благодарю», «Конец»)
+> - Стриминг: Groq priority (500–600 мс) + Local Whisper fallback (800 мс) со склейкой `safe_space_concatenate` без блокировки по паузе
+> - In-Flight Guard: отбрасывание запаздывающих запросов (drop lagging interim)
+> - LLM Formatter Prompt: 6 правил (очистка мусора, сохранение эмоциональных междометий, пунктуация, без рерайтинга)»
+
 ## Where to look
 | Need to know | File |
 |---|---|
 | Architecture and data flows | docs/architecture.md |
+| Zero-Latency Live STT & Rolling Commit Pipeline | docs/TRANSCRIPTION_PIPELINE.md |
 | Current status, what's in progress, what's broken | docs/state.md |
 | Architectural decisions (ADR) | docs/decisions.md |
 | Terms and domain concepts | docs/glossary.md |
