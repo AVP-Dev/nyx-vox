@@ -364,35 +364,117 @@ pub fn clean_repetitive_phrases(text: &str) -> String {
     let text = re_parasites.replace_all(&text, " ").to_string();
     let text = re_stutter.replace_all(&text, " ").to_string();
 
-    let words: Vec<&str> = text.split_whitespace().collect();
-    if words.is_empty() {
+    let raw_words: Vec<&str> = text.split_whitespace().collect();
+    if raw_words.is_empty() {
         return text.to_string();
     }
 
-    let mut result: Vec<&str> = Vec::new();
-    let mut i = 0;
-
-    while i < words.len() {
-        // Lone hesitation vowels ("э", "у", "а", "м") between real words are
-        // transcription noise, not words — drop them ("и э вот" -> "и вот").
-        // The check is: drop only if there is any word before and any word
-        // after in the ORIGINAL sequence, so leading/trailing and
-        // single-letter-only text is never eaten.
+    let mut filtered_words: Vec<&str> = Vec::with_capacity(raw_words.len());
+    for i in 0..raw_words.len() {
         let prev_exists = i > 0;
-        let next_exists = i + 1 < words.len();
-        if prev_exists && next_exists && is_lone_filler(words[i]) {
-            i += 1;
+        let next_exists = i + 1 < raw_words.len();
+        if prev_exists && next_exists && is_lone_filler(raw_words[i]) {
             continue;
         }
-        result.push(words[i]);
-        // Simple case: "word word" -> "word"
-        if i + 1 < words.len() && words[i].to_lowercase() == words[i + 1].to_lowercase() {
-            i += 1;
-        }
-        i += 1;
+        filtered_words.push(raw_words[i]);
     }
 
-    result.join(" ")
+    let mut current_words: Vec<String> = filtered_words.iter().map(|s| s.to_string()).collect();
+    for _ in 0..3 {
+        let refs: Vec<&str> = current_words.iter().map(|s| s.as_str()).collect();
+        let next = collapse_ngram_repetitions(&refs);
+        if next.len() == current_words.len() {
+            break;
+        }
+        current_words = next;
+    }
+
+    current_words.join(" ")
+}
+
+/// Collapses repeating n-grams (1 to 8 words) that repeat 2 or more times consecutively.
+/// Example: "в принципе, в принципе, в принципе..." -> "в принципе."
+/// Example: "hello hello" -> "hello"
+pub fn collapse_ngram_repetitions(words: &[&str]) -> Vec<String> {
+    if words.is_empty() {
+        return Vec::new();
+    }
+
+    let norm: Vec<String> = words
+        .iter()
+        .map(|w| {
+            w.trim_matches(|c: char| !c.is_alphanumeric())
+                .to_lowercase()
+        })
+        .collect();
+
+    let mut result: Vec<String> = Vec::new();
+    let mut i = 0;
+    let n = words.len();
+
+    while i < n {
+        let max_l = 8.min((n - i) / 2);
+        let mut best_l = 0;
+        let mut best_repeats = 0;
+
+        for l in 1..=max_l {
+            if norm[i..i + l].iter().all(|s| s.is_empty()) {
+                continue;
+            }
+
+            let pattern = &norm[i..i + l];
+            let mut count = 1;
+            while i + (count + 1) * l <= n {
+                let candidate = &norm[i + count * l..i + (count + 1) * l];
+                if candidate == pattern {
+                    count += 1;
+                } else {
+                    break;
+                }
+            }
+
+            if count >= 2 {
+                best_l = l;
+                best_repeats = count;
+                break;
+            }
+        }
+
+        if best_l > 0 {
+            let last_word_idx = i + best_repeats * best_l - 1;
+            let last_word = words[last_word_idx];
+            let ending_punct = last_word
+                .chars()
+                .last()
+                .filter(|c| matches!(c, '.' | '!' | '?' | '…'));
+
+            for (offset, word) in words[i..i + best_l].iter().enumerate() {
+                if offset == best_l - 1 {
+                    if let Some(punct) = ending_punct {
+                        let trimmed = word.trim_end_matches([',', ';', ':', ' ']);
+                        if !trimmed.ends_with(['.', '!', '?', '…']) {
+                            result.push(format!("{}{}", trimmed, punct));
+                        } else {
+                            result.push(word.to_string());
+                        }
+                    } else if i + best_repeats * best_l == n {
+                        let trimmed = word.trim_end_matches([',', ';', ':', ' ']);
+                        result.push(trimmed.to_string());
+                    } else {
+                        result.push(word.to_string());
+                    }
+                } else {
+                    result.push(word.to_string());
+                }
+            }
+            i += best_repeats * best_l;
+        } else {
+            result.push(words[i].to_string());
+            i += 1;
+        }
+    }
+
+    result
 }
 
 /// A standalone hesitation sound: "э", "ээ", "эээ", "мм", "ммм", "гм", "хм", "uh", "um", "er".
@@ -680,7 +762,7 @@ pub fn deduplicate_chunk_boundary(committed: &str, tail: &str) -> String {
         .collect();
 
     // Check 2-word suffix-prefix match
-    if c_norms.len() >= 2 && t_norms.len() >= 2 {
+    let combined = if c_norms.len() >= 2 && t_norms.len() >= 2 {
         let c_len = c_norms.len();
         if !c_norms[c_len - 2].is_empty()
             && !c_norms[c_len - 1].is_empty()
@@ -688,19 +770,31 @@ pub fn deduplicate_chunk_boundary(committed: &str, tail: &str) -> String {
             && c_norms[c_len - 1] == t_norms[1]
         {
             let remaining_tail = t_words[2..].join(" ");
-            return safe_space_concatenate(c_trimmed, &remaining_tail);
+            safe_space_concatenate(c_trimmed, &remaining_tail)
+        } else {
+            // Check 1-word suffix-prefix match
+            let c_last = &c_norms[c_norms.len() - 1];
+            let t_first = &t_norms[0];
+            if !c_last.is_empty() && c_last == t_first {
+                let remaining_tail = t_words[1..].join(" ");
+                safe_space_concatenate(c_trimmed, &remaining_tail)
+            } else {
+                safe_space_concatenate(c_trimmed, t_trimmed)
+            }
         }
-    }
+    } else {
+        // Check 1-word suffix-prefix match
+        let c_last = &c_norms[c_norms.len() - 1];
+        let t_first = &t_norms[0];
+        if !c_last.is_empty() && c_last == t_first {
+            let remaining_tail = t_words[1..].join(" ");
+            safe_space_concatenate(c_trimmed, &remaining_tail)
+        } else {
+            safe_space_concatenate(c_trimmed, t_trimmed)
+        }
+    };
 
-    // Check 1-word suffix-prefix match
-    let c_last = &c_norms[c_norms.len() - 1];
-    let t_first = &t_norms[0];
-    if !c_last.is_empty() && c_last == t_first {
-        let remaining_tail = t_words[1..].join(" ");
-        return safe_space_concatenate(c_trimmed, &remaining_tail);
-    }
-
-    safe_space_concatenate(c_trimmed, t_trimmed)
+    clean_repetitive_phrases(&combined)
 }
 
 pub fn strip_filler_phrases(text: &str) -> String {
@@ -919,6 +1013,41 @@ mod tests {
         // "и", "на", "у" (preposition), "а" (conjunction) are real words and must NEVER be deleted
         let result = clean_repetitive_phrases("проверку у Сбера и этот а тот");
         assert_eq!(result, "проверку у Сбера и этот а тот");
+    }
+
+    #[test]
+    fn clean_collapses_multi_word_ngram_repetitions() {
+        let input = "И, конечно, в принципе, в принципе, в принципе, в принципе, в принципе.";
+        let result = clean_repetitive_phrases(input);
+        assert_eq!(result, "И, конечно, в принципе.");
+    }
+
+    #[test]
+    fn clean_collapses_three_word_ngram_loop() {
+        let input = "как бы так, как бы так, как бы так";
+        let result = clean_repetitive_phrases(input);
+        assert_eq!(result, "как бы так");
+    }
+
+    #[test]
+    fn clean_collapses_punctuation_varied_repetitions() {
+        let input = "слово, слово! слово.";
+        let result = clean_repetitive_phrases(input);
+        assert_eq!(result, "слово.");
+    }
+
+    #[test]
+    fn clean_collapses_exact_user_sixty_eight_repetitions() {
+        let mut input = String::from("И, конечно, ");
+        for i in 0..68 {
+            if i == 67 {
+                input.push_str("в принципе.");
+            } else {
+                input.push_str("в принципе, ");
+            }
+        }
+        let result = clean_repetitive_phrases(&input);
+        assert_eq!(result, "И, конечно, в принципе.");
     }
 
     // ── strip_filler_phrases ─────────────────────────────────────────────────

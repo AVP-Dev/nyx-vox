@@ -25,6 +25,10 @@
 - **Safe display concatenation**: Combines committed base with active draft to prevent text erasure from the screen.
 - **Dynamic UI Split**: `HeaderBar` renders stable prefix in solid white and trailing 1–2 words in gray italic with a pulsing red cursor.
 
+### 🔄 N-gram Repetition Loop Collapse
+- Implemented `collapse_ngram_repetitions` in `utils.rs` detecting multi-word repetition loops (1 to 8 words).
+- Collapses autoregressive Whisper stutter cycles (e.g. repeated *«в принципе, в принципе...»*) into a single occurrence with proper ending punctuation.
+
 ### 🔒 Frozen Pipeline Rule Enforcement
 - Established strict agent protection Rule #7 in `AGENTS.md` and `docs/TRANSCRIPTION_PIPELINE.md`.
 - Locks audio capture, VAD, Whisper parameters (`no_speech=0.68`, `temp=0.0`), deduplication, and refinement prompt against unauthorized changes.

@@ -23,6 +23,7 @@ This release represents a foundational leap in speech transcription reliability 
     - **Local fallback**: In pure offline mode, local Whisper transcribes a sliding 3-second window every 800ms without blocking for speech pauses.
     - **Safe Display Concatenation**: `safe_space_concatenate` combines the committed base with the active draft, ensuring previous sentences are never erased from the screen.
 *   **🎨 Dynamic UI Split (Committed White + Draft Italic)**: `HeaderBar` automatically splits the live text stream via `splitCommittedAndDraft`: stable prefix words render in solid white, while trailing 1–2 words render in gray italic with a pulsating red cursor.
+*   **🔄 N-gram Repetition Loop Collapse**: Implemented an automated repetition suppressor (`collapse_ngram_repetitions`) scanning phrases from 1 to 8 words. Eliminates autoregressive decoder stutter loops (e.g. repeated *«в принципе, в принципе...»*), collapsing them into a single clean occurrence while preserving ending punctuation.
 *   **🔒 Frozen Pipeline Agent Protection Rule (Rule #7)**: Formalized strict immutability for the audio capture, VAD, Whisper parameters (`no_speech=0.68`, `temperature=0.0`), deduplication, and refinement prompt in `AGENTS.md` and `docs/TRANSCRIPTION_PIPELINE.md`.
 
 ---
@@ -65,6 +66,7 @@ This release represents a foundational leap in speech transcription reliability 
     - **Локальный фолбек**: в офлайн-режиме локальный Whisper декодирует скользящее окно (3 сек) каждые 800 мс без ожидания пауз.
     - **Безопасная склейка**: `safe_space_concatenate` соединяет зафиксированную базу и активный драфт, предотвращая стирание ранее надиктованного текста с экрана.
 *   **🎨 Динамический UI-сплит (белая база + серый курсив)**: Компонент `HeaderBar` автоматически делит входящий поток: стабильные слова отображаются белым плотным шрифтом, а 1–2 последних слова текущей фразы — серым курсивом с пульсирующей красной точкой.
+*   **🔄 Сворачивание зацикливаний и повторов (N-gram Repetition Loop Collapse)**: Внедрен алгоритм `collapse_ngram_repetitions`, анализирующий повторяющиеся цепочки слов длиной от 1 до 8 токенов. Устраняет авторегрессионные зацикливания Whisper при тишине и паузах в речи (эффект «затроило», например: десятки повторов *«в принципе, в принципе...»*), сворачивая их строго в одно вхождение с сохранением закрывающей пунктуации.
 *   **🔒 Регламент Frozen Pipeline Rule (Правило №7)**: В `AGENTS.md` и `docs/TRANSCRIPTION_PIPELINE.md` закреплен строгий запрет на изменение параметров Whisper (`no_speech=0.68`, `temp=0.0`), VAD, алгоритма стриминга и LLM-промптов без явной команды `редактируем [компонент]`.
 
 ---
