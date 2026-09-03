@@ -17,5 +17,5 @@ Welcome to the internal documentation for NYX Vox.
 
 ## 🚀 Versioning Policy
 We follow semantic versioning with `-beta` suffices for testing releases.
-Current Stable Branch: `main` (v1.3.2 published)
-Dev Branch: `dev` (v1.4.0 in planning)
+Current Stable Branch: `main` (v1.4.0 published)
+Dev Branch: `dev` (v1.4.1 in planning)

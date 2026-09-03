@@ -4,7 +4,34 @@
 
 ---
 
-## 📅 Version 1.3.2 (Current)
+## 📅 Version 1.4.0 (Current)
+
+### ⚡ Zero-Latency Rolling Commit & Tail Finalization
+- Replaced redundant full-file batch STT at stop with an incremental Rolling Commit pipeline.
+- Speech is progressively committed into `committed_text` during natural pauses (800ms) or hard cutoffs (12s).
+- Clicking Stop transcribes only the uncommitted tail with a 300–400ms acoustic overlap and context prompt, reducing finalization latency to near zero.
+
+### 🛡️ Acoustic Guard (Silence & Idle GPU Defense)
+- Added strict acoustic energy and duration verification before invoking Whisper in both recording worker and stop finalization.
+- Audio segments under 350ms or with RMS below 0.003 are aborted immediately (returning 0 tokens), completely preventing idle GPU load and silence hallucinations.
+
+### 🚫 Subtitle Metadata & Isolated Closing Word Blacklist
+- Expanded `is_hallucination` with regex patterns for YouTube metadata («субтитры создавал», «дима торзок», «dimatorzok», «amara.org», «редактор субтитров»).
+- Isolated closing phrases («Спасибо», «Благодарю», «Конец») are filtered only when the segment consists solely of that phrase, preserving 100% of real sentences.
+
+### 🌊 Continuous Hybrid Live Streaming
+- **Groq priority**: Fast stream worker sends growing audio every 500–600ms (first chunk at 450ms) for instant word-by-word hypotheses (<200ms).
+- **Local fallback**: Offline Whisper decodes sliding 3-second windows every 800ms without speech pause blocking.
+- **Safe display concatenation**: Combines committed base with active draft to prevent text erasure from the screen.
+- **Dynamic UI Split**: `HeaderBar` renders stable prefix in solid white and trailing 1–2 words in gray italic with a pulsing red cursor.
+
+### 🔒 Frozen Pipeline Rule Enforcement
+- Established strict agent protection Rule #7 in `AGENTS.md` and `docs/TRANSCRIPTION_PIPELINE.md`.
+- Locks audio capture, VAD, Whisper parameters (`no_speech=0.68`, `temp=0.0`), deduplication, and refinement prompt against unauthorized changes.
+
+---
+
+## 📅 Version 1.3.2
 
 ### 🛡️ Stream Completeness Verification & Speech Density Check
 - Implemented word density and speech duration verification in `stop_recording`.

@@ -9,8 +9,8 @@
 Кто/что обновило: Агент (Continuous Hybrid Streaming: Groq Priority + Non-Blocking Local Whisper Fallback with Safe Display Concatenation)
 
 ## Версии (важно)
-- Последний ПУБЛИЧНЫЙ релиз на GitHub — **v1.3.2**
-- Ветка `main` содержит актуальную сборку v1.3.2 + Zero-Latency Rolling Commit Pipeline
+- Последний ПУБЛИЧНЫЙ релиз на GitHub — **v1.4.0**
+- Ветка `main` содержит актуальную сборку v1.4.0 (Zero-Latency Rolling Commit, Acoustic Guard & Frozen Pipeline)
 - **ПОДСИСТЕМА РАСПОЗНАВАНИЯ РЕЧИ И АУДИОПАЙПЛАЙН СТРОГО ЗАФИКСИРОВАНЫ (FROZEN)**
 
 ## Что сейчас в работе
