@@ -144,7 +144,5 @@ Deepgram использует встроенную поддержку языко
 
 <br />
 <p align="center">
-  <a href="https://avpdev.com/en/"><b>Alexios Odos</b></a>
-  &nbsp;|&nbsp;
-  <a href="https://avpdev.com/ru/"><b>Aliaksei Patskevich</b></a>
+  <a href="https://avpdev.com/"><b>Aliaksei Patskevich (AVPDev)</b></a>
 </p>

@@ -57,12 +57,10 @@ bun run tauri dev
 
 <br />
 <p align="center">
-  <a href="https://avpdev.com/en/"><b>Alexios Odos</b></a>
-  &nbsp;|&nbsp;
-  <a href="https://avpdev.com/ru/"><b>Aliaksei Patskevich</b></a>
+  <a href="https://avpdev.com/ru/"><b>Алексей Пацкевич (AVPDev)</b></a>
   <br />
   <sub>
-    <b>Modern Web Architect</b> • Code, Design & AI
+    <b>AI Solutions Architect</b> • Код, Дизайн и ИИ
     <br />
     <a href="https://github.com/AVP-Dev">GitHub</a> &bull; <a href="https://t.me/AVP_Dev">Telegram</a>
   </sub>

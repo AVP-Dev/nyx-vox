@@ -195,17 +195,18 @@ NYX Vox requires **Microphone** (for recording) and **Accessibility** (for autom
 
 ## 🤝 Support & Contribution
 
-NYX Vox is an open-heart project created by **Aliaksei Patskevich (Alexios Odos)** as a personal daily driver and a learning expedition into Rust and system-level audio engineering.
+NYX Vox is an open-heart project created by **Aliaksei Patskevich (AVPDev)** as a personal daily driver and a learning expedition into Rust and system-level audio engineering.
 
 If you have architectural suggestions, code reviews, or bug reports, feel free to [Open an Issue](https://github.com/AVP-Dev/nyx-vox/issues) or reach out directly:
 
 <p align="center">
-  <a href="https://avpdev.com/en/"><b>Alexios Odos</b></a> &bull;
-  <a href="https://avpdev.com/ru/"><b>Aliaksei Patskevich</b></a>
-  <br/>
-  <sub>Modern Web Architect &bull; Code, Design & AI</sub>
-  <br/>
-  <a href="https://github.com/AVP-Dev">GitHub</a> &bull; <a href="https://t.me/AVP_Dev">Telegram</a>
+  <a href="https://avpdev.com/en/"><b>Aliaksei Patskevich (AVPDev)</b></a>
+  <br />
+  <sub>
+    <b>AI Solutions Architect</b> • Code, Design & AI
+    <br />
+    <a href="https://github.com/AVP-Dev">GitHub</a> &bull; <a href="https://t.me/AVP_Dev">Telegram</a>
+  </sub>
 </p>
 
 <p align="center">

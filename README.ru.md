@@ -195,17 +195,18 @@ xattr -cr /Applications/NYX\ Vox.app
 
 ## 🤝 Поддержка и Участие
 
-NYX Vox — открытый проект, создаваемый с душой **Алексеем Пацкевичем (Alexios Odos)** как личный инструмент ежедневного использования и исследовательский путь в экосистему Rust и системное аудио.
+NYX Vox — открытый проект, создаваемый с душой **Алексеем Пацкевичем (AVPDev)** как личный инструмент ежедневного использования и исследовательский путь в экосистему Rust и системное аудио.
 
 Если у вас есть идеи, рекомендации по архитектуре, замечания по код-ревью или сообщения об ошибках — будем рады [Созданному Issue](https://github.com/AVP-Dev/nyx-vox/issues) или прямому сообщению:
 
 <p align="center">
-  <a href="https://avpdev.com/ru/"><b>Алексей Пацкевич</b></a> &bull;
-  <a href="https://avpdev.com/en/"><b>Alexios Odos</b></a>
-  <br/>
-  <sub>Архитектор Современного Веба &bull; Код, Дизайн и ИИ</sub>
-  <br/>
-  <a href="https://github.com/AVP-Dev">GitHub</a> &bull; <a href="https://t.me/AVP_Dev">Telegram</a>
+  <a href="https://avpdev.com/ru/"><b>Алексей Пацкевич (AVPDev)</b></a>
+  <br />
+  <sub>
+    <b>AI Solutions Architect</b> • Код, Дизайн и ИИ
+    <br />
+    <a href="https://github.com/AVP-Dev">GitHub</a> &bull; <a href="https://t.me/AVP_Dev">Telegram</a>
+  </sub>
 </p>
 
 <p align="center">
