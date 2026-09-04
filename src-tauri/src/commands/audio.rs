@@ -683,6 +683,8 @@ pub async fn paste_text(app: AppHandle, text: String) -> Result<(), String> {
     let (tx, rx) = tokio::sync::oneshot::channel::<Result<(), String>>();
 
     tauri::async_runtime::spawn(async move {
+        #[cfg(target_os = "windows")]
+        let app_handle_for_closure = app_handle.clone();
         let _ = app_handle.run_on_main_thread(move || {
             let result = (|| {
                 #[cfg(target_os = "macos")]
@@ -717,7 +719,7 @@ pub async fn paste_text(app: AppHandle, text: String) -> Result<(), String> {
                 }
                 #[cfg(target_os = "windows")]
                 {
-                    if let Some(enigo_state) = app_handle.try_state::<EnigoState>() {
+                    if let Some(enigo_state) = app_handle_for_closure.try_state::<EnigoState>() {
                         if let Ok(mut enigo) = enigo_state.0.lock() {
                             use enigo::{Direction, Key, Keyboard};
                             enigo
@@ -918,6 +920,7 @@ pub async fn reset_accessibility_permissions(app: AppHandle) -> Result<(), Strin
     }
     #[cfg(not(target_os = "macos"))]
     {
+        let _ = app;
         Ok(())
     }
 }

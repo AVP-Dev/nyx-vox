@@ -12,9 +12,9 @@ use tauri::{AppHandle, Emitter, Runtime};
 use crate::state::WhisperModelType;
 
 use super::model_cache::unload_model;
-use super::paths::{
-    coreml_filename, coreml_url, get_model_dir, min_model_size, model_filename, model_url,
-};
+#[cfg(target_os = "macos")]
+use super::paths::{coreml_filename, coreml_url};
+use super::paths::{get_model_dir, min_model_size, model_filename, model_url};
 
 // ── Download ────────────────────────────────────────────────────────────────
 
