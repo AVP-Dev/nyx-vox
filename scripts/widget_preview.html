@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background-color: #07070a;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 24px;
+            overflow: hidden;
+        }
+
+        .canvas {
+            width: 680px;
+            position: relative;
+        }
+
+        /* Ambient Glow */
+        .ambient-glow {
+            position: absolute;
+            top: -40px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 400px;
+            height: 160px;
+            background: radial-gradient(circle, rgba(255, 107, 0, 0.28) 0%, transparent 70%);
+            filter: blur(50px);
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .sim-window {
+            position: relative;
+            z-index: 1;
+            background: rgba(18, 18, 24, 0.85);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 20px;
+            padding: 16px 20px;
+            backdrop-filter: blur(28px);
+            box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.9), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+        }
+
+        .sim-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            height: 40px;
+        }
+
+        .sim-mic-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: all 0.2s;
+        }
+
+        .sim-mic-btn.recording {
+            background: #ef4444;
+            box-shadow: 0 0 16px rgba(239, 68, 68, 0.7);
+        }
+
+        .sim-waveform {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            height: 24px;
+        }
+
+        .sim-bar {
+            width: 3px;
+            border-radius: 3px;
+            background: rgba(255, 255, 255, 0.25);
+            height: 4px;
+            transition: height 0.1s ease;
+        }
+
+        .sim-waveform.active .sim-bar {
+            background: rgba(255, 255, 255, 0.9);
+        }
+
+        .sim-center-stream {
+            flex: 1;
+            font-size: 0.9rem;
+            color: rgba(255, 255, 255, 0.9);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            padding: 0 12px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        }
+
+        .sim-cursor {
+            display: inline-block;
+            width: 2px;
+            height: 14px;
+            background: #ff6b00;
+            margin-left: 3px;
+            vertical-align: middle;
+        }
+
+        .sim-badge {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 100px;
+            padding: 4px 10px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.72rem;
+            font-weight: 800;
+            color: #ff6b00;
+            letter-spacing: 0.05em;
+        }
+
+        .sim-dots {
+            display: flex;
+            gap: 4px;
+        }
+
+        .sim-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+        }
+
+        .sim-dot.green { background: #10b981; box-shadow: 0 0 6px rgba(16, 185, 129, 0.5); }
+        .sim-dot.orange { background: #ff6b00; box-shadow: 0 0 6px rgba(255, 107, 0, 0.5); }
+
+        .sim-body {
+            margin-top: 14px;
+            padding-top: 14px;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            display: none;
+        }
+
+        .sim-body.visible {
+            display: block;
+        }
+
+        .sim-card-text {
+            font-size: 0.94rem;
+            color: #f3f4f6;
+            line-height: 1.55;
+            margin-bottom: 14px;
+            background: rgba(0, 0, 0, 0.35);
+            padding: 12px 16px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .sim-card-text code {
+            color: #ff9966;
+            font-family: ui-monospace, Menlo, monospace;
+            background: rgba(255, 107, 0, 0.12);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.85em;
+        }
+
+        .sim-action-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .sim-action-icons {
+            display: flex;
+            gap: 6px;
+        }
+
+        .sim-icon-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: rgba(255, 255, 255, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.82rem;
+        }
+
+        .sim-paste-btn {
+            background: linear-gradient(135deg, #ff8533 0%, #ff5500 100%);
+            color: white;
+            border: none;
+            padding: 8px 18px;
+            border-radius: 10px;
+            font-size: 0.78rem;
+            font-weight: 800;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            box-shadow: 0 4px 14px rgba(255, 107, 0, 0.35);
+        }
+
+        .caption-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 10px;
+            padding: 0 8px;
+            font-size: 0.72rem;
+            color: rgba(255, 255, 255, 0.4);
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+<body>
+    <div class="canvas" id="capture-target">
+        <div class="ambient-glow"></div>
+        <div class="sim-window">
+            <div class="sim-header">
+                <div class="sim-mic-btn recording" id="mic-btn">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+                </div>
+
+                <div class="sim-waveform active" id="waveform">
+                    <div class="sim-bar" style="height: 6px;"></div>
+                    <div class="sim-bar" style="height: 12px;"></div>
+                    <div class="sim-bar" style="height: 18px;"></div>
+                    <div class="sim-bar" style="height: 10px;"></div>
+                    <div class="sim-bar" style="height: 20px;"></div>
+                    <div class="sim-bar" style="height: 14px;"></div>
+                    <div class="sim-bar" style="height: 16px;"></div>
+                    <div class="sim-bar" style="height: 8px;"></div>
+                    <div class="sim-bar" style="height: 5px;"></div>
+                </div>
+
+                <div class="sim-center-stream">
+                    <span id="stream-text">...</span><span class="sim-cursor"></span>
+                </div>
+
+                <div class="sim-badge">
+                    <span>NV</span>
+                    <div class="sim-dots">
+                        <span class="sim-dot green"></span>
+                        <span class="sim-dot orange"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sim-body" id="body-card">
+                <div class="sim-card-text" id="formatted-text"></div>
+                <div class="sim-action-bar">
+                    <div class="sim-action-icons">
+                        <div class="sim-icon-btn">&#9998;</div>
+                        <div class="sim-icon-btn">&#128203;</div>
+                        <div class="sim-icon-btn">&#10005;</div>
+                    </div>
+                    <button class="sim-paste-btn" id="paste-btn">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                        <span id="target-label">TO VS CODE</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div class="caption-bar">
+            <span>NYX Vox &bull; Live Voice to Text</span>
+            <span>Sub-500ms &bull; 100% Verbatim</span>
+        </div>
+    </div>
+
+    <script>
+        const heights = [
+            [4, 8, 14, 8, 16, 12, 10, 6, 4],
+            [6, 14, 20, 12, 18, 16, 12, 8, 5],
+            [5, 10, 16, 18, 12, 14, 20, 12, 6],
+            [8, 16, 12, 14, 20, 10, 16, 14, 8],
+            [4, 6, 8, 10, 12, 8, 6, 5, 4],
+        ];
+
+        window.setWidgetState = function(state) {
+            // state: { isRecording, text, isResult, formattedHtml, target, waveIndex }
+            const mic = document.getElementById('mic-btn');
+            const wave = document.getElementById('waveform');
+            const stream = document.getElementById('stream-text');
+            const body = document.getElementById('body-card');
+            const formatted = document.getElementById('formatted-text');
+            const target = document.getElementById('target-label');
+
+            if (state.isRecording) {
+                mic.className = 'sim-mic-btn recording';
+                wave.className = 'sim-waveform active';
+            } else {
+                mic.className = 'sim-mic-btn';
+                wave.className = 'sim-waveform';
+            }
+
+            stream.innerText = state.text || '...';
+
+            if (state.isResult) {
+                body.className = 'sim-body visible';
+                formatted.innerHTML = state.formattedHtml || '';
+                target.innerText = state.target || 'PASTE';
+            } else {
+                body.className = 'sim-body';
+            }
+
+            const bars = document.querySelectorAll('.sim-bar');
+            const curH = heights[state.waveIndex % heights.length];
+            bars.forEach((b, i) => {
+                b.style.height = (state.isRecording ? curH[i] : 4) + 'px';
+            });
+        };
+    </script>
+</body>
+</html>

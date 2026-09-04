@@ -88,37 +88,12 @@ Bring your own API keys (stored locally with AES-256-GCM hardware encryption) or
 
 ---
 
-## 🖼️ Application Showcase & Interface
-
-> *The interface uses glassmorphism translucent panels, dynamic resizing, and a round idle bubble mode.*
+## 🎬 Live Interactive Demo
 
 <div align="center">
-  <table>
-    <tr>
-      <td width="50%" align="center">
-        <strong>01. Floating Widget & Live Waveform</strong><br/>
-        <sub>Pulsing mic, real-time 9-bar waveform & streaming interim preview</sub><br/><br/>
-        <img src="./docs/screenshots/01-hero-recording.png" alt="Recording Mode" width="100%" onerror="this.onerror=null; this.src='./branding/app-icon-safe.png';" />
-      </td>
-      <td width="50%" align="center">
-        <strong>02. Result Card & Auto-Paste Target</strong><br/>
-        <sub>100% verbatim punctuation, edit/copy actions & one-click paste to focused app</sub><br/><br/>
-        <img src="./docs/screenshots/02-result-autopaste.png" alt="Result Mode" width="100%" onerror="this.onerror=null; this.src='./branding/app-icon-safe.png';" />
-      </td>
-    </tr>
-    <tr>
-      <td width="50%" align="center">
-        <strong>03. Multi-Engine & LLM Hub</strong><br/>
-        <sub>Switch between Groq, Deepgram, Gemini, GigaChat & Local Whisper on the fly</sub><br/><br/>
-        <img src="./docs/screenshots/05-engines-hub.png" alt="Engines Hub" width="100%" onerror="this.onerror=null; this.src='./branding/app-icon-safe.png';" />
-      </td>
-      <td width="50%" align="center">
-        <strong>04. Hardware-Bound Encrypted Vault</strong><br/>
-        <sub>AES-256-GCM encryption tied to machine-id (zero keys stored in cloud)</sub><br/><br/>
-        <img src="./docs/screenshots/06-encrypted-keys.png" alt="Keys Vault" width="100%" onerror="this.onerror=null; this.src='./branding/app-icon-safe.png';" />
-      </td>
-    </tr>
-  </table>
+  <img src="./docs/demo.gif" alt="NYX Vox Live Interactive Demo" width="700" />
+  <br/>
+  <sub><i>Universal Live Streaming &bull; Real-time Waveform &bull; 100% Verbatim AI Formatting &bull; Direct Auto-Paste into Active App</i></sub>
 </div>
 
 ---

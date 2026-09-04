@@ -88,37 +88,12 @@ graph LR
 
 ---
 
-## 🖼️ Витрина и скриншоты приложения
-
-> *Интерфейс спроектирован в стиле Glassmorphism: полупрозрачные стеклянные панели, динамические размеры и круглый компактный бабл в режиме покоя.*
+## 🎬 Интерактивная демонстрация работы
 
 <div align="center">
-  <table>
-    <tr>
-      <td width="50%" align="center">
-        <strong>01. Плавающий виджет и звуковая волна</strong><br/>
-        <sub>Пульсирующая запись, 9-полосный эквалайзер и живой бегущий стриминг</sub><br/><br/>
-        <img src="./docs/screenshots/01-hero-recording.png" alt="Режим записи" width="100%" onerror="this.onerror=null; this.src='./branding/app-icon-safe.png';" />
-      </td>
-      <td width="50%" align="center">
-        <strong>02. Карточка результата и автовставка</strong><br/>
-        <sub>100% дословный текст, пунктуация и вставка в активное приложение в один клик</sub><br/><br/>
-        <img src="./docs/screenshots/02-result-autopaste.png" alt="Окно результата" width="100%" onerror="this.onerror=null; this.src='./branding/app-icon-safe.png';" />
-      </td>
-    </tr>
-    <tr>
-      <td width="50%" align="center">
-        <strong>03. Центр управления движками и LLM</strong><br/>
-        <sub>Мгновенное переключение Groq, Deepgram, Gemini, GigaChat и офлайн Whisper</sub><br/><br/>
-        <img src="./docs/screenshots/05-engines-hub.png" alt="Вкладка движков" width="100%" onerror="this.onerror=null; this.src='./branding/app-icon-safe.png';" />
-      </td>
-      <td width="50%" align="center">
-        <strong>04. Аппаратно-защищенное хранилище ключей</strong><br/>
-        <sub>Шифрование AES-256-GCM с привязкой к machine-id (ключи не передаются в облако)</sub><br/><br/>
-        <img src="./docs/screenshots/06-encrypted-keys.png" alt="Вкладка ключей" width="100%" onerror="this.onerror=null; this.src='./branding/app-icon-safe.png';" />
-      </td>
-    </tr>
-  </table>
+  <img src="./docs/demo.ru.gif" alt="Демонстрация работы NYX Vox" width="700" />
+  <br/>
+  <sub><i>Универсальный live-стриминг &bull; Анимированная звуковая волна &bull; 100% Дословный ИИ &bull; Нативная автовставка в активное окно</i></sub>
 </div>
 
 ---
