@@ -6,22 +6,19 @@
 
 ## Последнее обновление
 Дата: 2026-09-04
-Кто/что обновило: Агент (Showcase Overhaul: Interactive Web Simulator, Dual-Model Animated Retina GIFs, 2026 Models Alignment, Author Uniformity)
+Кто/что обновило: Агент (Deepgram Nova-3 Multi-Language Migration)
 
 ## Версии (важно)
-- Последний ПУБЛИЧНЫЙ релиз на GitHub — **v1.4.0**
-- Ветка `main` содержит актуальную сборку v1.4.0 (Zero-Latency Rolling Commit, Acoustic Guard & Frozen Pipeline)
+- Последний ПУБЛИЧНЫЙ релиз на GitHub — **v1.4.1**
+- Ветка `main` содержит актуальную сборку v1.4.1 (Deepgram Nova-3 Multi-Language, Zero-Latency Rolling Commit, Acoustic Guard)
 - **ПОДСИСТЕМА РАСПОЗНАВАНИЯ РЕЧИ И АУДИОПАЙПЛАЙН СТРОГО ЗАФИКСИРОВАНЫ (FROZEN)**
 
 ## Что сейчас в работе
-- Завершен аудит и обновление витрины моделей, интерфейса и документации по состоянию на 2026 год:
-  1. **Синхронизация моделей с актуальной архитектурой v1.4.0**:
-     - STT-движки: Groq LPU (Whisper Large-v3-Turbo), Local Whisper Turbo (Metal/Core ML), Sber GigaChat (GigaChat-2-Pro audio/multimodal), Google Gemini 3.8 Flash, Deepgram Nova-2.
-     - Форматирование (LLM): DeepSeek V4 (`deepseek-v4-flash`), Qwen 3.7 (`qwen3.7-flash` / `plus`), Google Gemini 3.8 (`gemini-3.8-flash` / `pro`), Sber GigaChat 2 (`GigaChat-2-Pro` / `Max`), Groq LPU (`llama-3.3-70b-versatile`), Custom Model slot.
-  2. **Интерактивный симулятор на лендинге (`docs/index.html`)**: полнофункциональный живой веб-виджет в Hero-секции с симуляцией микрофона, 9-полосным эквалайзером, посимвольной печатью, VAD auto-stop, автопастой в окно назначения, переключением сценариев и поддержкой EN/RU.
-  3. **Анимированные Retina демо-GIF (`docs/demo.gif`, `docs/demo.ru.gif`)**: замена статичных скриншотов на плавные оптимизированные демонстрации (<190 KB), сгенерированные через headless Chrome и Pillow.
-  4. **Единая подпись автора и чистые ссылки**: все вхождения прежнего псевдонима заменены на каноничный формат `Aliaksei Patskevich (AVPDev)` со ссылками строго на `https://avpdev.com/` (без префиксов языков).
-  5. **Синхронизация репозитория**: фиксация в `dev`, мерж в `main`, пуш в обе ветки на origin.
+- Завершена миграция Deepgram на модель Nova-3 с поддержкой мультиязычного распознавания (`language=multi`), включая русский язык:
+  - В WebSocket стриминге (`try_websocket_stream`), interim HTTP воркере и REST API (`stop_recording`) приоритет отдан `nova-3` с поддержкой `multi` (code-switching с русским языком).
+  - Реализован каскадный перебор моделей `["nova-3", "nova-3-general", "nova-2-general"]` для гарантии надежности соединения.
+  - Пройдено 117 Rust unit-тестов, cargo clippy (0 warnings), cargo fmt.
+
 
 ## Что стабильно работает (не трогать без причины)
 - STT pipeline (Whisper, Deepgram, Groq, Gemini, GigaChat) с кастомными моделями

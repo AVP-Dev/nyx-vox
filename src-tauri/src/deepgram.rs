@@ -268,7 +268,7 @@ fn spawn_interim_stream_worker<R: Runtime>(
                                 }
                             }
                         } else if !dg_key.is_empty() {
-                            let url = "https://api.deepgram.com/v1/listen?model=nova-2-general&language=multi&smart_format=true";
+                            let url = "https://api.deepgram.com/v1/listen?model=nova-3&language=multi&smart_format=true";
                             if let Ok(res) = client
                                 .post(url)
                                 .header("Authorization", format!("Token {}", dg_key))
@@ -318,20 +318,43 @@ async fn try_websocket_stream<R: Runtime>(
     use tokio_tungstenite::tungstenite::http::HeaderValue;
     use tokio_tungstenite::tungstenite::Message;
 
-    let url_str = "wss://api.deepgram.com/v1/listen?model=nova-2-general&smart_format=true&interim_results=true&language=multi&encoding=linear16&sample_rate=16000&channels=1";
-    let mut request = url_str.into_client_request().map_err(|e| e.to_string())?;
-    request.headers_mut().insert(
-        "Authorization",
-        HeaderValue::from_str(&format!("Token {}", dg_key)).map_err(|e| e.to_string())?,
-    );
+    let models = ["nova-3", "nova-3-general", "nova-2-general"];
+    let mut last_ws_err = String::new();
+    let mut connected = None;
 
-    let (ws_stream, _) = tokio::time::timeout(
-        std::time::Duration::from_millis(2500),
-        tokio_tungstenite::connect_async(request),
-    )
-    .await
-    .map_err(|_| "Deepgram WebSocket connect timeout".to_string())?
-    .map_err(|e| format!("Deepgram WebSocket connect failed: {}", e))?;
+    for model in models {
+        let url_str = format!(
+            "wss://api.deepgram.com/v1/listen?model={}&smart_format=true&interim_results=true&language=multi&encoding=linear16&sample_rate=16000&channels=1",
+            model
+        );
+        let Ok(mut request) = url_str.into_client_request() else {
+            continue;
+        };
+        let Ok(header_val) = HeaderValue::from_str(&format!("Token {}", dg_key)) else {
+            continue;
+        };
+        request.headers_mut().insert("Authorization", header_val);
+
+        match tokio::time::timeout(
+            std::time::Duration::from_millis(2500),
+            tokio_tungstenite::connect_async(request),
+        )
+        .await
+        {
+            Ok(Ok((ws_stream, _))) => {
+                connected = Some(ws_stream);
+                break;
+            }
+            Ok(Err(e)) => {
+                last_ws_err = format!("Deepgram WebSocket connect failed ({}): {}", model, e);
+            }
+            Err(_) => {
+                last_ws_err = format!("Deepgram WebSocket connect timeout ({})", model);
+            }
+        }
+    }
+
+    let ws_stream = connected.ok_or(last_ws_err)?;
 
     let (mut write, mut read) = ws_stream.split();
 
@@ -502,7 +525,7 @@ pub async fn stop_recording<R: Runtime>(
 
     // Build query params
     let mut query_params: Vec<(&str, &str)> = vec![
-        ("model", "nova-2-general"),
+        ("model", "nova-3"),
         ("smart_format", "true"),
         ("punctuate", "true"),
     ];
@@ -525,9 +548,9 @@ pub async fn stop_recording<R: Runtime>(
         return Err("API ключ Deepgram не найден. Пожалуйста, проверьте настройки.".to_string());
     }
 
-    // Try the configured model first; some account tiers reject a specific
-    // model/language combination, so fall back to the other nova generation.
-    let models = ["nova-2-general", "nova-3-general"];
+    // Try the configured model first (nova-3); fall back to nova-3-general
+    // or nova-2-general if the account tier rejects a specific model name.
+    let models = ["nova-3", "nova-3-general", "nova-2-general"];
     let mut last_err = String::new();
     let mut response = None;
 

@@ -4,7 +4,16 @@
 
 ---
 
-## 📅 Version 1.4.0 (Current)
+## 📅 Version 1.4.1 (Current)
+
+### 🎙️ Deepgram Nova-3 & Multilingual Code-Switching
+- Migrated Deepgram STT engine from legacy `nova-2-general` to the state-of-the-art `nova-3` model.
+- Enabled native multilingual code-switching (`language=multi`), unlocking high-accuracy Russian speech recognition alongside English, Spanish, French, German, and others.
+- Implemented robust multi-tier fallback cascade in WebSocket streaming and REST batching: `["nova-3", "nova-3-general", "nova-2-general"]`.
+
+---
+
+## 📅 Version 1.4.0
 
 ### ⚡ Zero-Latency Rolling Commit & Tail Finalization
 - Replaced redundant full-file batch STT at stop with an incremental Rolling Commit pipeline.
