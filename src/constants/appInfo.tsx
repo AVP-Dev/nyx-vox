@@ -83,7 +83,7 @@ export const ENGINE_HELP = {
         },
         formatting: {
              title: 'Форматирование (LLM)',
-             desc: 'Второй проход через нейросеть (Gemini/Qwen/DeepSeek). Исправляет ошибки, убирает «эээ/ммм» и делает текст логичным. ПОДСКАЗКА: В системе используется модель deepseek-chat как самая быстрая и стабильная.'
+             desc: 'Второй проход через нейросеть (Gemini/Qwen/DeepSeek). Исправляет ошибки, убирает «эээ/ммм» и делает текст логичным. ПОДСКАЗКА: В системе используется модель deepseek-v4-flash как самая быстрая и точная.'
         }
     },
     en: {
@@ -119,7 +119,7 @@ export const ENGINE_HELP = {
         },
         formatting: {
              title: 'AI Formatting (LLM)',
-             desc: 'A second pass via LLM (Gemini/Qwen/DeepSeek) to refine grammar, remove fillers like "um/so", and fix punctuation. TIP: We use deepseek-chat for the best speed/accuracy balance.'
+             desc: 'A second pass via LLM (Gemini/Qwen/DeepSeek) to refine grammar, remove fillers like "um/so", and fix punctuation. TIP: We use deepseek-v4-flash for the best speed/accuracy balance.'
         }
     }
 };
