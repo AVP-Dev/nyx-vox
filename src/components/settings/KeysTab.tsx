@@ -30,14 +30,14 @@ const SERVICE_MODEL_SLOTS: Record<string, ModelSlotConfig[]> = {
         {
             slot: 'gemini_format',
             label: 'Форматирование AI',
-            defaultModel: 'gemini-2.5-flash',
-            presets: ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-1.5-flash', 'gemini-1.5-pro']
+            defaultModel: 'gemini-3.8-flash',
+            presets: ['gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.5-flash', 'gemini-3.1-pro', 'gemini-2.5-flash']
         },
         {
             slot: 'gemini_stt',
             label: 'Распознавание (STT)',
-            defaultModel: 'gemini-2.5-flash',
-            presets: ['gemini-2.5-flash', 'gemini-1.5-flash']
+            defaultModel: 'gemini-3.8-flash',
+            presets: ['gemini-3.8-flash', 'gemini-3.5-flash', 'gemini-2.5-flash']
         }
     ],
     deepseek: [

@@ -11,7 +11,7 @@ use crate::state::{AiSemaphore, AudioBuffer, FormattingStyle, FormattingStyleSta
 // ── Models ───────────────────────────────────────────────────────────────────
 const GROQ_STT_MODEL: &str = "whisper-large-v3-turbo";
 const GROQ_REFINEMENT_MODEL: &str = "llama-3.3-70b-versatile";
-const GEMINI_MODEL: &str = "gemini-2.5-flash";
+const GEMINI_MODEL: &str = "gemini-3.8-flash";
 
 // ── Shared recording state ────────────────────────────────────────────────────
 pub type SharedAiState = Arc<Mutex<AudioBuffer>>;

@@ -16,8 +16,8 @@
 ## Что сейчас в работе
 - Завершен аудит и обновление витрины моделей, интерфейса и документации по состоянию на 2026 год:
   1. **Синхронизация моделей с актуальной архитектурой v1.4.0**:
-     - STT-движки: Groq LPU (Whisper Large-v3-Turbo), Local Whisper Turbo (Metal/Core ML), Sber GigaChat (GigaChat-2-Pro audio/multimodal), Google Gemini 2.5 Flash, Deepgram Nova-2.
-     - Форматирование (LLM): DeepSeek V4 (`deepseek-v4-flash`), Qwen 3.7 (`qwen3.7-flash` / `plus`), Google Gemini 2.5 (`gemini-2.5-flash` / `pro`), Sber GigaChat 2 (`GigaChat-2-Pro` / `Max`), Groq LPU (`llama-3.3-70b-versatile`), Custom Model slot.
+     - STT-движки: Groq LPU (Whisper Large-v3-Turbo), Local Whisper Turbo (Metal/Core ML), Sber GigaChat (GigaChat-2-Pro audio/multimodal), Google Gemini 3.8 Flash, Deepgram Nova-2.
+     - Форматирование (LLM): DeepSeek V4 (`deepseek-v4-flash`), Qwen 3.7 (`qwen3.7-flash` / `plus`), Google Gemini 3.8 (`gemini-3.8-flash` / `pro`), Sber GigaChat 2 (`GigaChat-2-Pro` / `Max`), Groq LPU (`llama-3.3-70b-versatile`), Custom Model slot.
   2. **Интерактивный симулятор на лендинге (`docs/index.html`)**: полнофункциональный живой веб-виджет в Hero-секции с симуляцией микрофона, 9-полосным эквалайзером, посимвольной печатью, VAD auto-stop, автопастой в окно назначения, переключением сценариев и поддержкой EN/RU.
   3. **Анимированные Retina демо-GIF (`docs/demo.gif`, `docs/demo.ru.gif`)**: замена статичных скриншотов на плавные оптимизированные демонстрации (<190 KB), сгенерированные через headless Chrome и Pillow.
   4. **Единая подпись автора и чистые ссылки**: все вхождения прежнего псевдонима заменены на каноничный формат `Aliaksei Patskevich (AVPDev)` со ссылками строго на `https://avpdev.com/` (без префиксов языков).

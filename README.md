@@ -81,7 +81,7 @@ Bring your own API keys (stored locally with AES-256-GCM hardware encryption) or
 NYX Vox formats raw transcriptions with zero rewriting, preserving your exact words while adding punctuation, capitalization, and paragraph structure:
 - **DeepSeek V4 (`deepseek-v4-flash`)**: Flagship SOTA reasoning, code casing, and technical punctuation.
 - **Qwen 3.7 (`qwen3.7-flash` / `plus`)**: Next-gen logical structure, rapid throughput, and clean paragraphs.
-- **Google Gemini 2.5 (`gemini-2.5-flash` / `pro`)**: Multimodal precision across mixed languages.
+- **Google Gemini 3.8 (`gemini-3.8-flash` / `pro`)**: Multimodal precision across mixed languages.
 - **Sber GigaChat 2 (`GigaChat-2-Pro` / `Max`)**: Native Russian grammar with Russian Trusted CA, works in РФ without VPN.
 - **Groq LPU™ (`llama-3.3-70b-versatile`)**: Sub-second cloud inference on ultra-fast LPU hardware.
 - **Custom Model Slot**: Configure any provider or model identifier on the fly with one-click reset.
@@ -111,7 +111,7 @@ NYX Vox formats raw transcriptions with zero rewriting, preserving your exact wo
 
 - ⚡ **Universal Live Streaming**: Real-time interim phrase preview with typing indicator across all STT engines.
 - 🎯 **100% Verbatim AI Refinement**: Intelligent system prompts ensure zero hallucinations, zero synonym replacement, and strict preservation of emotional intent while formatting punctuation, capital letters, and technical syntax.
-- 🧠 **Multi-LLM Formatter Support**: Format transcripts using DeepSeek V4, Qwen 3.7, Gemini 2.5, Groq LPU, or GigaChat 2.
+- 🧠 **Multi-LLM Formatter Support**: Format transcripts using DeepSeek V4, Qwen 3.7, Gemini 3.8, Groq LPU, or GigaChat 2.
 - 🎙️ **Smart Speech Activity Detection (VAD)**: Configurable silence auto-stop (3.0s – 15.0s) with calibrated Noise Gate and microphone gain multiplier.
 - 🚀 **Native macOS HID Auto-Paste**: Direct text injection via macOS Accessibility API into the active window.
 - 🔒 **Encrypted Key Vault**: API keys are locally encrypted with AES-256-GCM using unique hardware fingerprints.
