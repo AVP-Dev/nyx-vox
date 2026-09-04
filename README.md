@@ -1,11 +1,11 @@
 <div align="center">
   <img src="./branding/app-icon-safe.png" width="104" height="104" alt="NYX Vox Logo" />
   <h1>NYX Vox</h1>
-  <p><strong>Premium, Zero-Latency AI Voice Interface for macOS</strong></p>
+  <p><strong>Premium, Zero-Latency AI Voice Interface for macOS and Windows</strong></p>
 
   <p>
-    <a href="https://github.com/AVP-Dev/nyx-vox/releases/latest"><img src="https://img.shields.io/github/v/release/AVP-Dev/nyx-vox?label=Download%20DMG&style=for-the-badge&color=orange" alt="Download Latest DMG" /></a>
-    <img src="https://img.shields.io/badge/Platform-macOS%2014%2B%20(Apple%20Silicon%20%26%20Intel)-black?style=for-the-badge&logo=apple" alt="macOS" />
+    <a href="https://github.com/AVP-Dev/nyx-vox/releases/latest"><img src="https://img.shields.io/github/v/release/AVP-Dev/nyx-vox?label=Download%20(DMG%20%2F%20EXE)&style=for-the-badge&color=orange" alt="Download Latest Release" /></a>
+    <img src="https://img.shields.io/badge/Platform-macOS%20%7C%20Windows-black?style=for-the-badge&logo=apple" alt="macOS and Windows" />
     <img src="https://img.shields.io/badge/Rust-2021%20%7C%20Tauri%202.10-orange?style=for-the-badge&logo=rust" alt="Rust Tauri" />
   </p>
 
@@ -21,9 +21,9 @@
 
 ## ⚡ What is NYX Vox?
 
-**NYX Vox** is a native macOS desktop tool designed to make voice your primary, frictionless input method across any application. Speak into your microphone, see words stream on the fly with animated audio waveforms, and watch your thought get transcribed at sub-500ms latency, refined with **100% verbatim AI formatting** (zero rewrites or hallucinations), and **automatically pasted straight into your focused app** (VS Code, Telegram, Slack, Notion, Obsidian, or your browser) without touching your mouse or pressing Cmd+V.
+**NYX Vox** is a native cross-platform desktop tool (macOS & Windows) designed to make voice your primary, frictionless input method across any application. Speak into your microphone, see words stream on the fly with animated audio waveforms, and watch your thought get transcribed at sub-500ms latency, refined with **100% verbatim AI formatting** (zero rewrites or hallucinations), and **automatically pasted straight into your focused app** (VS Code, Telegram, Slack, Notion, Obsidian, or your browser) without touching your mouse or pressing Cmd+V / Ctrl+V.
 
-Built with **Rust 2021 (Tauri 2)** and **Next.js 16 / React 19**, NYX Vox runs with a lightweight footprint, Apple-native Glassmorphism aesthetics, and strict local privacy controls.
+Built with **Rust 2021 (Tauri 2)** and **Next.js 16 / React 19**, NYX Vox runs with a lightweight footprint, modern aesthetics, and strict local privacy controls.
 
 ---
 
@@ -179,27 +179,53 @@ NYX Vox requires **Microphone** (for recording) and **Accessibility** (for autom
 
 ---
 
+## 💻 Platforms: macOS & Windows
+
+NYX Vox is tailored for maximum performance on both desktop operating systems:
+
+| Feature | macOS | Windows |
+|---|---|---|
+| **Primary Global Shortcut** | `⌥ Option + Space` (or `Ctrl + Space`) | `Ctrl + Space` (system-safe) |
+| **Direct Auto-Paste** | Native HID injection via Accessibility API | Native Win32 API injection (`enigo`) |
+| **Offline Whisper Engine** | Metal GPU & Core ML accelerated | High-throughput CPU vectorized inference (AVX2/AVX512) |
+| **Cloud STT & LLMs (Groq, Deepgram, Gemini, GigaChat)** | Sub-second ultra-fast streaming | Sub-second ultra-fast streaming |
+| **Permissions Required** | Accessibility + Microphone | Microphone only (no Accessibility required) |
+
+> [!IMPORTANT]
+> **❤️ Community Note for Windows & Mac Users (Feedback & Quality):**
+> The Windows version is built natively with Tauri 2, Rust, and Win32 APIs. Because our primary everyday development environment is macOS, we cannot personally test on every conceivable Windows hardware, microphone, and software configuration.
+> 
+> We sincerely invite everyone using NYX Vox on Windows or Mac:
+> - **Please share your feedback!** Let us know how transcription feels and whether auto-paste works reliably across your favorite tools (VS Code, Telegram, Word, Notion, Obsidian, browsers).
+> - Encounter a bug, latency spike, or UI quirk? Feel free to open a [GitHub Issue](https://github.com/AVP-Dev/nyx-vox/issues) or reach out directly!
+> 
+> The more real-world feedback we receive, the better, faster, and more rock-solid NYX Vox becomes for everyone.
+
+---
+
 ## ⌨️ Keyboard Shortcuts
 
 | Shortcut | Action | Scope |
 |---|---|---|
-| `⌥ + Space` (Option + Space) | Toggle Dictation (Start / Stop) | Global (any app) |
+| `⌥ + Space` (Mac) / `Ctrl + Space` (Windows) | Toggle Dictation (Start / Stop) | Global (any app) |
 | `Enter` | Send / Paste text to active application | In NYX Vox window |
 | `Esc` | Cancel recording / clear text | In NYX Vox window |
-| `Cmd + C` | Copy formatted text to clipboard | In NYX Vox window |
+| `Cmd + C` (Mac) / `Ctrl + C` (Windows) | Copy formatted text to clipboard | In NYX Vox window |
 
 ---
 
 ## 🚀 Roadmap
 
-**Shipped in v1.4.0:**
+**Shipped in v1.5.0:**
+- [x] Cross-platform native Windows 10/11 support (Tauri 2, Win32 API, NSIS `.exe` installer)
+- [x] Full UI selector for Groq LPU™ (`llama-3.3-70b-versatile`) formatting engine in Settings
 - [x] Multi-engine STT pipeline (Whisper Offline / Groq / Deepgram / Gemini / GigaChat)
 - [x] Universal live interim speech streaming preview
 - [x] 100% Verbatim AI formatting (Gemini, DeepSeek, Qwen, Groq, GigaChat)
 - [x] Custom AI model ID slot and presets
 - [x] Smart VAD silence auto-stop (3.0s – 15.0s) & Noise Gate calibration
 - [x] Glassmorphism UI & Compact Bubble idle mode
-- [x] Native macOS HID Auto-Paste with real-time permissions bridge
+- [x] Native HID Auto-Paste into active window
 - [x] AES-256-GCM hardware-bound API key vault
 - [x] Searchable local dictation history
 

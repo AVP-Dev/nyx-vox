@@ -4,7 +4,29 @@
 
 ---
 
-## 📅 Version 1.4.1 (Current)
+## 📅 Version 1.5.0 (Current)
+
+### 🪟 Native Windows 10/11 Support
+- Full desktop adaptation for Windows operating systems:
+  - **Native Auto-Paste**: Overlay window auto-hide and `Ctrl+V` synthetic injection into active applications without requiring Accessibility privileges.
+  - **Active Window Tracker**: Win32 API integration (`GetForegroundWindow`, `GetWindowThreadProcessId`, `QueryFullProcessImageNameW`).
+  - **Media Playback Control**: Virtual key dispatch (`VK_MEDIA_PLAY_PAUSE`) for auto-pausing background audio during recording.
+  - **System Tray**: Windows taskbar notification tray icon with `Ctrl + Space` tooltip.
+  - **Microphone Settings Bridge**: Fast redirection to `ms-settings:privacy-microphone`.
+  - **Automated CI Build**: GitHub Actions workflow for automated `.exe` (NSIS) and `.msi` packaging.
+
+### ⚡ Full Groq LPU™ (Llama 3.3 70B) Refinement Engine Selector
+- Added dedicated **Groq** (`llama-3.3-70b-versatile`) button in Settings → Engines under Formatting Engine.
+- Provides sub-second AI refinement on specialized Groq LPU™ hardware (300–500 tokens/sec) preserving verbatim content.
+
+### 🎨 Dynamic Platform UX & Onboarding
+- Welcome overlay and General settings tab dynamically detect OS:
+  - Windows automatically skips macOS-specific Accessibility checks and Gatekeeper quarantine fix instructions.
+  - Displays `Ctrl + Space` as the default global dictation hotkey on Windows.
+
+---
+
+## 📅 Version 1.4.1
 
 ### 🎙️ Deepgram Nova-3 & Multilingual Code-Switching
 - Migrated Deepgram STT engine from legacy `nova-2-general` to the state-of-the-art `nova-3` model.

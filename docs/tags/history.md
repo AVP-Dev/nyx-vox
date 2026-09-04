@@ -6,6 +6,7 @@
 
 | Version | Date | Focus | Release Notes |
 |---|---|---|---|
+| v1.5.0 | 2026-09 | Windows Native Support & Groq LPU™ | [v1.5.0](v1.5.0/release.md) |
 | v1.4.1 | 2026-09 | Deepgram Nova-3 & Multilingual Code-Switching | [v1.4.1](v1.4.1/release.md) |
 | v1.4.0 | 2026-09 | Zero-Latency Rolling Commit & Acoustic Guard | [v1.4.0](v1.4.0/release.md) |
 | v1.3.2 | 2026-09 | Multi-Level Fallback Pipeline & Long Speech Resilience | [v1.3.2](v1.3.2/release.md) |

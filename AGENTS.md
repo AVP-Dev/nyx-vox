@@ -7,10 +7,10 @@
 
 ## What this is
 
-NYX Vox — a macOS desktop app for AI-assisted voice dictation. Speak into the
+NYX Vox — a macOS & Windows desktop app for AI-assisted voice dictation. Speak into the
 microphone, get speech transcribed (locally via Whisper, or in the cloud via
 Deepgram / Groq / Gemini / GigaChat), and have the result formatted by AI
-(Gemini, DeepSeek, Qwen, Groq, GigaChat). Status: active development, v1.4.1.
+(Gemini, DeepSeek, Qwen, Groq, GigaChat). Status: active development, v1.5.0.
 
 ## Stack
 - Languages: Rust 2021 (backend) + TypeScript / Next.js 16 / React 19 (frontend)
@@ -88,9 +88,8 @@ Immutable data prevents side effects and simplifies debugging.
 - Schema-based validation (Zod on the frontend)
 - Don't trust external data (API, user input)
 
-### 5. macOS only
-The project is tied to macOS via objc2, core-graphics, accessibility-client.
-Cross-platform is not planned.
+### 5. macOS and Windows
+The project supports macOS and Windows natively. On macOS it uses objc2, core-graphics, accessibility-client. On Windows it uses windows-sys and enigo. Linux support is deferred.
 
 ### 6. API keys — never in code
 Keys are stored encrypted (AES-256-GCM), bound to machine-id.

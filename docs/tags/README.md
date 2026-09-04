@@ -4,6 +4,7 @@ This directory contains detailed release notes for every version of NYX Vox.
 
 ## 🏷️ Versions
 
+- [v1.5.0](v1.5.0/release.md) - **Windows Native Support & Groq LPU™** 🚀
 - [v1.4.1](v1.4.1/release.md) - **Deepgram Nova-3 & Multilingual Code-Switching** 🚀
 - [v1.4.0](v1.4.0/release.md) - **Zero-Latency Rolling Commit & Acoustic Guard** 🚀
 - [v1.3.2](v1.3.2/release.md) - **Multi-Level Fallback Pipeline & Long Speech Resilience** 🚀
@@ -25,6 +26,7 @@ This directory contains detailed release notes for every version of NYX Vox.
 
 ## 🏷️ Версии
 
+- [v1.5.0](v1.5.0/release.md) — **Нативная поддержка Windows и Groq LPU™** 🚀
 - [v1.4.1](v1.4.1/release.md) — **Deepgram Nova-3 и мультиязычный режим** 🚀
 - [v1.4.0](v1.4.0/release.md) — **Zero-Latency Rolling Commit и Акустический гейт** 🚀
 - [v1.3.2](v1.3.2/release.md) — **Многоуровневый Fallback и устойчивость длинной речи** 🚀

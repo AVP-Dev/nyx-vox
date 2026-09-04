@@ -130,6 +130,7 @@ export const EnginesTab: React.FC<EnginesTabProps> = ({
                 <div className="grid grid-cols-2 gap-2">
                     {[
                         { id: 'gemini', label: c.settings.formattingGemini, color: 'border-sky-500/30 text-sky-400' },
+                        { id: 'groq', label: c.settings.formattingGroq, color: 'border-amber-500/30 text-amber-400' },
                         { id: 'qwen', label: c.settings.formattingQwen, color: 'border-purple-500/30 text-purple-400' },
                         { id: 'deepseek', label: c.settings.formattingDeepSeek, color: 'border-cyan-500/30 text-cyan-400' },
                         { id: 'gigachat', label: c.settings.formattingGigachat, color: 'border-emerald-500/30 text-emerald-400' },
