@@ -445,7 +445,7 @@ const [formattingMode, setFormattingMode] = useState<FormattingMode>('none'); //
 
 <br />
 <p align="center">
-  <a href="https://avpdev.com/ru/"><b>Алексей Пацкевич (AVPDev)</b></a>
+  <a href="https://avpdev.com/"><b>Алексей Пацкевич (AVPDev)</b></a>
   <br />
   <sub>
     <b>AI Solutions Architect</b> • Код, Дизайн и ИИ

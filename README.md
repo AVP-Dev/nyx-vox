@@ -200,7 +200,7 @@ NYX Vox is an open-heart project created by **Aliaksei Patskevich (AVPDev)** as 
 If you have architectural suggestions, code reviews, or bug reports, feel free to [Open an Issue](https://github.com/AVP-Dev/nyx-vox/issues) or reach out directly:
 
 <p align="center">
-  <a href="https://avpdev.com/en/"><b>Aliaksei Patskevich (AVPDev)</b></a>
+  <a href="https://avpdev.com/"><b>Aliaksei Patskevich (AVPDev)</b></a>
   <br />
   <sub>
     <b>AI Solutions Architect</b> • Code, Design & AI
