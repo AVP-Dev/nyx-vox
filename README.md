@@ -121,6 +121,42 @@ NYX Vox formats raw transcriptions with zero rewriting, preserving your exact wo
 
 ---
 
+## 🖥️ Crafted for macOS: Interface Showcase
+
+<table align="center" width="100%">
+  <tr>
+    <td width="50%" align="center">
+      <b>🎙️ Live Speech Streaming</b><br/><br/>
+      <img src="./docs/screenshots/recording.png" alt="NYX Vox Live Speech Streaming" width="100%" />
+    </td>
+    <td width="50%" align="center">
+      <b>✨ 100% Verbatim Result & Auto-Paste</b><br/><br/>
+      <img src="./docs/screenshots/result.png" alt="NYX Vox Formatted Result" width="100%" />
+    </td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center">
+      <br/>
+      <b>⚡ Speech-to-Text & AI Refinement Hub</b><br/><br/>
+      <img src="./docs/screenshots/engines.png" alt="NYX Vox Engines and AI Models Hub" width="100%" />
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" align="center">
+      <br/>
+      <b>🔒 Hardware-Bound Encrypted Key Vault</b><br/><br/>
+      <img src="./docs/screenshots/keys.png" alt="NYX Vox AES-256 Key Vault" width="100%" />
+    </td>
+    <td width="50%" align="center">
+      <br/>
+      <b>🎛️ Audio Calibration & macOS Permissions</b><br/><br/>
+      <img src="./docs/screenshots/perms.png" alt="NYX Vox Permissions and Audio" width="100%" />
+    </td>
+  </tr>
+</table>
+
+---
+
 ## 📦 Installation & Setup
 
 1. **Download**: Grab the latest `.dmg` from the [Releases](https://github.com/AVP-Dev/nyx-vox/releases/latest) page.

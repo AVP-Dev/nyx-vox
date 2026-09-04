@@ -121,6 +121,42 @@ NYX Vox форматирует сырой текст с полным сохра�
 
 ---
 
+## 🖥️ Создан для macOS: Галерея интерфейса
+
+<table align="center" width="100%">
+  <tr>
+    <td width="50%" align="center">
+      <b>🎙️ Живой стриминг распознавания</b><br/><br/>
+      <img src="./docs/screenshots/recording_ru.png" alt="Живой стриминг распознавания" width="100%" />
+    </td>
+    <td width="50%" align="center">
+      <b>✨ 100% Дословный результат и автовставка</b><br/><br/>
+      <img src="./docs/screenshots/result_ru.png" alt="Форматированный результат и вставка" width="100%" />
+    </td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center">
+      <br/>
+      <b>⚡ Центр управления STT-движками и AI-моделями</b><br/><br/>
+      <img src="./docs/screenshots/engines_ru.png" alt="Центр движков и AI-моделей" width="100%" />
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" align="center">
+      <br/>
+      <b>🔒 Защищенный сейф API-ключей (AES-256)</b><br/><br/>
+      <img src="./docs/screenshots/keys_ru.png" alt="Защищенный сейф ключей" width="100%" />
+    </td>
+    <td width="50%" align="center">
+      <br/>
+      <b>🎛️ Калибровка звука и права macOS</b><br/><br/>
+      <img src="./docs/screenshots/perms_ru.png" alt="Калибровка звука и права доступа" width="100%" />
+    </td>
+  </tr>
+</table>
+
+---
+
 ## 📦 Установка и запуск
 
 1. **Скачивание**: Возьмите свежий `.dmg` на странице [Релизов](https://github.com/AVP-Dev/nyx-vox/releases/latest).

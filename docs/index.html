@@ -1568,7 +1568,12 @@
             document.querySelectorAll('.showcase-tab').forEach(b => b.classList.remove('active'));
             const targetContent = document.getElementById(tabId);
             if (targetContent) targetContent.classList.add('active');
-            event.currentTarget.classList.add('active');
+            if (typeof event !== 'undefined' && event && event.currentTarget) {
+                event.currentTarget.classList.add('active');
+            } else {
+                const btn = document.querySelector(`.showcase-tab[onclick*="${tabId}"]`);
+                if (btn) btn.classList.add('active');
+            }
         }
 
         // --- Interactive Live Simulator Engine ---
