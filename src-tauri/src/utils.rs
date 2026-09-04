@@ -65,6 +65,22 @@ pub fn system_media_control(cmd: i32) {
             }
         }
     }
+    #[cfg(target_os = "windows")]
+    {
+        let _ = cmd;
+        use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
+            keybd_event, KEYEVENTF_KEYUP, VK_MEDIA_PLAY_PAUSE,
+        };
+        unsafe {
+            keybd_event(VK_MEDIA_PLAY_PAUSE as u8, 0, 0, 0);
+            std::thread::sleep(std::time::Duration::from_millis(10));
+            keybd_event(VK_MEDIA_PLAY_PAUSE as u8, 0, KEYEVENTF_KEYUP, 0);
+        }
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    {
+        let _ = cmd;
+    }
 }
 
 pub fn resample_to_16k(samples: &[f32], from_rate: u32, to_rate: u32) -> Vec<f32> {
@@ -229,6 +245,50 @@ pub fn get_frontmost_app_info() -> (String, String) {
                     }
 
                     return (owner_name, "Unknown".to_string());
+                }
+            }
+        }
+    }
+    #[cfg(target_os = "windows")]
+    {
+        use windows_sys::Win32::Foundation::CloseHandle;
+        use windows_sys::Win32::System::Threading::{
+            OpenProcess, QueryFullProcessImageNameW, PROCESS_QUERY_LIMITED_INFORMATION,
+        };
+        use windows_sys::Win32::UI::WindowsAndMessaging::{
+            GetForegroundWindow, GetWindowThreadProcessId,
+        };
+
+        unsafe {
+            let hwnd = GetForegroundWindow();
+            if (hwnd as isize) != 0 {
+                let mut pid: u32 = 0;
+                GetWindowThreadProcessId(hwnd, &mut pid);
+                if pid != 0 {
+                    let handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid);
+                    if (handle as isize) != 0 {
+                        let mut buf = [0u16; 1024];
+                        let mut size = buf.len() as u32;
+                        let success =
+                            QueryFullProcessImageNameW(handle, 0, buf.as_mut_ptr(), &mut size);
+                        CloseHandle(handle);
+                        if success != 0 && size > 0 {
+                            let path_str = String::from_utf16_lossy(&buf[..size as usize]);
+                            let path = std::path::Path::new(&path_str);
+                            let exe_name = path
+                                .file_name()
+                                .and_then(|n| n.to_str())
+                                .unwrap_or("")
+                                .to_string();
+                            if !exe_name.is_empty()
+                                && !exe_name.eq_ignore_ascii_case("NYX Vox.exe")
+                                && !exe_name.eq_ignore_ascii_case("app.exe")
+                                && !exe_name.eq_ignore_ascii_case("nyx-vox.exe")
+                            {
+                                return (exe_name.clone(), exe_name);
+                            }
+                        }
+                    }
                 }
             }
         }

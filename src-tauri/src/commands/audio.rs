@@ -657,7 +657,7 @@ pub async fn paste_text(app: AppHandle, text: String) -> Result<(), String> {
         );
     }
 
-    // Hide window FIRST so focus transfers to the target app before Cmd+V
+    // Hide window FIRST so focus transfers to the target app before Cmd+V / Ctrl+V
     #[cfg(target_os = "macos")]
     {
         if target_name == "NYX Vox" || target_name == "app" {
@@ -666,6 +666,12 @@ pub async fn paste_text(app: AppHandle, text: String) -> Result<(), String> {
             }
         } else {
             let _ = app.hide();
+        }
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        if let Some(w) = app.get_webview_window("main") {
+            let _ = w.hide();
         }
     }
 
@@ -718,10 +724,12 @@ pub async fn paste_text(app: AppHandle, text: String) -> Result<(), String> {
                                 .0
                                 .key(Key::Control, Direction::Press)
                                 .map_err(|e| e.to_string())?;
+                            std::thread::sleep(std::time::Duration::from_millis(30));
                             enigo
                                 .0
                                 .key(Key::Unicode('v'), Direction::Click)
                                 .map_err(|e| e.to_string())?;
+                            std::thread::sleep(std::time::Duration::from_millis(30));
                             enigo
                                 .0
                                 .key(Key::Control, Direction::Release)
@@ -740,7 +748,6 @@ pub async fn paste_text(app: AppHandle, text: String) -> Result<(), String> {
         Ok(Ok(Err(e))) => {
             // Paste failed after the window was hidden — bring it back so the
             // user isn't left staring at nothing.
-            #[cfg(target_os = "macos")]
             if let Some(w) = app.get_webview_window("main") {
                 let _ = w.show();
             }
@@ -844,11 +851,20 @@ pub async fn open_microphone_settings(app: AppHandle) -> Result<(), String> {
         let _ = w.set_always_on_top(false);
         let _ = w.hide();
     }
-    let script = "tell application \"System Events\" to open location \"x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone\"";
-    let _ = std::process::Command::new("osascript")
-        .arg("-e")
-        .arg(script)
-        .spawn();
+    #[cfg(target_os = "macos")]
+    {
+        let script = "tell application \"System Events\" to open location \"x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone\"";
+        let _ = std::process::Command::new("osascript")
+            .arg("-e")
+            .arg(script)
+            .spawn();
+    }
+    #[cfg(target_os = "windows")]
+    {
+        let _ = std::process::Command::new("cmd")
+            .args(["/C", "start", "", "ms-settings:privacy-microphone"])
+            .spawn();
+    }
     Ok(())
 }
 
@@ -864,6 +880,10 @@ pub async fn open_accessibility_settings(app: AppHandle) -> Result<(), String> {
         let _ = std::process::Command::new("open")
             .arg("x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
             .spawn();
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = app;
     }
     Ok(())
 }

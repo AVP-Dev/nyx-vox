@@ -18,8 +18,11 @@ export default function WelcomePage() {
     const [accGranted, setAccGranted] = useState<boolean | null>(null);
     const [micStatus, setMicStatus] = useState<number | null>(null); // 0: NotDetermined, 1: Restricted, 2: Denied, 3: Authorized
 
+    const [platform, setPlatform] = useState<string>('macos');
+
     useEffect(() => {
         setIsLoaded(true);
+        invoke<string>('get_platform').then(setPlatform).catch(() => {});
         
         const initLang = async () => {
             try {
@@ -76,13 +79,16 @@ export default function WelcomePage() {
         }
     };
 
-    const tabs: { id: Tab; icon: React.ReactNode; label: string }[] = [
+    const baseTabs: { id: Tab; icon: React.ReactNode; label: string }[] = [
         { id: 'welcome', icon: <Info className="w-[12px] h-[12px]" />, label: language === 'ru' ? 'Старт' : 'Home' },
         { id: 'perms', icon: <ShieldCheck className="w-[12px] h-[12px]" />, label: language === 'ru' ? 'Права' : 'Privacy' },
         { id: 'help', icon: <BookOpen className="w-[12px] h-[12px]" />, label: language === 'ru' ? 'FAQ' : 'FAQ' },
         { id: 'about', icon: <UserCircle className="w-[12px] h-[12px]" />, label: language === 'ru' ? 'Автор' : 'About' },
-        { id: 'quarantine', icon: <AlertTriangle className="w-[12px] h-[12px]" />, label: language === 'ru' ? 'Фикс' : 'Fix' },
     ];
+    if (platform === 'macos') {
+        baseTabs.push({ id: 'quarantine', icon: <AlertTriangle className="w-[12px] h-[12px]" />, label: language === 'ru' ? 'Фикс' : 'Fix' });
+    }
+    const tabs = baseTabs;
 
     if (!isLoaded) return <div className="bg-app-bg w-screen h-screen" />;
 
@@ -146,7 +152,7 @@ export default function WelcomePage() {
                                 <div className="text-[9px] font-black text-white/20 uppercase tracking-[0.4em] text-center mb-1">Production Release {C.about.version}</div>
                                 <div className="flex flex-col gap-4 mx-auto w-fit">
                                     {[
-                                        { icon: <Keyboard size={13} />, label: language === 'ru' ? '⌥ + Space (Запись / Вставка)' : '⌥ + Space (Record / Paste)', color: 'text-orange-500' },
+                                        { icon: <Keyboard size={13} />, label: platform === 'windows' ? (language === 'ru' ? 'Ctrl + Space (Запись / Вставка)' : 'Ctrl + Space (Record / Paste)') : (language === 'ru' ? '⌥ + Space (Запись / Вставка)' : '⌥ + Space (Record / Paste)'), color: 'text-orange-500' },
                                         { icon: <Zap size={13} />, label: language === 'ru' ? 'Нейросетевая обработка голоса' : 'Neural Audio Engine', color: 'text-amber-500' },
                                         { icon: <ShieldCheck size={13} />, label: language === 'ru' ? 'Приватная безопасная архитектура' : 'Encrypted Privacy Protocol', color: 'text-blue-500' }
                                     ].map((item, idx) => (
@@ -179,7 +185,7 @@ export default function WelcomePage() {
                         >
                             <div className="text-[9px] font-black text-white/20 uppercase tracking-[0.3em] ml-2 mb-2">{C.welcome.permTitle}</div>
                             {[
-                                {
+                                ...(platform !== 'windows' ? [{
                                     id: 'acc',
                                     icon: <Accessibility className="text-orange-400" size={17} />,
                                     title: C.welcome.permAccess,
@@ -187,7 +193,7 @@ export default function WelcomePage() {
                                     action: () => invoke('open_accessibility_settings'),
                                     granted: accGranted,
                                     btnLabel: language === 'ru' ? 'ВЫДАТЬ' : 'SET'
-                                },
+                                }] : []),
                                 {
                                     id: 'mic',
                                     icon: <Mic2 className="text-emerald-400" size={17} />,

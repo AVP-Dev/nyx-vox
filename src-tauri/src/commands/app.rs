@@ -28,24 +28,36 @@ pub async fn hide_welcome_window(app: AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
+pub fn get_platform() -> &'static str {
+    std::env::consts::OS
+}
+
+#[tauri::command]
 pub async fn fix_quarantine(app: AppHandle) -> Result<(), String> {
-    let app_path = app
-        .path()
-        .executable_dir()
-        .map_err(|e| e.to_string())?
-        .parent()
-        .ok_or("Invalid path")?
-        .parent()
-        .ok_or("Invalid path")?
-        .parent()
-        .ok_or("Invalid path")?
-        .to_string_lossy()
-        .to_string();
-    let _ = std::process::Command::new("xattr")
-        .arg("-d")
-        .arg("com.apple.quarantine")
-        .arg(&app_path)
-        .spawn();
+    #[cfg(target_os = "macos")]
+    {
+        let app_path = app
+            .path()
+            .executable_dir()
+            .map_err(|e| e.to_string())?
+            .parent()
+            .ok_or("Invalid path")?
+            .parent()
+            .ok_or("Invalid path")?
+            .parent()
+            .ok_or("Invalid path")?
+            .to_string_lossy()
+            .to_string();
+        let _ = std::process::Command::new("xattr")
+            .arg("-d")
+            .arg("com.apple.quarantine")
+            .arg(&app_path)
+            .spawn();
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = app;
+    }
     Ok(())
 }
 

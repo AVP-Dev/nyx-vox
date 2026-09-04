@@ -46,6 +46,11 @@
     ],
     "macOS": {
       "entitlements": "entitlements.mac.plist"
+    },
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser"
+      }
     }
   }
 }

@@ -5,42 +5,51 @@
 > Держи компактно: не история навсегда, а срез "что сейчас".
 
 ## Последнее обновление
-Дата: 2026-09-04
-Кто/что обновило: Агент (Deepgram Nova-3 Multi-Language Migration)
+Дата: 2026-09-05
+Кто/что обновило: Агент (Cross-platform Windows Support Implementation)
 
 ## Версии (важно)
 - Последний ПУБЛИЧНЫЙ релиз на GitHub — **v1.4.1**
-- Ветка `main` содержит актуальную сборку v1.4.1 (Deepgram Nova-3 Multi-Language, Zero-Latency Rolling Commit, Acoustic Guard)
+- Ветка `dev` содержит реализацию кроссплатформенной поддержки Windows
 - **ПОДСИСТЕМА РАСПОЗНАВАНИЯ РЕЧИ И АУДИОПАЙПЛАЙН СТРОГО ЗАФИКСИРОВАНЫ (FROZEN)**
 
 ## Что сейчас в работе
-- Завершена миграция Deepgram на модель Nova-3 с поддержкой мультиязычного распознавания (`language=multi`), включая русский язык:
-  - В WebSocket стриминге (`try_websocket_stream`), interim HTTP воркере и REST API (`stop_recording`) приоритет отдан `nova-3` с поддержкой `multi` (code-switching с русским языком).
-  - Реализован каскадный перебор моделей `["nova-3", "nova-3-general", "nova-2-general"]` для гарантии надежности соединения.
-  - Пройдено 117 Rust unit-тестов, cargo clippy (0 warnings), cargo fmt.
-
+- Реализована кроссплатформенная поддержка Windows:
+  - Разделены зависимости в `Cargo.toml` (`[target.'cfg(...)']`).
+  - Реализован слой Windows API (`windows-sys`): определение активного окна (`get_frontmost_app_info`), эмуляция мультимедиа-клавиш (`system_media_control`), эмуляция авто-вставки `Ctrl+V` (`enigo`), корректное скрытие окна перед вставкой.
+  - Адаптирован UI (скрытие macOS-only Accessibility на Windows, подсказки горячих клавиш `Ctrl + Space` вместо `Option + Space`).
+  - Добавлен CI/CD workflow `.github/workflows/build-dev.yml` для автоматической тестовой сборки и выгрузки артефактов Windows и macOS.
+  - Обновлен `.github/workflows/release.yml` для сборки мультиплатформенных релизов.
+  - Пройдено 117 Rust unit-тестов, clippy (0 warnings), fmt, lint, vitest (68 tests), Next.js build.
 
 ## Что стабильно работает (не трогать без причины)
 - STT pipeline (Whisper, Deepgram, Groq, Gemini, GigaChat) с кастомными моделями
 - AI formatting (Gemini, DeepSeek, Qwen, Groq, GigaChat) с кастомными моделями
 - Интеллектуальный VAD авто-стоп по тишине (3-15 сек)
-- Автопаста через CGEvent (с проверкой Accessibility и возвратом статуса)
+- Автопаста (macOS: CGEvent + Accessibility; Windows: Enigo Ctrl+V)
 - Шифрование API-ключей (AES-256-GCM)
 - Noise Gate
 - Audio Gain (configurable, 1.0-5.0, default 2.0)
 - Автопауза медиа
 - История записей
-- Системный трей
+- Системный трей (macOS template, Windows colored)
 - Playwright E2E (3 smoke-теста)
 
 ## Известные проблемы / баги
-- `libc::_exit(0)` при выходе сохранён (необходим для избежания ggml crash), но перед ним добавлен flush данных
+- `libc::_exit(0)` при выходе сохранён для macOS (необходим для избежания ggml crash), на Windows используется стандартный graceful exit.
 
 ## Технический долг (осознанный)
-- macOS only — архитектурное решение, не баг
+- Linux support — отложена на следующий этап из-за ограничений протокола Wayland (перехват/эмуляция ввода и позиционирование окон).
 
 ## Что сделано
-- **Сессия 17 (Single-Pass Instant Finish для локального Whisper Turbo):**
+- **Сессия 18 (Кроссплатформенная поддержка Windows):**
+  - Поддержка Windows интегрирована без регрессий в macOS-версии.
+  - `Cargo.toml`: разнесены зависимости для macOS (`core-graphics`, `objc2-*`, `core-foundation`, `whisper-rs` Metal/CoreML) и Windows (`windows-sys`, чистый CPU `whisper-rs`).
+  - Реализован `get_frontmost_app_info` для Windows через `GetForegroundWindow` / `QueryFullProcessImageNameW`.
+  - Реализован `system_media_control` через `VK_MEDIA_PLAY_PAUSE`.
+  - Реализовано открытие настроек микрофона Windows (`ms-settings:privacy-microphone`).
+  - Фронтенд: адаптация `GeneralTab.tsx`, `WelcomeOverlay.tsx`, `welcome/page.tsx` с динамическим получением платформы через команду `get_platform`.
+  - CI: настроен `.github/workflows/build-dev.yml` для автоматической сборки `.exe`/`.msi` инсталлеров на Windows runners.
   - Устранена 3–5 секундная задержка («Обработка...») после завершения речи в режиме локального Whisper.
   - В `commands/audio.rs` (`stop_recording`) проверка `has_streamed_preview` вынесена на первое место перед батч-обработкой Whisper.
   - Если стриминговый воркер уже расшифровал текст на лету, он возвращается мгновенно (0 мс задержки) без повторного запуска инференса 830-МБ модели Whisper Turbo на GPU Metal.

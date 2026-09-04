@@ -26,6 +26,12 @@ export function WelcomeOverlay({ onClose, appLanguage, onLanguageToggle, initial
     const [micGranted, setMicGranted] = useState<boolean | null>(null);
     const autoPrompted = React.useRef(false);
 
+    const [platform, setPlatform] = useState<string>('macos');
+
+    useEffect(() => {
+        invoke<string>('get_platform').then(setPlatform).catch(() => {});
+    }, []);
+
     useEffect(() => {
         if (tab === 'perms' && !autoPrompted.current) {
             autoPrompted.current = true;
@@ -79,13 +85,16 @@ export function WelcomeOverlay({ onClose, appLanguage, onLanguageToggle, initial
         }
     };
 
-    const tabs: { id: Tab; icon: React.ReactNode; label: string }[] = [
+    const baseTabs: { id: Tab; icon: React.ReactNode; label: string }[] = [
         { id: 'welcome', icon: <Info className="w-[12px] h-[12px]" />, label: appLanguage === 'ru' ? 'Старт' : 'Home' },
         { id: 'perms', icon: <ShieldCheck className="w-[12px] h-[12px]" />, label: appLanguage === 'ru' ? 'Права' : 'Privacy' },
         { id: 'help', icon: <BookOpen className="w-[12px] h-[12px]" />, label: appLanguage === 'ru' ? 'FAQ' : 'FAQ' },
         { id: 'about', icon: <UserCircle className="w-[12px] h-[12px]" />, label: appLanguage === 'ru' ? 'Автор' : 'About' },
-        { id: 'quarantine', icon: <AlertTriangle className="w-[12px] h-[12px]" />, label: appLanguage === 'ru' ? 'Фикс' : 'Fix' },
     ];
+    if (platform === 'macos') {
+        baseTabs.push({ id: 'quarantine', icon: <AlertTriangle className="w-[12px] h-[12px]" />, label: appLanguage === 'ru' ? 'Фикс' : 'Fix' });
+    }
+    const tabs = baseTabs;
 
     return (
         <div className="w-full h-full flex flex-col pointer-events-auto overflow-hidden bg-panel border border-subtle rounded-[28px] relative shadow-none">
@@ -148,7 +157,7 @@ export function WelcomeOverlay({ onClose, appLanguage, onLanguageToggle, initial
                                     {[
                                         { icon: <Zap size={12} />, label: appLanguage === 'ru' ? 'Мгновенная скорость (Groq/Deepgram)' : 'Instant Speed (Groq/Deepgram)', color: 'text-orange-500' },
                                         { icon: <ShieldCheck size={12} />, label: appLanguage === 'ru' ? 'Приватная безопасная архитектура' : 'Secure Privacy Architecture', color: 'text-emerald-500' },
-                                        { icon: <Keyboard size={12} />, label: appLanguage === 'ru' ? '⌥ + Space — Старт / Стоп / Вставка' : '⌥ + Space — Start / Stop / Paste', color: 'text-blue-500' }
+                                        { icon: <Keyboard size={12} />, label: platform === 'windows' ? (appLanguage === 'ru' ? 'Ctrl + Space — Старт / Стоп / Вставка' : 'Ctrl + Space — Start / Stop / Paste') : (appLanguage === 'ru' ? '⌥ + Space — Старт / Стоп / Вставка' : '⌥ + Space — Start / Stop / Paste'), color: 'text-blue-500' }
                                     ].map((item, idx) => (
                                         <div key={idx} className="flex items-center gap-3 text-[12px] font-bold text-white/70">
                                             <div className={`${item.color} opacity-90 drop-shadow-md`}>{item.icon}</div>
@@ -169,13 +178,13 @@ export function WelcomeOverlay({ onClose, appLanguage, onLanguageToggle, initial
                         >
                             <div className="text-[9px] font-black text-white/20 uppercase tracking-[0.3em] ml-2 mb-2">{C.welcome.permTitle}</div>
                             {[
-                                {
+                                ...(platform !== 'windows' ? [{
                                     icon: <Accessibility className="text-orange-400" size={17} />,
                                     title: C.welcome.permAccess,
                                     desc: C.welcome.permAccessDesc,
                                     cmd: 'open_accessibility_settings',
                                     granted: accGranted
-                                },
+                                }] : []),
                                 {
                                     icon: <Mic2 className="text-emerald-400" size={17} />,
                                     title: C.welcome.permMic,

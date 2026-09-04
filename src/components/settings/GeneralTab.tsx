@@ -47,6 +47,12 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({
 }) => {
     const [resetting, setResetting] = React.useState(false);
 
+    const [platform, setPlatform] = React.useState<string>('macos');
+
+    React.useEffect(() => {
+        invoke<string>('get_platform').then(setPlatform).catch(() => {});
+    }, []);
+
     const {
         compactResultWindow, setCompactResultWindow,
         liveStreamPreview, setLiveStreamPreview,
@@ -78,7 +84,7 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({
             <div>
                 <SectionTitle>{c.settings.status || 'Status'}</SectionTitle>
                 <div className="grid grid-cols-1 gap-2">
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className={platform === 'windows' ? "grid grid-cols-1 gap-2" : "grid grid-cols-2 gap-2"}>
                         <StatusCard 
                             icon={Mic2} 
                             label={c.settings.microphone || 'Microphone'} 
@@ -87,16 +93,18 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({
                             action={() => invoke('open_microphone_settings')}
                             lang={lang}
                         />
-                        <StatusCard 
-                            icon={Accessibility} 
-                            label={c.settings.accessibilityTab || 'Accessibility'} 
-                            granted={accGranted} 
-                            color="text-sky-400"
-                            action={() => invoke('open_accessibility_settings')}
-                            secondaryAction={handleResetAcc}
-                            resetting={resetting}
-                            lang={lang}
-                        />
+                        {platform !== 'windows' && (
+                            <StatusCard 
+                                icon={Accessibility} 
+                                label={c.settings.accessibilityTab || 'Accessibility'} 
+                                granted={accGranted} 
+                                color="text-sky-400"
+                                action={() => invoke('open_accessibility_settings')}
+                                secondaryAction={handleResetAcc}
+                                resetting={resetting}
+                                lang={lang}
+                            />
+                        )}
                     </div>
                     
                     <div className="flex items-center justify-between p-3.5 rounded-xl bg-emerald-500/5 border border-emerald-500/10">

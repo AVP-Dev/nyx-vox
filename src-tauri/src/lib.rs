@@ -91,6 +91,24 @@ pub fn run() {
         } else {
             "en"
         }
+    } else if cfg!(target_os = "windows") {
+        #[cfg(target_os = "windows")]
+        {
+            unsafe {
+                let lang_id = windows_sys::Win32::Globalization::GetUserDefaultUILanguage();
+                // 0x0419 is Russian (ru-RU), 0x0422 is Ukrainian, 0x0423 is Belarusian
+                if (lang_id & 0xFF) == 0x19 || (lang_id & 0xFF) == 0x22 || (lang_id & 0xFF) == 0x23
+                {
+                    "ru"
+                } else {
+                    "en"
+                }
+            }
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            "ru"
+        }
     } else {
         "en"
     };
@@ -380,14 +398,26 @@ pub fn run() {
             }
 
             let tray_menu = tauri::menu::Menu::with_items(app, &[])?;
-            TrayIconBuilder::with_id("main")
+
+            #[cfg(target_os = "macos")]
+            let tray_builder = TrayIconBuilder::with_id("main")
                 .icon(
                     tauri::image::Image::from_bytes(include_bytes!("../icons/trayTemplate.png"))
                         .unwrap(),
                 )
                 .icon_as_template(true)
+                .tooltip("NYX Vox — Option+Space");
+
+            #[cfg(not(target_os = "macos"))]
+            let tray_builder = TrayIconBuilder::with_id("main")
+                .icon(
+                    tauri::image::Image::from_bytes(include_bytes!("../icons/32x32.png")).unwrap(),
+                )
+                .icon_as_template(false)
+                .tooltip("NYX Vox — Ctrl+Space");
+
+            tray_builder
                 .menu(&tray_menu)
-                .tooltip("NYX Vox — Option+Space")
                 .on_menu_event(|app_handle, event| match event.id.as_ref() {
                     "quit" => quit_app_safely(app_handle),
                     "show" => toggle_window(app_handle),
@@ -484,6 +514,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            commands::get_platform,
             commands::get_all_settings,
             commands::paste_text,
             commands::dismiss_overlay,
