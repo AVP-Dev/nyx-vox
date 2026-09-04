@@ -4,28 +4,33 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NYX Vox — Premium AI Voice Interface for macOS</title>
-    <meta name="description" content="Fast, private, and stunning AI voice transcription directly to your macOS desktop. Supporting Deepgram, Groq, and offline Whisper.">
+    <meta name="description" content="Fast, private, and stunning AI voice transcription directly to your macOS desktop. Supporting Groq, Deepgram, Gemini, GigaChat, and offline Whisper.">
     
     <!-- Open Graph -->
-    <meta property="og:title" content="NYX Vox — AI Voice Interface">
-    <meta property="og:description" content="Zero latency, maximum elegance. Transcribe voice to text instantly on your Mac.">
+    <meta property="og:title" content="NYX Vox — Premium AI Voice Interface for macOS">
+    <meta property="og:description" content="Zero latency, maximum elegance. Transcribe voice to text and auto-paste into any active app instantly.">
     <meta property="og:image" content="https://avp-dev.github.io/nyx-vox/hero-bg.png">
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="icon" type="image/png" href="logo.png">
 
     <style>
         :root {
-            --bg-deep: #030303;
+            --bg-deep: #050507;
+            --bg-card: rgba(18, 18, 24, 0.65);
             --accent: #ff6b00;
-            --accent-glow: rgba(255, 107, 0, 0.4);
-            --glass: rgba(255, 255, 255, 0.03);
+            --accent-glow: rgba(255, 107, 0, 0.35);
+            --accent-gradient: linear-gradient(135deg, #ff8533 0%, #ff5500 100%);
+            --glass: rgba(255, 255, 255, 0.035);
             --glass-border: rgba(255, 255, 255, 0.08);
+            --glass-border-hover: rgba(255, 255, 255, 0.2);
             --text-main: #ffffff;
-            --text-dim: rgba(255, 255, 255, 0.6);
-            --font-main: "Inter", sans-serif;
+            --text-dim: rgba(255, 255, 255, 0.65);
+            --text-muted: rgba(255, 255, 255, 0.4);
+            --font-main: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+            --font-mono: "JetBrains Mono", monospace;
         }
 
         * {
@@ -38,59 +43,62 @@
             font-family: var(--font-main);
             background-color: var(--bg-deep);
             color: var(--text-main);
-            line-height: 1.5;
+            line-height: 1.6;
             overflow-x: hidden;
             -webkit-font-smoothing: antialiased;
         }
 
-        /* --- Background Effects --- */
+        /* --- Background Glows --- */
         .hero-bg {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100vh;
-            z-index: -1;
+            z-index: -2;
             background: 
-                linear-gradient(to bottom, rgba(3, 3, 3, 0.4), var(--bg-deep)),
+                radial-gradient(ellipse at 50% 10%, rgba(255, 107, 0, 0.12) 0%, transparent 60%),
+                linear-gradient(to bottom, rgba(5, 5, 7, 0.5), var(--bg-deep) 90%),
                 url('hero-bg.png') center/cover no-repeat;
-            opacity: 0.6;
-            filter: saturate(1.2) brightness(0.8);
-            animation: bgShift 40s linear infinite alternate;
+            opacity: 0.65;
+            filter: saturate(1.1) brightness(0.85);
+            animation: bgShift 45s ease-in-out infinite alternate;
         }
 
         @keyframes bgShift {
             from { transform: scale(1.0); }
-            to { transform: scale(1.1); }
+            to { transform: scale(1.06); }
         }
 
         .ambient-glow {
             position: fixed;
-            top: -10%;
+            top: -15%;
             left: 50%;
             transform: translateX(-50%);
-            width: 80%;
-            height: 40%;
-            background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+            width: 90%;
+            height: 50%;
+            background: radial-gradient(circle, var(--accent-glow) 0%, transparent 75%);
             z-index: -1;
-            filter: blur(100px);
-            opacity: 0.3;
+            filter: blur(120px);
+            opacity: 0.25;
+            pointer-events: none;
         }
 
-        /* --- UI Elements --- */
+        /* --- Navigation --- */
         .nav {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
-            padding: 24px 5%;
+            padding: 18px 6%;
             display: flex;
             justify-content: space-between;
             align-items: center;
             z-index: 100;
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
             border-bottom: 1px solid var(--glass-border);
+            background: rgba(5, 5, 7, 0.6);
         }
 
         .logo-group {
@@ -102,42 +110,71 @@
         }
 
         .logo-img {
-            width: 32px;
-            height: 32px;
-            border-radius: 8px;
+            width: 34px;
+            height: 34px;
+            border-radius: 9px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
         }
 
         .logo-text {
             font-weight: 900;
-            font-size: 1.2rem;
-            letter-spacing: -0.05em;
+            font-size: 1.15rem;
+            letter-spacing: -0.04em;
             text-transform: uppercase;
+            background: linear-gradient(180deg, #fff 0%, #bbb 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .nav-right {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .nav-link {
+            color: var(--text-dim);
+            text-decoration: none;
+            font-size: 0.85rem;
+            font-weight: 600;
+            transition: color 0.2s;
+        }
+
+        .nav-link:hover {
+            color: white;
         }
 
         .lang-switch {
             display: flex;
             background: var(--glass);
             border: 1px solid var(--glass-border);
-            border-radius: 12px;
+            border-radius: 10px;
             overflow: hidden;
-            padding: 2px;
+            padding: 3px;
         }
 
         .lang-btn {
             background: none;
             border: none;
             color: var(--text-dim);
-            padding: 6px 14px;
+            padding: 5px 12px;
             font-size: 0.75rem;
             font-weight: 800;
             cursor: pointer;
             transition: all 0.2s;
-            border-radius: 9px;
+            border-radius: 7px;
         }
 
         .lang-btn.active {
             background: white;
             color: black;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
         }
 
         /* --- Hero Section --- */
@@ -148,48 +185,45 @@
             justify-content: center;
             align-items: center;
             text-align: center;
-            padding: 100px 5%;
+            padding: 130px 6% 60px;
+            position: relative;
         }
 
         .badge {
-            background: var(--glass);
-            border: 1px solid var(--glass-border);
+            background: rgba(255, 107, 0, 0.08);
+            border: 1px solid rgba(255, 107, 0, 0.3);
             padding: 6px 16px;
             border-radius: 100px;
             font-size: 0.8rem;
-            font-weight: 600;
+            font-weight: 700;
             margin-bottom: 24px;
             display: inline-flex;
             align-items: center;
             gap: 8px;
             color: var(--accent);
             text-transform: uppercase;
-            letter-spacing: 0.05em;
+            letter-spacing: 0.06em;
+            box-shadow: 0 0 20px rgba(255, 107, 0, 0.15);
         }
 
         .hero h1 {
-            font-size: clamp(3rem, 10vw, 5.5rem);
+            font-size: clamp(2.8rem, 7.5vw, 5.2rem);
             font-weight: 900;
-            line-height: 1.1; /* Increased for better breathing room */
-            letter-spacing: -0.04em; 
-            margin-bottom: 24px;
-            padding: 0 20px; /* Added horizontal padding to prevent clipping */
-            background: linear-gradient(to bottom, #ffffff 100%, #ffffff 100%);
+            line-height: 1.08;
+            letter-spacing: -0.04em;
+            margin-bottom: 22px;
+            max-width: 950px;
+            background: linear-gradient(180deg, #ffffff 30%, rgba(255, 255, 255, 0.7) 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            text-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            text-shadow: 0 10px 40px rgba(0,0,0,0.6);
         }
 
-        /* Brighten the Ru text specifically if needed, but the primary fix is the gradient */
-        html[lang="ru"] .hero h1 {
-            letter-spacing: -0.03em; /* Cyrillic needs a bit more space usually */
-        }
-
-        .hero p {
-            font-size: clamp(1rem, 4vw, 1.4rem);
+        .hero p.lead {
+            font-size: clamp(1.05rem, 2.2vw, 1.35rem);
             color: var(--text-dim);
-            max-width: 600px;
-            margin-bottom: 48px;
+            max-width: 680px;
+            margin-bottom: 36px;
             font-weight: 400;
         }
 
@@ -197,109 +231,583 @@
             display: flex;
             flex-wrap: wrap;
             justify-content: center;
-            gap: 16px;
+            gap: 14px;
+            margin-bottom: 50px;
         }
 
         .btn-primary {
-            background: var(--accent);
+            background: var(--accent-gradient);
             color: white;
-            padding: 18px 36px;
-            border-radius: 16px;
+            padding: 16px 34px;
+            border-radius: 14px;
             font-weight: 800;
             text-decoration: none;
-            font-size: 1.1rem;
-            transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
-            box-shadow: 0 10px 40px -10px var(--accent-glow);
+            font-size: 1rem;
+            transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+            box-shadow: 0 10px 30px -8px var(--accent-glow);
             display: inline-flex;
             align-items: center;
-            gap: 12px;
+            gap: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
         }
 
         .btn-primary:hover {
-            transform: translateY(-4px) scale(1.02);
-            box-shadow: 0 15px 50px -5px var(--accent-glow);
+            transform: translateY(-3px) scale(1.02);
+            box-shadow: 0 16px 40px -4px var(--accent-glow);
         }
 
         .btn-secondary {
             background: var(--glass);
             border: 1px solid var(--glass-border);
             color: white;
-            padding: 18px 36px;
-            border-radius: 16px;
+            padding: 16px 30px;
+            border-radius: 14px;
             font-weight: 700;
             text-decoration: none;
-            font-size: 1.1rem;
-            transition: all 0.3s;
+            font-size: 1rem;
+            transition: all 0.25s;
             backdrop-filter: blur(10px);
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
         }
 
         .btn-secondary:hover {
             background: rgba(255, 255, 255, 0.08);
+            border-color: var(--glass-border-hover);
         }
 
-        /* --- Feature Grid --- */
-        .features {
-            padding: 0 5% 100px;
+        /* --- Interactive Live Simulator Widget --- */
+        .simulator-container {
+            width: 100%;
+            max-width: 720px;
+            margin: 0 auto 40px;
+            perspective: 1000px;
+        }
+
+        .sim-window {
+            background: rgba(14, 14, 20, 0.75);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 20px;
+            padding: 16px 20px;
+            backdrop-filter: blur(28px);
+            -webkit-backdrop-filter: blur(28px);
+            box-shadow: 
+                0 30px 80px -20px rgba(0, 0, 0, 0.8),
+                0 0 0 1px rgba(255, 255, 255, 0.05),
+                inset 0 1px 0 rgba(255, 255, 255, 0.15);
+            text-align: left;
+            transition: all 0.4s ease;
+        }
+
+        .sim-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            min-height: 44px;
+        }
+
+        .sim-mic-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            flex-shrink: 0;
+        }
+
+        .sim-mic-btn.active {
+            background: #ef4444;
+            box-shadow: 0 0 16px rgba(239, 68, 68, 0.6);
+            animation: pulseRec 1.8s infinite;
+        }
+
+        @keyframes pulseRec {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.08); }
+        }
+
+        .sim-waveform {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            height: 24px;
+        }
+
+        .sim-bar {
+            width: 3px;
+            border-radius: 3px;
+            background: rgba(255, 255, 255, 0.25);
+            transition: height 0.15s ease, background 0.15s ease;
+            height: 4px;
+        }
+
+        .sim-waveform.active .sim-bar {
+            background: rgba(255, 255, 255, 0.85);
+            animation: waveBounce 0.6s ease-in-out infinite alternate;
+        }
+
+        .sim-waveform.active .sim-bar:nth-child(1) { animation-delay: 0.05s; }
+        .sim-waveform.active .sim-bar:nth-child(2) { animation-delay: 0.15s; }
+        .sim-waveform.active .sim-bar:nth-child(3) { animation-delay: 0.25s; }
+        .sim-waveform.active .sim-bar:nth-child(4) { animation-delay: 0.35s; }
+        .sim-waveform.active .sim-bar:nth-child(5) { animation-delay: 0.10s; }
+        .sim-waveform.active .sim-bar:nth-child(6) { animation-delay: 0.30s; }
+        .sim-waveform.active .sim-bar:nth-child(7) { animation-delay: 0.20s; }
+        .sim-waveform.active .sim-bar:nth-child(8) { animation-delay: 0.40s; }
+        .sim-waveform.active .sim-bar:nth-child(9) { animation-delay: 0.12s; }
+
+        @keyframes waveBounce {
+            0% { height: 4px; }
+            100% { height: 18px; }
+        }
+
+        .sim-center-stream {
+            flex: 1;
+            font-size: 0.88rem;
+            color: rgba(255, 255, 255, 0.85);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            padding: 0 10px;
+            font-family: var(--font-mono);
+        }
+
+        .sim-cursor {
+            display: inline-block;
+            width: 2px;
+            height: 14px;
+            background: var(--accent);
+            margin-left: 2px;
+            vertical-align: middle;
+            animation: blink 0.8s infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+
+        .sim-badge {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 100px;
+            padding: 4px 10px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.72rem;
+            font-weight: 800;
+            color: var(--accent);
+            letter-spacing: 0.04em;
+        }
+
+        .sim-dots {
+            display: flex;
+            gap: 4px;
+        }
+
+        .sim-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+        }
+
+        .sim-dot.green { background: #10b981; box-shadow: 0 0 6px rgba(16, 185, 129, 0.5); }
+        .sim-dot.orange { background: #ff6b00; box-shadow: 0 0 6px rgba(255, 107, 0, 0.5); }
+
+        /* Simulator Card Body */
+        .sim-body {
+            margin-top: 14px;
+            padding-top: 14px;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            display: none;
+            opacity: 0;
+            transform: translateY(-8px);
+            transition: all 0.35s ease;
+        }
+
+        .sim-body.visible {
+            display: block;
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .sim-card-text {
+            font-size: 0.96rem;
+            color: rgba(255, 255, 255, 0.95);
+            line-height: 1.55;
+            margin-bottom: 14px;
+            background: rgba(0, 0, 0, 0.25);
+            padding: 12px 16px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .sim-action-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .sim-action-icons {
+            display: flex;
+            gap: 6px;
+        }
+
+        .sim-icon-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: var(--text-dim);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+        }
+
+        .sim-paste-btn {
+            background: var(--accent-gradient);
+            color: white;
+            border: none;
+            padding: 8px 18px;
+            border-radius: 10px;
+            font-size: 0.78rem;
+            font-weight: 800;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            box-shadow: 0 4px 14px rgba(255, 107, 0, 0.3);
+        }
+
+        .sim-controls {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            margin-top: 14px;
+        }
+
+        .sim-ctrl-btn {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid var(--glass-border);
+            color: var(--text-dim);
+            padding: 6px 14px;
+            border-radius: 8px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .sim-ctrl-btn:hover {
+            background: rgba(255, 255, 255, 0.12);
+            color: white;
+        }
+
+        /* --- Metrics Bar --- */
+        .metrics-bar {
+            width: 100%;
+            max-width: 1100px;
+            margin: 20px auto 80px;
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 24px;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 18px;
+            padding: 0 5%;
+        }
+
+        .metric-card {
+            background: var(--bg-card);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 22px 20px;
+            text-align: center;
+            backdrop-filter: blur(12px);
+            transition: border-color 0.2s;
+        }
+
+        .metric-card:hover {
+            border-color: rgba(255, 107, 0, 0.3);
+        }
+
+        .metric-val {
+            font-size: 2rem;
+            font-weight: 900;
+            letter-spacing: -0.03em;
+            color: white;
+            margin-bottom: 4px;
+            background: linear-gradient(135deg, #fff 40%, var(--accent) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .metric-lbl {
+            font-size: 0.8rem;
+            color: var(--text-dim);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        /* --- Section Common --- */
+        .section-wrap {
             max-width: 1200px;
+            margin: 0 auto 110px;
+            padding: 0 5%;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 50px;
+        }
+
+        .section-tag {
+            color: var(--accent);
+            font-size: 0.8rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            margin-bottom: 12px;
+            display: block;
+        }
+
+        .section-title {
+            font-size: clamp(2rem, 4vw, 3rem);
+            font-weight: 900;
+            letter-spacing: -0.03em;
+            margin-bottom: 16px;
+        }
+
+        .section-sub {
+            color: var(--text-dim);
+            font-size: 1.05rem;
+            max-width: 650px;
             margin: 0 auto;
         }
 
-        .feature-card {
-            background: var(--glass);
+        /* --- How It Works Pipeline --- */
+        .pipeline-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 20px;
+            position: relative;
+        }
+
+        .pipeline-step {
+            background: var(--bg-card);
             border: 1px solid var(--glass-border);
-            border-radius: 24px;
-            padding: 40px;
-            transition: all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 32px 26px;
+            backdrop-filter: blur(14px);
+            transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .pipeline-step:hover {
+            border-color: var(--glass-border-hover);
+            transform: translateY(-5px);
+            background: rgba(24, 24, 32, 0.8);
+        }
+
+        .step-num {
+            font-size: 2.2rem;
+            font-weight: 900;
+            color: rgba(255, 255, 255, 0.1);
+            position: absolute;
+            top: 20px;
+            right: 24px;
+            font-family: var(--font-mono);
+        }
+
+        .step-icon {
+            width: 46px;
+            height: 46px;
+            border-radius: 12px;
+            background: rgba(255, 107, 0, 0.12);
+            color: var(--accent);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255, 107, 0, 0.2);
+        }
+
+        .pipeline-step h3 {
+            font-size: 1.25rem;
+            font-weight: 800;
+            margin-bottom: 10px;
+            letter-spacing: -0.02em;
+        }
+
+        .pipeline-step p {
+            font-size: 0.92rem;
+            color: var(--text-dim);
+            line-height: 1.55;
+        }
+
+        /* --- Engine Matrix --- */
+        .engines-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 20px;
+        }
+
+        .engine-card {
+            background: var(--bg-card);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 30px;
+            backdrop-filter: blur(14px);
             display: flex;
             flex-direction: column;
             gap: 16px;
+            transition: all 0.3s ease;
         }
 
-        .feature-card:hover {
+        .engine-card:hover {
             border-color: rgba(255, 255, 255, 0.2);
-            background: rgba(255, 255, 255, 0.05);
-            transform: translateY(-8px);
+            transform: translateY(-4px);
         }
 
-        .feature-card h3 {
-            font-size: 1.5rem;
+        .engine-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .engine-name {
+            font-size: 1.35rem;
             font-weight: 800;
             letter-spacing: -0.02em;
         }
 
-        .feature-card p {
-            color: var(--text-dim);
-            font-size: 1rem;
-            line-height: 1.6;
+        .engine-badge {
+            font-size: 0.7rem;
+            font-weight: 800;
+            padding: 4px 10px;
+            border-radius: 100px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
         }
 
-        .feature-icon {
-            width: 48px;
-            height: 48px;
-            background: var(--accent-glow);
-            border-radius: 12px;
+        .badge-orange { background: rgba(255, 107, 0, 0.15); color: #ff8533; border: 1px solid rgba(255, 107, 0, 0.3); }
+        .badge-green { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+        .badge-blue { background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); }
+        .badge-purple { background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.3); }
+
+        .engine-specs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            font-size: 0.8rem;
+            padding: 12px 14px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.04);
+        }
+
+        .spec-item {
             display: flex;
-            align-items: center;
-            justify-content: center;
-            color: var(--accent);
-            margin-bottom: 8px;
+            flex-direction: column;
+            gap: 2px;
         }
 
-        /* --- Troubleshooting & Magic Fix --- */
+        .spec-lbl { color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase; }
+        .spec-val { color: rgba(255, 255, 255, 0.9); font-weight: 700; }
+
+        /* --- Showcase / UI Gallery --- */
+        .showcase-tabs {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 28px;
+        }
+
+        .showcase-tab {
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            color: var(--text-dim);
+            padding: 10px 20px;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .showcase-tab.active {
+            background: white;
+            color: black;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+        }
+
+        .showcase-viewer {
+            background: var(--bg-card);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            overflow: hidden;
+            box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(16px);
+            padding: 30px;
+            min-height: 400px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+
+        .showcase-content {
+            display: none;
+            width: 100%;
+            max-width: 760px;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .showcase-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .mockup-frame {
+            background: rgba(10, 10, 15, 0.85);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 18px;
+            padding: 24px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+            margin: 0 auto;
+            text-align: left;
+        }
+
+        /* --- Troubleshooting --- */
         .troubleshooting {
-            max-width: 800px;
-            margin: -40px auto 100px;
-            padding: 32px;
+            max-width: 820px;
+            margin: 0 auto 100px;
+            padding: 36px;
             background: rgba(220, 38, 38, 0.05);
-            border: 1px solid rgba(220, 38, 38, 0.2);
+            border: 1px solid rgba(220, 38, 38, 0.22);
             border-radius: 24px;
             backdrop-filter: blur(20px);
             text-align: left;
+            box-shadow: 0 10px 40px -10px rgba(220, 38, 38, 0.1);
         }
 
         .troubleshooting-header {
@@ -311,13 +819,14 @@
 
         .troubleshooting-header svg {
             color: #ef4444;
+            flex-shrink: 0;
         }
 
         .troubleshooting h3 {
-            font-size: 1.1rem;
+            font-size: 1.15rem;
             font-weight: 800;
             text-transform: uppercase;
-            letter-spacing: 0.05em;
+            letter-spacing: 0.06em;
             color: #ef4444;
         }
 
@@ -329,28 +838,25 @@
         }
 
         .code-box {
-            background: rgba(0,0,0,0.4);
-            border: 1px solid var(--glass-border);
+            background: rgba(0, 0, 0, 0.55);
+            border: 1px solid rgba(255, 255, 255, 0.1);
             border-radius: 12px;
-            padding: 16px;
+            padding: 14px 18px;
             display: flex;
             align-items: center;
             gap: 16px;
-            font-family: monospace;
+            font-family: var(--font-mono);
             font-size: 0.85rem;
             position: relative;
-            overflow: hidden;
         }
 
         .code-content {
             flex: 1;
             white-space: nowrap;
             overflow-x: auto;
-            color: rgba(255,255,255,0.8);
+            color: #ff9966;
             scrollbar-width: none;
         }
-
-        .code-content::-webkit-scrollbar { display: none; }
 
         .copy-btn {
             background: var(--accent);
@@ -366,7 +872,7 @@
         }
 
         .copy-btn:hover {
-            transform: scale(1.05);
+            transform: scale(1.04);
             filter: brightness(1.1);
         }
 
@@ -376,36 +882,39 @@
 
         /* --- Footer --- */
         footer {
-            padding: 60px 5%;
+            padding: 70px 5% 50px;
             text-align: center;
             border-top: 1px solid var(--glass-border);
             color: var(--text-dim);
             font-size: 0.9rem;
+            background: rgba(3, 3, 5, 0.8);
         }
 
-        footer a {
-            color: white;
-            text-decoration: none;
-            font-weight: 600;
+        .creator-signature {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
         }
 
         /* --- Translation Logic --- */
         [data-en], [data-ru] { display: none; }
         
         html[lang="en"] [data-en] { display: inline; }
-        html[lang="en"] p[data-en] { display: block; }
-        html[lang="en"] h1[data-en] { display: block; }
-        html[lang="en"] h3[data-en] { display: block; }
+        html[lang="en"] p[data-en], html[lang="en"] div[data-en], html[lang="en"] span.block[data-en] { display: block; }
+        html[lang="en"] h1[data-en], html[lang="en"] h2[data-en], html[lang="en"] h3[data-en] { display: block; }
 
         html[lang="ru"] [data-ru] { display: inline; }
-        html[lang="ru"] p[data-ru] { display: block; }
-        html[lang="ru"] h1[data-ru] { display: block; }
-        html[lang="ru"] h3[data-ru] { display: block; }
+        html[lang="ru"] p[data-ru], html[lang="ru"] div[data-ru], html[lang="ru"] span.block[data-ru] { display: block; }
+        html[lang="ru"] h1[data-ru], html[lang="ru"] h2[data-ru], html[lang="ru"] h3[data-ru] { display: block; }
 
         @media (max-width: 768px) {
-            .hero h1 { font-size: 3.5rem; }
+            .nav-links { display: none; }
+            .hero h1 { font-size: 2.8rem; }
             .cta-group { flex-direction: column; width: 100%; }
             .btn-primary, .btn-secondary { width: 100%; justify-content: center; }
+            .simulator-container { padding: 0 10px; }
+            .engines-grid { grid-template-columns: 1fr; }
         }
     </style>
 </head>
@@ -413,73 +922,470 @@
     <div class="hero-bg"></div>
     <div class="ambient-glow"></div>
 
+    <!-- Navigation -->
     <nav class="nav">
         <a href="#" class="logo-group">
             <img src="logo.png" alt="NYX Vox" class="logo-img">
             <span class="logo-text">NYX Vox</span>
         </a>
-        <div class="lang-switch">
-            <button class="lang-btn" id="btn-en" onclick="setLang('en')">EN</button>
-            <button class="lang-btn" id="btn-ru" onclick="setLang('ru')">RU</button>
+
+        <div class="nav-links">
+            <a href="#how-it-works" class="nav-link">
+                <span data-en>How It Works</span><span data-ru>Как это работает</span>
+            </a>
+            <a href="#engines" class="nav-link">
+                <span data-en>Engines</span><span data-ru>Движки</span>
+            </a>
+            <a href="#showcase" class="nav-link">
+                <span data-en>Interface</span><span data-ru>Интерфейс</span>
+            </a>
+            <a href="#troubleshooting" class="nav-link">
+                <span data-en>Install Guide</span><span data-ru>Установка</span>
+            </a>
+        </div>
+
+        <div class="nav-right">
+            <div class="lang-switch">
+                <button class="lang-btn" id="btn-en" onclick="setLang('en')">EN</button>
+                <button class="lang-btn" id="btn-ru" onclick="setLang('ru')">RU</button>
+            </div>
         </div>
     </nav>
 
     <main>
+        <!-- Hero Section -->
         <section class="hero">
             <div class="badge">
-                <span id="version-tag">Loading...</span> <span data-en>now live</span><span data-ru>доступна</span>
+                <span id="version-tag">v1.4.0</span> &bull; 
+                <span data-en>Rust &bull; Tauri 2 &bull; macOS</span>
+                <span data-ru>Rust &bull; Tauri 2 &bull; macOS</span>
             </div>
+
             <h1 data-en>Voice to Text.<br>At the Speed of Thought.</h1>
             <h1 data-ru>Голос в текст.<br>Быстрее, чем мысли.</h1>
-            <p data-en>A premium, minimalist AI voice interface for macOS. Works offline or with cloud AI — your choice.</p>
-            <p data-ru>Премиальный голосовой интерфейс для macOS. Работает офлайн или через облачный ИИ — выбор за вами.</p>
+
+            <p class="lead" data-en>A premium, minimalist AI voice interface for macOS. Zero-latency streaming, 100% verbatim AI formatting, and direct auto-paste into any active app.</p>
+            <p class="lead" data-ru>Премиальный голосовой интерфейс для macOS. Стриминг с нулевой задержкой, 100% дословное AI-форматирование и прямая вставка текста в любое приложение.</p>
             
             <div class="cta-group">
                 <a href="https://github.com/AVP-Dev/nyx-vox/releases/latest" class="btn-primary">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-                    <span data-en>Download DMG</span>
-                    <span data-ru>Скачать DMG</span>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                    <span data-en>Download for macOS (DMG)</span>
+                    <span data-ru>Скачать для macOS (.dmg)</span>
                 </a>
-                <a href="https://github.com/AVP-Dev/nyx-vox" class="btn-secondary">
-                    <span data-en>View GitHub</span>
-                    <span data-ru>Открыть GitHub</span>
+                <a href="https://github.com/AVP-Dev/nyx-vox" class="btn-secondary" target="_blank" rel="noopener noreferrer">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+                    <span data-en>GitHub Repository</span>
+                    <span data-ru>Репозиторий GitHub</span>
                 </a>
+            </div>
+
+            <!-- Interactive Live Simulator -->
+            <div class="simulator-container">
+                <div class="sim-window">
+                    <div class="sim-header">
+                        <button class="sim-mic-btn active" id="sim-mic" onclick="toggleSimPlay()" title="Toggle Recording">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+                        </button>
+
+                        <div class="sim-waveform active" id="sim-wave">
+                            <div class="sim-bar"></div>
+                            <div class="sim-bar"></div>
+                            <div class="sim-bar"></div>
+                            <div class="sim-bar"></div>
+                            <div class="sim-bar"></div>
+                            <div class="sim-bar"></div>
+                            <div class="sim-bar"></div>
+                            <div class="sim-bar"></div>
+                            <div class="sim-bar"></div>
+                        </div>
+
+                        <div class="sim-center-stream" id="sim-stream">
+                            <span id="sim-text">...</span><span class="sim-cursor"></span>
+                        </div>
+
+                        <div class="sim-badge">
+                            <span>NV</span>
+                            <div class="sim-dots">
+                                <span class="sim-dot green"></span>
+                                <span class="sim-dot orange"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Simulator Result Body -->
+                    <div class="sim-body" id="sim-body">
+                        <div class="sim-card-text" id="sim-formatted-text">
+                            <!-- Injected dynamically -->
+                        </div>
+                        <div class="sim-action-bar">
+                            <div class="sim-action-icons">
+                                <div class="sim-icon-btn" title="Edit">&#9998;</div>
+                                <div class="sim-icon-btn" title="Copy">&#128203;</div>
+                                <div class="sim-icon-btn" title="Clear">&#10005;</div>
+                            </div>
+                            <button class="sim-paste-btn" id="sim-paste-target">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                                <span id="sim-target-label">TO VS CODE</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="sim-controls">
+                    <button class="sim-ctrl-btn" onclick="restartSim()">
+                        &#x21bb; <span data-en>Replay Demo</span><span data-ru>Повторить демо</span>
+                    </button>
+                    <button class="sim-ctrl-btn" onclick="switchScenario()">
+                        &#x21c4; <span data-en>Switch Scenario</span><span data-ru>Сменить контекст</span>
+                    </button>
+                </div>
             </div>
         </section>
 
-        <section class="features">
-            <div class="feature-card">
-                <div class="feature-icon">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
-                </div>
-                <h3 data-en>Cloud Turbo</h3>
-                <h3 data-ru>Облачное Турбо</h3>
-                <p data-en>Leverage Deepgram and Groq for blazing fast transcription with perfect punctuation and formatting.</p>
-                <p data-ru>Используйте Deepgram и Groq для мгновенной расшифровки с идеальной пунктуацией и форматированием.</p>
+        <!-- Metrics Section -->
+        <section class="metrics-bar">
+            <div class="metric-card">
+                <div class="metric-val">&lt; 500 ms</div>
+                <div class="metric-lbl" data-en>Cloud Latency (Groq)</div>
+                <div class="metric-lbl" data-ru>Задержка в облаке (Groq)</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-val">100%</div>
+                <div class="metric-lbl" data-en>Verbatim Formatting</div>
+                <div class="metric-lbl" data-ru>Дословная точность</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-val">AES-256</div>
+                <div class="metric-lbl" data-en>Encrypted API Keys</div>
+                <div class="metric-lbl" data-ru>Шифрование ключей</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-val">0 KB</div>
+                <div class="metric-lbl" data-en>Data Sent in Offline Mode</div>
+                <div class="metric-lbl" data-ru>В офлайн-режиме без сети</div>
+            </div>
+        </section>
+
+        <!-- How It Works Section -->
+        <section class="section-wrap" id="how-it-works">
+            <div class="section-header">
+                <span class="section-tag" data-en>Architecture</span>
+                <span class="section-tag" data-ru>Архитектура</span>
+                <h2 class="section-title" data-en>How NYX Vox Works</h2>
+                <h2 class="section-title" data-ru>Как это работает</h2>
+                <p class="section-sub" data-en>From your spoken voice to formatted text in your active window — engineered for raw speed and zero hallucinations.</p>
+                <p class="section-sub" data-ru>От произнесенной фразы до чистого текста в вашем окне — спроектировано для максимальной скорости и без искажения смысла.</p>
             </div>
 
-            <div class="feature-card">
-                <div class="feature-icon">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            <div class="pipeline-grid">
+                <div class="pipeline-step">
+                    <span class="step-num">01</span>
+                    <div class="step-icon">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+                    </div>
+                    <h3 data-en>Capture &amp; Smart VAD</h3>
+                    <h3 data-ru>Захват звука и VAD</h3>
+                    <p data-en>High-fidelity 16 kHz audio capture with calibrated Noise Gate and smart speech activity detection (VAD). Auto-stops on natural silence.</p>
+                    <p data-ru>Захват аудио 16 кГц с откалиброванным шумоподавлением и умным определением пауз речи (VAD). Автоматическая остановка по тишине.</p>
                 </div>
-                <h3 data-en>Total Privacy</h3>
-                <h3 data-ru>Полная Приватность</h3>
-                <p data-en>Run Whisper locally on your Mac. No internet required, no data sent to cloud. Pure local power.</p>
-                <p data-ru>Запускайте Whisper локально на вашем Mac. Интернет не нужен, данные не покидают устройство.</p>
+
+                <div class="pipeline-step">
+                    <span class="step-num">02</span>
+                    <div class="step-icon">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                    </div>
+                    <h3 data-en>Lightning-Fast STT</h3>
+                    <h3 data-ru>Молниеносный STT</h3>
+                    <p data-en>Groq LPU runs Whisper Large-v3-Turbo in ~500ms. Or toggle Deepgram, Gemini, GigaChat, or 100% Offline Whisper accelerated by Metal &amp; Core ML.</p>
+                    <p data-ru>Groq LPU запускает Whisper Large-v3-Turbo за 500 мс. Также доступны Deepgram, Gemini, GigaChat и офлайн Whisper с Core ML ускорением.</p>
+                </div>
+
+                <div class="pipeline-step">
+                    <span class="step-num">03</span>
+                    <div class="step-icon">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/></svg>
+                    </div>
+                    <h3 data-en>100% Verbatim Refinement</h3>
+                    <h3 data-ru>100% Дословный ИИ</h3>
+                    <p data-en>Strict AI prompting ensures zero rewrites or synonym replacement. Adds proper punctuation, technical casing, and paragraph breaks without altering your words.</p>
+                    <p data-ru>Строгий системный промпт исключает пересказ и синонимы. Проставляет пунктуацию, регистр терминов и абзацы, сохраняя каждое ваше слово.</p>
+                </div>
+
+                <div class="pipeline-step">
+                    <span class="step-num">04</span>
+                    <div class="step-icon">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    </div>
+                    <h3 data-en>Native HID Auto-Paste</h3>
+                    <h3 data-ru>Нативная Автовставка</h3>
+                    <p data-en>Direct synthetic input injection via macOS Accessibility API. Text instantly appears in VS Code, Telegram, Slack, Word, or your browser without manual pasting.</p>
+                    <p data-ru>Прямая эмуляция ввода через Accessibility API macOS. Текст мгновенно печатается в VS Code, Telegram, Slack или браузере без нажатия Cmd+V.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- STT & AI Engines Section -->
+        <section class="section-wrap" id="engines">
+            <div class="section-header">
+                <span class="section-tag" data-en>Flexibility</span>
+                <span class="section-tag" data-ru>Гибкость</span>
+                <h2 class="section-title" data-en>Choose Your Engine</h2>
+                <h2 class="section-title" data-ru>Выберите свой движок</h2>
+                <p class="section-sub" data-en>Bring your own API keys or run completely offline. NYX Vox provides an engine-agnostic resilient architecture.</p>
+                <p class="section-sub" data-ru>Подключайте собственные API-ключи или работайте полностью офлайн. Движко-независимая архитектура гарантирует сохранность текста.</p>
             </div>
 
-            <div class="feature-card">
-                <div class="feature-icon">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12a10 10 0 1 0 20 0 10 10 0 1 0-20 0Z"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+            <div class="engines-grid">
+                <!-- Groq -->
+                <div class="engine-card">
+                    <div class="engine-head">
+                        <span class="engine-name">Groq LPU™</span>
+                        <span class="engine-badge badge-orange" data-en>Recommended</span>
+                        <span class="engine-badge badge-orange" data-ru>Рекомендуется</span>
+                    </div>
+                    <p data-en>Whisper Large-v3-Turbo running on custom LPU silicon. Incredible speed with virtually instantaneous transcription.</p>
+                    <p data-ru>Whisper Large-v3-Turbo на специализированных процессорах LPU. Молниеносная скорость распознавания.</p>
+                    <div class="engine-specs">
+                        <div class="spec-item"><span class="spec-lbl" data-en>Speed</span><span class="spec-lbl" data-ru>Скорость</span><span class="spec-val">~500 ms</span></div>
+                        <div class="spec-item"><span class="spec-lbl" data-en>Type</span><span class="spec-lbl" data-ru>Тип</span><span class="spec-val">Cloud LPU</span></div>
+                        <div class="spec-item"><span class="spec-lbl" data-en>Cost</span><span class="spec-lbl" data-ru>Квоты</span><span class="spec-val">Generous Free Tier</span></div>
+                        <div class="spec-item"><span class="spec-lbl" data-en>Best For</span><span class="spec-lbl" data-ru>Для чего</span><span class="spec-val">Daily Driver</span></div>
+                    </div>
                 </div>
-                <h3 data-en>Native Flow</h3>
-                <h3 data-ru>Нативная Работа</h3>
-                <p data-en>Automated text insertion in any app. Smart window anchoring to the macOS menu bar for easy access.</p>
-                <p data-ru>Автоматическая вставка текста в любое приложение. Умная фиксация у менюбара macOS.</p>
+
+                <!-- Whisper Local -->
+                <div class="engine-card">
+                    <div class="engine-head">
+                        <span class="engine-name">Whisper Local</span>
+                        <span class="engine-badge badge-green" data-en>100% Private</span>
+                        <span class="engine-badge badge-green" data-ru>Приватность</span>
+                    </div>
+                    <p data-en>Runs fully on-device via Metal &amp; Core ML acceleration. Zero bytes leave your Mac. Works perfectly without internet access.</p>
+                    <p data-ru>Работает локально на вашем Mac с ускорением Metal и Core ML. Ни одного байта в сеть. Работает без интернета.</p>
+                    <div class="engine-specs">
+                        <div class="spec-item"><span class="spec-lbl" data-en>Speed</span><span class="spec-lbl" data-ru>Скорость</span><span class="spec-val">~1.2 - 2.0 s</span></div>
+                        <div class="spec-item"><span class="spec-lbl" data-en>Type</span><span class="spec-lbl" data-ru>Тип</span><span class="spec-val">Local CoreML</span></div>
+                        <div class="spec-item"><span class="spec-lbl" data-en>Cost</span><span class="spec-lbl" data-ru>Квоты</span><span class="spec-val">100% Free Forever</span></div>
+                        <div class="spec-item"><span class="spec-lbl" data-en>Best For</span><span class="spec-lbl" data-ru>Для чего</span><span class="spec-val">Confidential Data</span></div>
+                    </div>
+                </div>
+
+                <!-- GigaChat -->
+                <div class="engine-card">
+                    <div class="engine-head">
+                        <span class="engine-name">Sber GigaChat</span>
+                        <span class="engine-badge badge-green" data-en>Russian AI</span>
+                        <span class="engine-badge badge-green" data-ru>Без VPN</span>
+                    </div>
+                    <p data-en>Native Russian AI integration with Russian Trusted CA support. Reliable and fast access from within Russia without VPN.</p>
+                    <p data-ru>Российская нейросеть с поддержкой сертификатов Минцифры. Доступна в РФ без VPN, идеальна для русской терминологии.</p>
+                    <div class="engine-specs">
+                        <div class="spec-item"><span class="spec-lbl" data-en>Speed</span><span class="spec-lbl" data-ru>Скорость</span><span class="spec-val">~700 ms</span></div>
+                        <div class="spec-item"><span class="spec-lbl" data-en>Type</span><span class="spec-lbl" data-ru>Тип</span><span class="spec-val">Cloud SberAI</span></div>
+                        <div class="spec-item"><span class="spec-lbl" data-en>Cost</span><span class="spec-lbl" data-ru>Квоты</span><span class="spec-val">Free Developer Tier</span></div>
+                        <div class="spec-item"><span class="spec-lbl" data-en>Best For</span><span class="spec-lbl" data-ru>Для чего</span><span class="spec-val">RU Dictation</span></div>
+                    </div>
+                </div>
+
+                <!-- Gemini -->
+                <div class="engine-card">
+                    <div class="engine-head">
+                        <span class="engine-name">Google Gemini</span>
+                        <span class="engine-badge badge-blue" data-en>SOTA AI</span>
+                        <span class="engine-badge badge-blue" data-ru>Google AI</span>
+                    </div>
+                    <p data-en>Multimodal intelligence delivering premium accuracy across English, Russian, and technical coding terminology.</p>
+                    <p data-ru>Мультимодальная модель Google. Превосходная точность для сложного кода, пунктуации и смешанных языков.</p>
+                    <div class="engine-specs">
+                        <div class="spec-item"><span class="spec-lbl" data-en>Speed</span><span class="spec-lbl" data-ru>Скорость</span><span class="spec-val">~800 ms</span></div>
+                        <div class="spec-item"><span class="spec-lbl" data-en>Type</span><span class="spec-lbl" data-ru>Тип</span><span class="spec-val">Cloud Multimodal</span></div>
+                        <div class="spec-item"><span class="spec-lbl" data-en>Cost</span><span class="spec-lbl" data-ru>Квоты</span><span class="spec-val">Google AI Studio</span></div>
+                        <div class="spec-item"><span class="spec-lbl" data-en>Best For</span><span class="spec-lbl" data-ru>Для чего</span><span class="spec-val">Complex Syntax</span></div>
+                    </div>
+                </div>
+
+                <!-- Deepgram -->
+                <div class="engine-card">
+                    <div class="engine-head">
+                        <span class="engine-name">Deepgram Nova</span>
+                        <span class="engine-badge badge-purple" data-en>Commercial</span>
+                        <span class="engine-badge badge-purple" data-ru>Профи</span>
+                    </div>
+                    <p data-en>Enterprise speech model built for noisy environments. High reliability and instant streaming transcription.</p>
+                    <p data-ru>Коммерческая модель корпоративного уровня. Устойчива к постороннему шуму и эху, высокая четкость.</p>
+                    <div class="engine-specs">
+                        <div class="spec-item"><span class="spec-lbl" data-en>Speed</span><span class="spec-lbl" data-ru>Скорость</span><span class="spec-val">~600 ms</span></div>
+                        <div class="spec-item"><span class="spec-lbl" data-en>Type</span><span class="spec-lbl" data-ru>Тип</span><span class="spec-val">Cloud Streaming</span></div>
+                        <div class="spec-item"><span class="spec-lbl" data-en>Cost</span><span class="spec-lbl" data-ru>Квоты</span><span class="spec-val">$200 Free Credits</span></div>
+                        <div class="spec-item"><span class="spec-lbl" data-en>Best For</span><span class="spec-lbl" data-ru>Для чего</span><span class="spec-val">Noisy Rooms</span></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Interface Showcase Section -->
+        <section class="section-wrap" id="showcase">
+            <div class="section-header">
+                <span class="section-tag" data-en>Design</span>
+                <span class="section-tag" data-ru>Интерфейс</span>
+                <h2 class="section-title" data-en>Crafted for macOS</h2>
+                <h2 class="section-title" data-ru>Создан для macOS</h2>
+                <p class="section-sub" data-en>Pure Glassmorphism aesthetics, compact idle modes, and deep system integration.</p>
+                <p class="section-sub" data-ru>Эстетика Glassmorphism, компактный круглый пузырь в простое и глубокая интеграция с системой.</p>
+            </div>
+
+            <div class="showcase-tabs">
+                <button class="showcase-tab active" onclick="showTab('tab-rec')">
+                    <span data-en>Recording &amp; Waveform</span><span data-ru>Запись и Волна</span>
+                </button>
+                <button class="showcase-tab" onclick="showTab('tab-result')">
+                    <span data-en>Result &amp; Auto-Paste</span><span data-ru>Результат и Вставка</span>
+                </button>
+                <button class="showcase-tab" onclick="showTab('tab-engines')">
+                    <span data-en>Engines Hub</span><span data-ru>Движки и Модели</span>
+                </button>
+                <button class="showcase-tab" onclick="showTab('tab-keys')">
+                    <span data-en>Security &amp; Keys</span><span data-ru>Безопасность Ключей</span>
+                </button>
+                <button class="showcase-tab" onclick="showTab('tab-perms')">
+                    <span data-en>Audio &amp; Permissions</span><span data-ru>Аудио и Права</span>
+                </button>
+            </div>
+
+            <div class="showcase-viewer">
+                <!-- Tab 1: Recording -->
+                <div class="showcase-content active" id="tab-rec">
+                    <div class="mockup-frame">
+                        <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 12px; margin-bottom: 16px;">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <div style="width: 10px; height: 10px; border-radius: 50%; background: #ef4444; box-shadow: 0 0 10px #ef4444;"></div>
+                                <span style="font-size: 0.85rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;">
+                                    <span data-en>LIVE STREAMING RECORDING</span><span data-ru>АКТИВНАЯ ЗАПИСЬ И СТРИМИНГ</span>
+                                </span>
+                            </div>
+                            <span style="font-size: 0.75rem; color: var(--text-dim); font-family: var(--font-mono);">00:04.2</span>
+                        </div>
+                        <p style="font-size: 0.95rem; color: rgba(255,255,255,0.85); font-family: var(--font-mono); line-height: 1.6;">
+                            <span data-en>&ldquo;Create an async function fetchUserData with try-catch error handling...&rdquo;</span>
+                            <span data-ru>&laquo;Создай асинхронную функцию fetchUserData с обработкой ошибок через try-catch...&raquo;</span>
+                        </p>
+                        <div style="margin-top: 16px; display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 0.75rem; padding: 4px 8px; border-radius: 6px; background: rgba(255,107,0,0.1); color: var(--accent); border: 1px solid rgba(255,107,0,0.2);">Groq Turbo LPU</span>
+                            <span style="font-size: 0.75rem; color: var(--text-muted);" data-en>Auto-stop on 3.5s silence</span>
+                            <span style="font-size: 0.75rem; color: var(--text-muted);" data-ru>Автостоп при тишине 3.5 сек</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 2: Result -->
+                <div class="showcase-content" id="tab-result">
+                    <div class="mockup-frame">
+                        <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 12px; margin-bottom: 16px;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <div style="width: 8px; height: 8px; border-radius: 50%; background: #ff6b00;"></div>
+                                <span style="font-size: 0.8rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;">
+                                    <span data-en>RESULT FORMATTED</span><span data-ru>РЕЗУЛЬТАТ ОБРАБОТКИ</span>
+                                </span>
+                            </div>
+                            <span style="font-size: 0.75rem; color: #10b981; font-weight: 700;" data-en>&check; 100% Verbatim</span>
+                            <span style="font-size: 0.75rem; color: #10b981; font-weight: 700;" data-ru>&check; 100% Дословно</span>
+                        </div>
+                        <div style="background: rgba(0,0,0,0.3); border-radius: 10px; padding: 14px; font-size: 0.95rem; line-height: 1.6; margin-bottom: 14px;">
+                            <span data-en>Create an async function <code>fetchUserData</code> with try-catch error handling and add strict TypeScript typing for the <code>UserResponse</code> interface.</span>
+                            <span data-ru>Создай асинхронную функцию <code>fetchUserData</code> с обработкой ошибок через try-catch и добавь строгую типизацию интерфейса <code>UserResponse</code> в TypeScript.</span>
+                        </div>
+                        <div style="display: flex; justify-content: flex-end;">
+                            <div style="background: var(--accent-gradient); color: white; font-weight: 800; font-size: 0.78rem; padding: 8px 16px; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px;">
+                                <span>&rarr;</span> <span data-en>PASTE TO VS CODE</span><span data-ru>ВСТАВИТЬ В VS CODE</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 3: Engines -->
+                <div class="showcase-content" id="tab-engines">
+                    <div class="mockup-frame">
+                        <div style="margin-bottom: 14px; font-weight: 800; font-size: 0.9rem;" data-en>AI &amp; STT Configuration Hub</div>
+                        <div style="margin-bottom: 14px; font-weight: 800; font-size: 0.9rem;" data-ru>Управление STT-движками и AI-моделями</div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.85rem;">
+                            <div style="background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,107,0,0.4);">
+                                <div style="font-weight: 700; color: var(--accent);">Groq Whisper Turbo</div>
+                                <div style="font-size: 0.75rem; color: var(--text-dim);" data-en>Active STT &bull; ~500ms</div>
+                                <div style="font-size: 0.75rem; color: var(--text-dim);" data-ru>Активный STT &bull; ~500мс</div>
+                            </div>
+                            <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06);">
+                                <div style="font-weight: 700;">DeepSeek V3 / Qwen</div>
+                                <div style="font-size: 0.75rem; color: var(--text-dim);" data-en>Formatting LLM</div>
+                                <div style="font-size: 0.75rem; color: var(--text-dim);" data-ru>Форматирование LLM</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 4: Keys -->
+                <div class="showcase-content" id="tab-keys">
+                    <div class="mockup-frame">
+                        <div style="margin-bottom: 14px; font-weight: 800; font-size: 0.9rem; display: flex; align-items: center; justify-content: space-between;">
+                            <span data-en>Hardware-Bound Key Vault</span>
+                            <span data-ru>Защищенное хранилище ключей</span>
+                            <span style="font-size: 0.72rem; padding: 2px 8px; border-radius: 100px; background: rgba(16,185,129,0.15); color: #34d399; font-weight: 700;">AES-256-GCM</span>
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 8px; font-size: 0.85rem;">
+                            <div style="background: rgba(0,0,0,0.3); padding: 10px 14px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
+                                <span>Groq API Key</span>
+                                <span style="color: #34d399; font-weight: 700;">&check; gsk_••••••••9a21</span>
+                            </div>
+                            <div style="background: rgba(0,0,0,0.3); padding: 10px 14px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
+                                <span>GigaChat Auth Token</span>
+                                <span style="color: #34d399; font-weight: 700;">&check; sber_••••••••b47e</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 5: Audio & Perms -->
+                <div class="showcase-content" id="tab-perms">
+                    <div class="mockup-frame">
+                        <div style="margin-bottom: 14px; font-weight: 800; font-size: 0.9rem;" data-en>macOS Permissions &amp; Audio Calibration</div>
+                        <div style="margin-bottom: 14px; font-weight: 800; font-size: 0.9rem;" data-ru>Права macOS и калибровка звука</div>
+                        <div style="display: flex; flex-direction: column; gap: 10px; font-size: 0.85rem;">
+                            <div style="display: flex; justify-content: space-between;">
+                                <span data-en>Microphone Access</span><span data-ru>Доступ к микрофону</span>
+                                <span style="color: #34d399; font-weight: 700;">&check; Granted</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between;">
+                                <span data-en>macOS Accessibility (Auto-Paste)</span><span data-ru>Универсальный доступ (Вставка)</span>
+                                <span style="color: #34d399; font-weight: 700;">&check; Active</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Troubleshooting Section -->
+        <section class="troubleshooting" id="troubleshooting">
+            <div class="troubleshooting-header">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                <h3 data-en>macOS Gatekeeper: "App is Damaged" Fix</h3>
+                <h3 data-ru>macOS Gatekeeper: Ошибка "Приложение повреждено"</h3>
+            </div>
+            
+            <p data-en>Because NYX Vox is an open-source tool distributed without a paid Apple Developer certificate, macOS quarantine may block first launch. Run this one-line command in Terminal:</p>
+            <p data-ru>Поскольку NYX Vox распространяется бесплатно с открытым исходным кодом без платного сертификата Apple, система безопасности macOS может заблокировать запуск. Выполните команду в Терминале:</p>
+
+            <div class="code-box">
+                <div class="code-content" id="magic-command">xattr -cr /Applications/NYX\ Vox.app</div>
+                <button class="copy-btn" onclick="copyCommand(this)">
+                    <span data-en>Copy Command</span>
+                    <span data-ru>Скопировать</span>
+                </button>
             </div>
         </section>
     </main>
 
+    <!-- Footer -->
     <footer>
         <div class="creator-signature">
             <div style="display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 8px;">
@@ -487,20 +1393,22 @@
                 <span style="opacity: 0.2;">|</span>
                 <a href="https://avpdev.com/ru/" style="font-weight: 700; opacity: 0.9; color: white; text-decoration: none;">Aliaksei Patskevich</a>
             </div>
-            <div style="font-size: 10px; text-transform: uppercase; letter-spacing: 0.15em; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 12px;">
-                <span style="opacity: 0.35;">Modern Web Architect</span>
-                <span style="opacity: 0.2;">•</span>
-                <a href="https://github.com/AVP-Dev" style="color: rgba(255,255,255,0.7); text-decoration: none; transition: 0.2s;" onmouseover="this.style.color='#3b82f6'" onmouseout="this.style.color='rgba(255,255,255,0.7)'">GitHub</a>
-                <span style="opacity: 0.2;">•</span>
-                <a href="https://t.me/AVP_Dev" style="color: rgba(255,255,255,0.7); text-decoration: none; transition: 0.2s;" onmouseover="this.style.color='#3b82f6'" onmouseout="this.style.color='rgba(255,255,255,0.7)'">Telegram</a>
+            <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 12px;">
+                <span style="opacity: 0.45;">Modern Web Architect</span>
+                <span style="opacity: 0.2;">&bull;</span>
+                <a href="https://github.com/AVP-Dev" style="color: rgba(255,255,255,0.7); text-decoration: none;" target="_blank">GitHub</a>
+                <span style="opacity: 0.2;">&bull;</span>
+                <a href="https://t.me/AVP_Dev" style="color: rgba(255,255,255,0.7); text-decoration: none;" target="_blank">Telegram</a>
             </div>
-            <div style="margin-top: 32px; font-size: 0.7rem; opacity: 0.2;">
-                &copy; 2026 NYX Vox Project. All architectural rights reserved.
+            <div style="margin-top: 24px; font-size: 0.75rem; opacity: 0.3;">
+                &copy; 2026 NYX Vox Project. Open Source &bull; Rust &bull; Tauri 2 &bull; Next.js 16.
             </div>
         </div>
     </footer>
 
+    <!-- Interactive Scripts -->
     <script>
+        // --- Bilingual & Version Setup ---
         async function fetchVersion() {
             try {
                 const res = await fetch('https://api.github.com/repos/AVP-Dev/nyx-vox/releases/latest');
@@ -509,15 +1417,20 @@
                     document.getElementById('version-tag').innerText = data.tag_name;
                 }
             } catch (e) {
-                document.getElementById('version-tag').innerText = 'v0.1.3-beta';
+                document.getElementById('version-tag').innerText = 'v1.4.0';
             }
         }
 
+        let currentLang = 'en';
+
         function setLang(lang) {
+            currentLang = lang;
             document.documentElement.setAttribute('lang', lang);
             document.querySelectorAll('.lang-btn').forEach(btn => btn.classList.remove('active'));
-            document.getElementById('btn-' + lang).classList.add('active');
+            const activeBtn = document.getElementById('btn-' + lang);
+            if (activeBtn) activeBtn.classList.add('active');
             localStorage.setItem('nyx_preferred_lang', lang);
+            restartSim();
         }
 
         function checkLang() {
@@ -526,7 +1439,7 @@
                 setLang(saved);
             } else {
                 const nav = navigator.language || navigator.userLanguage;
-                setLang(nav.startsWith('ru') ? 'ru' : 'en');
+                setLang(nav && nav.startsWith('ru') ? 'ru' : 'en');
             }
             fetchVersion();
         }
@@ -534,20 +1447,139 @@
         function copyCommand(btn) {
             const cmd = document.getElementById('magic-command').innerText;
             navigator.clipboard.writeText(cmd).then(() => {
-                const oldTextEn = btn.querySelector('[data-en]').innerText;
-                const oldTextRu = btn.querySelector('[data-ru]').innerText;
+                const oldTextEn = btn.querySelector('[data-en]') ? btn.querySelector('[data-en]').innerText : 'Copy';
+                const oldTextRu = btn.querySelector('[data-ru]') ? btn.querySelector('[data-ru]').innerText : 'Копировать';
                 
                 btn.classList.add('success');
-                btn.querySelector('[data-en]').innerText = 'Copied!';
-                btn.querySelector('[data-ru]').innerText = 'Скопировано!';
+                if (btn.querySelector('[data-en]')) btn.querySelector('[data-en]').innerText = 'Copied!';
+                if (btn.querySelector('[data-ru]')) btn.querySelector('[data-ru]').innerText = 'Скопировано!';
                 
                 setTimeout(() => {
                     btn.classList.remove('success');
-                    btn.querySelector('[data-en]').innerText = oldTextEn;
-                    btn.querySelector('[data-ru]').innerText = oldTextRu;
+                    if (btn.querySelector('[data-en]')) btn.querySelector('[data-en]').innerText = oldTextEn;
+                    if (btn.querySelector('[data-ru]')) btn.querySelector('[data-ru]').innerText = oldTextRu;
                 }, 2000);
             });
         }
+
+        // --- Showcase Tabs ---
+        function showTab(tabId) {
+            document.querySelectorAll('.showcase-content').forEach(c => c.classList.remove('active'));
+            document.querySelectorAll('.showcase-tab').forEach(b => b.classList.remove('active'));
+            const targetContent = document.getElementById(tabId);
+            if (targetContent) targetContent.classList.add('active');
+            event.currentTarget.classList.add('active');
+        }
+
+        // --- Interactive Live Simulator Engine ---
+        const SCENARIOS = {
+            en: [
+                {
+                    words: ["Create", "an", "async", "function", "fetchUserData", "with", "try-catch", "error", "handling", "and", "add", "TypeScript", "typing."],
+                    formatted: 'Create an async function <code>fetchUserData</code> with try-catch error handling and add TypeScript typing for the <code>UserResponse</code> interface.',
+                    target: 'TO VS CODE'
+                },
+                {
+                    words: ["Good", "morning", "team!", "Just", "deployed", "the", "v1.4.0", "update", "to", "the", "repository.", "Please", "test", "it."],
+                    formatted: 'Good morning team! Just deployed the v1.4.0 update to the repository. Please test the Groq and local Whisper integration.',
+                    target: 'TO SLACK'
+                }
+            ],
+            ru: [
+                {
+                    words: ["Создай", "асинхронную", "функцию", "fetchUserData", "с", "обработкой", "ошибок", "через", "try-catch", "и", "типизацией", "TypeScript."],
+                    formatted: 'Создай асинхронную функцию <code>fetchUserData</code> с обработкой ошибок через try-catch и добавь типизацию интерфейса <code>UserResponse</code> в TypeScript.',
+                    target: 'В VS CODE'
+                },
+                {
+                    words: ["Коллеги,", "доброе", "утро!", "Залил", "обновление", "v1.4.0", "в", "репозиторий.", "Билд", "доступен", "на", "GitHub."],
+                    formatted: 'Коллеги, доброе утро! Залил обновление v1.4.0 в репозиторий. Проверьте интеграцию с Groq и локальным Whisper, билд уже доступен на GitHub.',
+                    target: 'В TELEGRAM'
+                }
+            ]
+        };
+
+        let scenarioIndex = 0;
+        let simTimer = null;
+        let isSimPlaying = true;
+
+        function runSimulation() {
+            if (simTimer) clearTimeout(simTimer);
+            const list = SCENARIOS[currentLang] || SCENARIOS.en;
+            const scenario = list[scenarioIndex % list.length];
+            
+            const micBtn = document.getElementById('sim-mic');
+            const wave = document.getElementById('sim-wave');
+            const streamEl = document.getElementById('sim-text');
+            const bodyEl = document.getElementById('sim-body');
+            const formattedEl = document.getElementById('sim-formatted-text');
+            const targetEl = document.getElementById('sim-target-label');
+
+            // Reset UI
+            micBtn.classList.add('active');
+            wave.classList.add('active');
+            bodyEl.classList.remove('visible');
+            streamEl.innerText = '...';
+
+            let currentWordIdx = 0;
+            let currentDisplay = '';
+
+            function typeNextWord() {
+                if (!isSimPlaying) return;
+                if (currentWordIdx < scenario.words.length) {
+                    currentDisplay += (currentWordIdx > 0 ? ' ' : '') + scenario.words[currentWordIdx];
+                    streamEl.innerText = currentDisplay;
+                    currentWordIdx++;
+                    simTimer = setTimeout(typeNextWord, 220);
+                } else {
+                    // Recording stopped, format and expand
+                    micBtn.classList.remove('active');
+                    wave.classList.remove('active');
+                    simTimer = setTimeout(() => {
+                        formattedEl.innerHTML = scenario.formatted;
+                        targetEl.innerText = scenario.target;
+                        bodyEl.classList.add('visible');
+                        
+                        // Restart cycle after 4.5 seconds
+                        simTimer = setTimeout(() => {
+                            if (isSimPlaying) {
+                                scenarioIndex = (scenarioIndex + 1) % list.length;
+                                runSimulation();
+                            }
+                        }, 4500);
+                    }, 400);
+                }
+            }
+
+            simTimer = setTimeout(typeNextWord, 600);
+        }
+
+        function restartSim() {
+            if (simTimer) clearTimeout(simTimer);
+            isSimPlaying = true;
+            runSimulation();
+        }
+
+        function switchScenario() {
+            scenarioIndex++;
+            restartSim();
+        }
+
+        function toggleSimPlay() {
+            isSimPlaying = !isSimPlaying;
+            const micBtn = document.getElementById('sim-mic');
+            const wave = document.getElementById('sim-wave');
+            if (isSimPlaying) {
+                runSimulation();
+            } else {
+                if (simTimer) clearTimeout(simTimer);
+                micBtn.classList.remove('active');
+                wave.classList.remove('active');
+            }
+        }
+
+        // Start simulator
+        setTimeout(runSimulation, 800);
     </script>
 </body>
 </html>

@@ -44,6 +44,12 @@
 - macOS only — архитектурное решение, не баг
 
 ## Что сделано
+- **Сессия 17 (Single-Pass Instant Finish для локального Whisper Turbo):**
+  - Устранена 3–5 секундная задержка («Обработка...») после завершения речи в режиме локального Whisper.
+  - В `commands/audio.rs` (`stop_recording`) проверка `has_streamed_preview` вынесена на первое место перед батч-обработкой Whisper.
+  - Если стриминговый воркер уже расшифровал текст на лету, он возвращается мгновенно (0 мс задержки) без повторного запуска инференса 830-МБ модели Whisper Turbo на GPU Metal.
+  - Сохранен гарантированный fallback на `whisper::stop_recording` при отсутствии или неполноте стримингового превью.
+  - 117 Rust unit tests pass, clippy 0 warnings, fmt check OK.
 - **Сессия 16 (Архитектурный апгрейд Real-Time транскрибации по стандарту Google Live Transcribe):**
   - Внедрен `PreSpeechRingBuffer` (300 мс) в `recording.rs` и `ai_provider.rs`.
   - Улучшен `VadTracker` (hard cutoff 15с) и `trim_silence` (300мс pre / 200мс post).
@@ -116,6 +122,11 @@
 14. **CI/CD pipeline** — GitHub Actions: clippy + test + build при PR (технический долг)
 
 ## Журнал сессий (кратко, последние 5-10 записей, старое можно удалять)
+- [2026-09-04] **Сессия модернизации README, Лендинга и визуализации пайплайна (v1.4.0)**:
+  - **Лендинг (`docs/index.html`)**: Полностью модернизирован. Внедрен интерактивный симулятор виджета прямо в первый экран (Hero) с анимацией микрофона, 9-полосного эквалайзера, живого interim-набора текста, дословного форматирования и автовставки в VS Code/Telegram/Slack. Добавлена визуализация пайплайна «Как это работает» (4 шага: Захват & VAD → STT → 100% Verbatim AI → Auto-Paste), матрица сравнения движков (Groq, Whisper Local, GigaChat, Gemini, Deepgram), интерактивная витрина интерфейса, активирован блок Troubleshooting (`xattr -cr`) с копированием в 1 клик, полная поддержка переключения языков EN/RU с адаптацией симулятора.
+  - **README (`README.md` и `README.ru.md`)**: Синхронизированы и обновлены в дуальной модели (EN по умолчанию + RU полный перевод). Добавлены современные бейджи, Mermaid-диаграмма архитектурного пайплайна, схема отказоустойчивости (Multi-Tier Fallback), таблица сравнения движков, витрина скриншотов с плейсхолдерами, сводка горячих клавиш и инструкция по решению проблем.
+  - **Скриншоты (`docs/screenshots/README.md`)**: Создана подробная спецификация и руководство по созданию 8 ключевых скриншотов приложения в высоком разрешении.
+  - Аудиопайплайн и параметры транскрипции не затрагивались (Frozen Pipeline Rule строго соблюдено).
 - [2026-08-05] **Сессия 10b (финальные фиксы UI)**: Повторная проверка выявила: (1) Enter по-прежнему не вставлял текст — корень в stale closure `useKeyboardShortcuts` (обработчик держал первую версию `handlePaste` с пустым `transcriptText`, который молча выходил). Исправлено: актуальный `handlePaste` через ref, capture-фаза, свой Enter-обработчик на textarea в editing. (2) Компактный режим обрезал полный HeaderBar вместо кружка — теперь при compact idle рендерится круглый бабл с микрофоном (клик = старт записи), анимации `buildContainerVariants(compactIdle)` и пресет `WINDOW_SIZES.compactIdle`. Коммиты `4112181`, `1a336a4` (dev). Проверки: bun test 62 pass, eslint 0, bun build success.
 - [2026-08-05] **Сессия 10 (Багфиксы + подготовка релиза v1.2.0)**: Исправлены 2 регрессии. **Enter paste:** в `useKeyboardShortcuts` простой Enter теперь paste-ит в фазах result И editing (раньше в editing только Cmd/Ctrl+Enter). **Компактный режим:** `compactResultWindow` снова работает — добавлен в `resolveWindowSize()` (idle → 48×48), проброшен через `useWindowManager` (интерфейс + deps) и `page.tsx`, покрыт тестами (windowSizes.test.ts: +2 теста). **Документация:** AGENTS.md (CLAUDE.md симлинк), .claude/agents/*, SESSION-START/END, PROMPT-TEMPLATE — переведены на английский и актуализированы (whisper.rs→whisper/, gigachat.rs, тесты 80/60/3, hooks/, lib/). Установлен факт: последний публичный релиз — v1.1.0, v1.2.0 не публиковался → следующий релиз называется v1.2.0. Проверки: bun test 62 pass, eslint 0.
 - [2026-08-05] **Сессия 9 (Удаление выбора языка)**: Убран выбор языка распознавания из UI — движки сами определяют язык (Whisper: `auto` → `set_language(None)`, Deepgram: `multi`, Groq: `ru`, Gemini: `mixed`). Удалены `DeepgramLanguage`/`WhisperLanguage`/`GroqLanguage`/`GeminiLanguage` (state.rs), 8 команд set/get_*_language (settings.rs), manage/load в lib.rs, языковые пропсы в useSettings/useInitialSettings/SettingsPanel/EnginesTab/HeaderBar/page.tsx, `useTrayLanguage`, `Language`/`SttLanguage` типы, языковой селектор и индикатор языка. Захардкожено в audio.rs (start/stop). Проверки: clippy 0 warnings, cargo test 80 pass, tsc clean, eslint 0, bun build success. Vitest: 49 pass / 2 fail (pre-existing, `vi.stubGlobal` не работает — не связано).

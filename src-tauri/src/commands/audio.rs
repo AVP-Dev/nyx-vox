@@ -348,24 +348,17 @@ pub async fn stop_recording(
         None => false,
     };
 
-    let batch_result = if mode == "whisper" {
-        whisper::stop_recording(
-            &app,
-            Arc::clone(&state),
-            Arc::clone(&recording_flag.0),
-            lang,
-            model_type,
-            threshold,
-            gain,
-        )
-        .await?
-    } else if has_streamed_preview {
+    let batch_result = if has_streamed_preview {
         log::info!(
-            "stop_recording: Single-Pass instant finish using live streamed preview text directly (0 extra REST STT requests)"
+            "stop_recording: Single-Pass instant finish using live streamed preview text directly (mode: {})",
+            mode
         );
         recording_flag.0.store(false, Ordering::SeqCst);
         if let Ok(mut lock) = state.lock() {
             lock.samples.clear();
+            lock.committed_samples_len = 0;
+            lock.committed_text.clear();
+            lock.overlap_samples.clear();
         }
         if let Ok(mut lock) = dg_state.lock() {
             lock.samples.clear();
@@ -378,6 +371,17 @@ pub async fn stop_recording(
             .unwrap_or_default()
             .trim()
             .to_string()
+    } else if mode == "whisper" {
+        whisper::stop_recording(
+            &app,
+            Arc::clone(&state),
+            Arc::clone(&recording_flag.0),
+            lang,
+            model_type,
+            threshold,
+            gain,
+        )
+        .await?
     } else if mode == "deepgram" {
         let api_key = api_keys
             .0
