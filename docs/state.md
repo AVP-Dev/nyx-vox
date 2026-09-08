@@ -5,22 +5,20 @@
 > Держи компактно: не история навсегда, а срез "что сейчас".
 
 ## Последнее обновление
-Дата: 2026-09-05
-Кто/что обновило: Агент (Cross-platform Windows Support Implementation)
+Дата: 2026-09-08
+Кто/что обновило: Агент (Release v1.5.0 Preparation, Verification & Main Merge)
 
 ## Версии (важно)
-- Последний ПУБЛИЧНЫЙ релиз на GitHub — **v1.4.1**
-- Ветка `dev` содержит реализацию кроссплатформенной поддержки Windows
+- Последний ПУБЛИЧНЫЙ релиз на GitHub — **v1.5.0**
+- Ветка `main` синхронизирована с `dev`, релизный тег `v1.5.0`
 - **ПОДСИСТЕМА РАСПОЗНАВАНИЯ РЕЧИ И АУДИОПАЙПЛАЙН СТРОГО ЗАФИКСИРОВАНЫ (FROZEN)**
 
 ## Что сейчас в работе
-- Реализована кроссплатформенная поддержка Windows:
-  - Разделены зависимости в `Cargo.toml` (`[target.'cfg(...)']`).
-  - Реализован слой Windows API (`windows-sys`): определение активного окна (`get_frontmost_app_info`), эмуляция мультимедиа-клавиш (`system_media_control`), эмуляция авто-вставки `Ctrl+V` (`enigo`), корректное скрытие окна перед вставкой.
-  - Адаптирован UI (скрытие macOS-only Accessibility на Windows, подсказки горячих клавиш `Ctrl + Space` вместо `Option + Space`).
-  - Добавлен CI/CD workflow `.github/workflows/build-dev.yml` для автоматической тестовой сборки и выгрузки артефактов Windows и macOS.
-  - Обновлен `.github/workflows/release.yml` для сборки мультиплатформенных релизов.
-  - Пройдено 117 Rust unit-тестов, clippy (0 warnings), fmt, lint, vitest (68 tests), Next.js build.
+- Релиз v1.5.0 подготовлен и верифицирован:
+  - Проверена кроссплатформенная поддержка Windows и macOS.
+  - Проверена вся документация, roadmap, release notes v1.5.0, changelog.
+  - Пройден полный цикл проверок: 117 Rust unit-тестов, clippy (0 warnings), fmt, eslint, vitest (68 tests), Next.js build.
+  - Слияние `dev` в `main` и создание релизного тега `v1.5.0` для автоматической мультиплатформенной сборки в GitHub Actions.
 
 ## Что стабильно работает (не трогать без причины)
 - STT pipeline (Whisper, Deepgram, Groq, Gemini, GigaChat) с кастомными моделями
@@ -127,6 +125,15 @@
 14. **CI/CD pipeline** — GitHub Actions: clippy + test + build при PR (технический долг)
 
 ## Журнал сессий (кратко, последние 5-10 записей, старое можно удалять)
+- [2026-09-08] **Сессия релиза v1.5.0 (Windows Native Support & Groq LPU™)**:
+  - Проверена кроссплатформенная поддержка Windows и macOS, верифицированы все зависимости и CI/CD пайплайны.
+  - Пройдено 117 Rust unit-тестов, clippy (0 warnings), fmt check, ESLint, 68 vitest тестов, Next.js build.
+  - Документация (README, README.ru, CHANGELOG, CHANGELOG.ru, docs/state.md, docs/README.md, tags/v1.5.0/release.md) синхронизирована и обновлена.
+  - Подготовка слияния `dev` в `main` и выпуск тега `v1.5.0`.
+- [2026-09-05] **Сессия очистки устаревшей мета-документации**:
+  - Удалены неиспользуемые сторонние файлы-шаблоны `doc-kit v2`: `METHODOLOGY.md`, `NEW-PROJECT-INIT.md`, `PROMPT-TEMPLATE-dev-session.md`, `QUICKSTART.md`, `README-SETUP.md`, `SESSION-START.md`, `SESSION-END.md`, `document-monorepo.sh`.
+  - Удалена архивная папка разовых отчётов `docs/_reports/` (устаревшие аудиты двухмесячной давности).
+  - Очищены правила игнорирования удалённых шаблонов в `.gitignore`.
 - [2026-09-04] **Сессия модернизации README, Лендинга и визуализации пайплайна (v1.4.0)**:
   - **Интерактивные GIF-демонстрации в README**: Сгенерированы легковесные и плавные Retina GIF-демонстрации виджета (`docs/demo.gif` и `docs/demo.ru.gif`), полностью повторяющие поведение интерактивного симулятора с лендинга (запись, анимация волны, живой стриминг, дословное форматирование, автовставка). Статичные таблицы со скриншотами заменены на живые анимации в `README.md` и `README.ru.md`.
   - **Подпись автора**: Везде удалено «Alexios Odos», подпись приведена к каноническому виду из `avpdev.com`: `Aliaksei Patskevich (AVPDev)` / `Алексей Пацкевич (AVPDev)`, ссылка на сайт нормализована до `https://avpdev.com/`, роль `AI Solutions Architect`.
