@@ -8,6 +8,7 @@ on:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  TAURI_BUNDLER_DMG_IGNORE_CI: false
 
 jobs:
   build:
@@ -34,10 +35,15 @@ jobs:
       - name: install frontend dependencies
         run: bun install
 
+      - name: disable spotlight indexing (macos only)
+        if: matrix.platform == 'macos-latest'
+        run: sudo mdutil -a -i off || true
+
       - name: build tauri app
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_BUNDLER_DMG_IGNORE_CI: false
         with:
           tagName: ""
 
