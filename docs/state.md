@@ -124,7 +124,10 @@
 13. **Structured logging** (frontend) — tauri-plugin-log (технический долг)
 14. **CI/CD pipeline** — GitHub Actions: clippy + test + build при PR (технический долг)
 
-## Журнал сессий (кратко, последние 5-10 записей, старое можно удалять)
+- [2026-09-09] **Фикс CI/CD сборки macOS DMG (релиз v1.5.0)**:
+  - Выявлена причина падения `bundle_dmg.sh` на headless macOS runners: `tauri-action` по умолчанию передавал `TAURI_BUNDLER_DMG_IGNORE_CI: true`, что отключало флаг `--skip-jenkins` и приводило к сбою неинтерактивного AppleScript при попытке обращения к Finder.
+  - В `.github/workflows/release.yml` и `build-dev.yml` явно задана переменная окружения `TAURI_BUNDLER_DMG_IGNORE_CI: false` (активирует пропуск Finder AppleScript в CI) и добавлено отключение индексации Spotlight (`sudo mdutil -a -i off`) для предотвращения блокировки диска при размонтировании.
+  - Изменения запушены в `dev`, смержены в `main`, пересоздан тег `v1.5.0`.
 - [2026-09-08] **Сессия релиза v1.5.0 (Windows Native Support & Groq LPU™)**:
   - Проверена кроссплатформенная поддержка Windows и macOS, верифицированы все зависимости и CI/CD пайплайны.
   - Пройдено 117 Rust unit-тестов, clippy (0 warnings), fmt check, ESLint, 68 vitest тестов, Next.js build.
