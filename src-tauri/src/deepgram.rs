@@ -205,18 +205,22 @@ fn spawn_interim_stream_worker<R: Runtime>(
         let mut http_full: Vec<f32> = Vec::new();
 
         while flag_cpal.load(Ordering::SeqCst) {
-            let (delta, sample_rate) = {
+            // The lock guard must not be alive across an `.await`, so the acquisition and
+            // the cadence wait are separate statements.
+            let (delta, sample_rate, lock_unavailable) = {
                 match state.lock().ok() {
                     Some(lock) => (
                         crate::utils::copy_audio_delta(&lock.samples, &mut http_copied_len),
                         lock.sample_rate,
+                        false,
                     ),
-                    None => {
-                        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
-                        continue;
-                    }
+                    None => (Vec::new(), 0, true),
                 }
             };
+            if lock_unavailable {
+                tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+                continue;
+            }
 
             // Nothing new since the previous tick. The explicit sleep is required:
             // `continue` skips the cadence sleep at the bottom of the loop.

@@ -261,10 +261,11 @@ pub fn get_frontmost_app_info() -> (String, String) {
             .filter(|b| !b.is_empty())
             .unwrap_or_else(|| "Unknown".to_string());
 
-        // Explicit return: this `#[cfg]` block sits in statement position, so its
-        // tail expression would be dropped and the function would fall through to
-        // the ("Unknown", "Unknown") fallback below.
-        return (name, bundle_id);
+        // Tail expression of this `#[cfg]` block. Because the macOS branch is the only
+        // one compiled on macOS, the block *is* the function's tail expression
+        // there, so no `return` is needed — and using one would make the
+        // ("Unknown", "Unknown") fallback below unreachable on macOS.
+        (name, bundle_id)
     }
     #[cfg(target_os = "windows")]
     {
@@ -310,6 +311,10 @@ pub fn get_frontmost_app_info() -> (String, String) {
             }
         }
     }
+    // Reached on Windows and on unsupported platforms. On macOS the `#[cfg]`
+    // block above is the function's tail expression, so this line is not part
+    // of that build and is not flagged as unreachable there.
+    #[cfg(not(target_os = "macos"))]
     ("Unknown".to_string(), "Unknown".to_string())
 }
 

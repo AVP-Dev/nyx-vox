@@ -148,9 +148,9 @@ pub async fn start_recording(
         }
     }
 
-    let mut final_mode = mode;
     let model_type = *whisper_model.0.lock().map_err(|e| e.to_string())?;
 
+    // Decided while `mode` is still owned here; `final_mode` takes it below.
     // `is_online()` opens a socket on a cache miss, so it is only asked when a
     // cloud engine was actually selected.
     let mode_decision = if mode == "deepgram" || mode == "groq" {
@@ -158,6 +158,8 @@ pub async fn start_recording(
     } else {
         SttModeDecision::AsSelected
     };
+
+    let mut final_mode = mode;
 
     match mode_decision {
         SttModeDecision::AsSelected => {}
