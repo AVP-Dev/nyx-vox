@@ -4,7 +4,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Settings2, Mic, Zap, History } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
-import { CONTENT } from '@/components/SettingsPanel';
+import { DICTIONARY as CONTENT } from '@/components/settings/translations';
 import type { FormattingMode, AppLanguage, TranslationDict } from '@/lib/types';
 
 const C = CONTENT as unknown as Record<string, TranslationDict>;

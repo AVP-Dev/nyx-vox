@@ -29,10 +29,17 @@ export function WaveformVisualizer({ isActive }: WaveformVisualizerProps) {
             return;
         }
 
+        let isMounted = true;
         let unlisten: (() => void) | null = null;
         listen<number>('audio-level', (event) => {
             levelRef.current = event.payload;
-        }).then(fn => { unlisten = fn; });
+        }).then(fn => {
+            if (!isMounted) {
+                fn();
+            } else {
+                unlisten = fn;
+            }
+        });
 
         const animate = (t: number) => {
             timeRef.current = t;
@@ -57,6 +64,7 @@ export function WaveformVisualizer({ isActive }: WaveformVisualizerProps) {
         animFrameRef.current = requestAnimationFrame(animate);
 
         return () => {
+            isMounted = false;
             cancelAnimationFrame(animFrameRef.current);
             if (unlisten) unlisten();
         };

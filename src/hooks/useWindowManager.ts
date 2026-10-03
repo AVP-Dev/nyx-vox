@@ -23,9 +23,22 @@ export function useWindowManager(opts: UseWindowManagerOptions) {
     const containerRef = useRef<HTMLDivElement>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
     const lastPos = useRef<{ x: number; y: number } | null>(null);
+    const lastApplied = useRef<{ w: number; h: number; onTop: boolean } | null>(null);
 
     const resizeWindow = useCallback(async (w: number, h: number) => {
         if (typeof window === 'undefined' || !window.__TAURI_INTERNALS__) return;
+        const shouldBeOnTop = (opts.phase === 'recording' || opts.phase === 'processing' || opts.phase === 'result') ? true : opts.alwaysOnTop;
+
+        // Skip IPC calls if window dimensions and on-top status haven't changed (FE-3)
+        if (
+            lastApplied.current &&
+            lastApplied.current.w === w &&
+            lastApplied.current.h === h &&
+            lastApplied.current.onTop === shouldBeOnTop
+        ) {
+            return;
+        }
+
         try {
             const { getCurrentWindow, LogicalSize, LogicalPosition } = await import('@tauri-apps/api/window');
             const win = getCurrentWindow();
@@ -41,8 +54,8 @@ export function useWindowManager(opts: UseWindowManagerOptions) {
                 await win.setPosition(new LogicalPosition(newX, logTopY));
             }
 
-            const shouldBeOnTop = (opts.phase === 'recording' || opts.phase === 'processing' || opts.phase === 'result') ? true : opts.alwaysOnTop;
             await win.setAlwaysOnTop(shouldBeOnTop);
+            lastApplied.current = { w, h, onTop: shouldBeOnTop };
         } catch (err) {
             console.error('Window management error:', err);
         }
@@ -50,29 +63,46 @@ export function useWindowManager(opts: UseWindowManagerOptions) {
 
     // Listen for window movement
     useEffect(() => {
+        let isMounted = true;
         let unlistenMove: (() => void) | null = null;
         let unlistenReset: (() => void) | null = null;
 
         const setup = async () => {
             if (typeof window === 'undefined' || !window.__TAURI_INTERNALS__) return;
-            const { getCurrentWindow } = await import('@tauri-apps/api/window');
-            const win = getCurrentWindow();
+            try {
+                const { getCurrentWindow } = await import('@tauri-apps/api/window');
+                const win = getCurrentWindow();
 
-            unlistenMove = await listen('tauri://move', async () => {
-                const pos = await win.outerPosition();
-                const size = await win.outerSize();
-                if (size.width > 0) {
-                    lastPos.current = { x: pos.x + size.width / 2, y: pos.y };
+                const uMove = await listen('tauri://move', async () => {
+                    const pos = await win.outerPosition();
+                    const size = await win.outerSize();
+                    if (size.width > 0) {
+                        lastPos.current = { x: pos.x + size.width / 2, y: pos.y };
+                    }
+                });
+                if (!isMounted) {
+                    uMove();
+                    return;
                 }
-            });
+                unlistenMove = uMove;
 
-            unlistenReset = await listen('reset-position', () => {
-                lastPos.current = null;
-            });
+                const uReset = await listen('reset-position', () => {
+                    lastPos.current = null;
+                    lastApplied.current = null;
+                });
+                if (!isMounted) {
+                    uReset();
+                    return;
+                }
+                unlistenReset = uReset;
+            } catch (err) {
+                console.error('[useWindowManager] failed to setup listeners:', err);
+            }
         };
 
         setup();
         return () => {
+            isMounted = false;
             if (unlistenMove) unlistenMove();
             if (unlistenReset) unlistenReset();
         };

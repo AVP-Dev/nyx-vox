@@ -3,7 +3,7 @@
 import React from 'react';
 import { Check, Copy, Send, Pencil, X } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
-import { CONTENT } from '@/components/SettingsPanel';
+import { DICTIONARY as CONTENT } from '@/components/settings/translations';
 import type { Phase, AppLanguage, TranslationDict } from '@/lib/types';
 
 const C = CONTENT as unknown as Record<string, TranslationDict>;

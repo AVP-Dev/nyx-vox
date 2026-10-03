@@ -203,9 +203,9 @@ export default function Home() {
                                                 formattingMode={settings.formattingMode}
                                                 onSetFormattingMode={settings.handleFormattingModeChange}
                                                 noiseGate={settings.noiseGate}
-                                                onSetNoiseGate={(v) => { settings.setNoiseGate(v); import('@tauri-apps/api/core').then(({ invoke }) => invoke('set_noise_gate', { value: v })); }}
+                                                onSetNoiseGate={settings.handleSetNoiseGate}
                                                 audioGain={settings.audioGain}
-                                                onSetAudioGain={(v) => { settings.setAudioGain(v); import('@tauri-apps/api/core').then(({ invoke }) => invoke('set_audio_gain', { gain: v })); }}
+                                                onSetAudioGain={settings.handleSetAudioGain}
                                                 vadAutoStop={settings.vadAutoStop}
                                                 onToggleVadAutoStop={settings.handleSetVadAutoStop}
                                                 vadSilenceTimeout={settings.vadSilenceTimeout}
@@ -279,8 +279,8 @@ export default function Home() {
                                                         <textarea
                                                             autoFocus value={transcriptText} onChange={e => setTranscript(e.target.value)}
                                                             onKeyDown={(e) => {
-                                                                // Plain Enter sends the edited text; Escape exits editing.
-                                                                if (e.key === 'Enter') {
+                                                                // Plain Enter sends the edited text; Shift+Enter inserts a newline (FE-2)
+                                                                if (e.key === 'Enter' && !e.shiftKey) {
                                                                     e.preventDefault();
                                                                     void rec.handlePaste();
                                                                 }

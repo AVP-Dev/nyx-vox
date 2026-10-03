@@ -34,6 +34,7 @@
 .history/
 .gemini/
 .qwen/
+.pair/
 
 
 # debug

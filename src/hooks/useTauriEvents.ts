@@ -1,7 +1,5 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { listen } from '@tauri-apps/api/event';
-import { cleanHallucinations } from '@/lib/text';
-import { useStore } from '@/store/useStore';
 import type { Phase, SttMode, AppLanguage } from '@/lib/types';
 import type { MutableRefObject } from 'react';
 
@@ -28,7 +26,13 @@ export interface UseTauriEventsOptions {
 }
 
 export function useTauriEvents(opts: UseTauriEventsOptions) {
+    const optsRef = useRef(opts);
     useEffect(() => {
+        optsRef.current = opts;
+    });
+
+    useEffect(() => {
+        let isMounted = true;
         const unlisteners: (() => void)[] = [];
 
         const setupEvents = async () => {
@@ -36,84 +40,82 @@ export function useTauriEvents(opts: UseTauriEventsOptions) {
                 const handlers = [
                     listen<void>('shortcut-trigger', () => {
                         const now = Date.now();
-                        if (now - opts.lastTriggerTime.current < 500) return;
-                        opts.lastTriggerTime.current = now;
+                        const currentOpts = optsRef.current;
+                        if (now - currentOpts.lastTriggerTime.current < 500) return;
+                        currentOpts.lastTriggerTime.current = now;
 
-                        const p = opts.phaseRef.current;
+                        const p = currentOpts.phaseRef.current;
                         if (p === 'idle' || p === 'result') {
-                            opts.setShowSettings(false);
-                            void opts.handlersRefs.current.triggerStart();
+                            currentOpts.setShowSettings(false);
+                            void currentOpts.handlersRefs.current.triggerStart();
                         } else if (p === 'recording') {
-                            opts.handlersRefs.current.triggerStop();
+                            currentOpts.handlersRefs.current.triggerStop();
                         }
                     }),
                     listen<void>('open-settings', () => {
-                        opts.setShowWelcome(false);
-                        opts.setShowSettings(true);
+                        optsRef.current.setShowWelcome(false);
+                        optsRef.current.setShowSettings(true);
                     }),
                     listen<void>('open-welcome', () => {
-                        opts.setShowSettings(false);
-                        opts.setShowWelcome(true);
+                        optsRef.current.setShowSettings(false);
+                        optsRef.current.setShowWelcome(true);
                     }),
                     listen<void>('app-summon', () => {
-                        opts.handlersRefs.current.updateTarget(opts.phaseRef.current);
+                        const currentOpts = optsRef.current;
+                        currentOpts.handlersRefs.current.updateTarget(currentOpts.phaseRef.current);
                     }),
-                    listen<string>('ai-status', (e) => opts.setAiStatus(e.payload)),
+                    listen<string>('ai-status', (e) => optsRef.current.setAiStatus(e.payload)),
                     listen<string>('ai-result', (e) => {
-                        const t = cleanHallucinations(e.payload);
-                        if (t) opts.setTranscript(t);
+                        // ADR #6: backend utils.rs is the single source of truth for cleanup
+                        if (e.payload) optsRef.current.setTranscript(e.payload);
                     }),
                     listen<string>('recording-error', (e) => {
                         const err = String(e.payload || 'Recording error');
-                        opts.setAiStatus(err);
-                        opts.setTranscript('');
-                        opts.setPhase('idle');
-                        setTimeout(() => opts.setAiStatus(''), 2500);
+                        const currentOpts = optsRef.current;
+                        currentOpts.setAiStatus(err);
+                        currentOpts.setTranscript('');
+                        currentOpts.setPhase('idle');
+                        setTimeout(() => optsRef.current.setAiStatus(''), 2500);
                     }),
                     listen<string>('stt-fallback', (e) => {
-                        opts.setTranscript(`[Fallback: ${e.payload}]`);
-                        opts.setPhase('result');
+                        optsRef.current.setTranscript(`[Fallback: ${e.payload}]`);
+                        optsRef.current.setPhase('result');
                     }),
                     listen<string>('mode-changed', (e) => {
-                        if (e.payload) opts.setSttMode(e.payload as SttMode);
+                        if (e.payload) optsRef.current.setSttMode(e.payload as SttMode);
                     }),
                     listen<string>('formatting-status', (e) => {
-                        opts.setFormattingStatus(e.payload === 'done' ? null : e.payload);
+                        optsRef.current.setFormattingStatus(e.payload === 'done' ? null : e.payload);
                     }),
                     listen<void>('vad-auto-stop', () => {
-                        if (opts.phaseRef.current === 'recording') {
-                            opts.handlersRefs.current.triggerStop();
+                        const currentOpts = optsRef.current;
+                        if (currentOpts.phaseRef.current === 'recording') {
+                            currentOpts.handlersRefs.current.triggerStop();
                         }
                     }),
                     listen<string>('interim-transcription', (e) => {
-                        if (opts.phaseRef.current === 'recording' && e.payload) {
-                            try {
-                                if (e.payload.startsWith('{') && e.payload.endsWith('}')) {
-                                    const parsed = JSON.parse(e.payload);
-                                    if (typeof parsed === 'object' && parsed !== null && (parsed.committed !== undefined || parsed.draft !== undefined)) {
-                                        useStore.getState().setStreamChunks(parsed);
-                                        return;
-                                    }
-                                }
-                            } catch {
-                                // fallback to plain string
-                            }
-                            opts.setTranscript(e.payload);
+                        const currentOpts = optsRef.current;
+                        if (currentOpts.phaseRef.current === 'recording' && e.payload) {
+                            currentOpts.setTranscript(e.payload);
                         }
                     }),
                 ];
 
                 const settled = await Promise.all(handlers);
+                if (!isMounted) {
+                    settled.forEach(fn => fn());
+                    return;
+                }
                 unlisteners.push(...settled);
             } catch (err) {
-                // A failed subscription must not silently kill the hotkey flow —
-                // log it so the issue is visible during development.
                 console.error('[useTauriEvents] failed to subscribe:', err);
             }
         };
 
         setupEvents();
-        return () => { unlisteners.forEach(fn => fn()); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        return () => {
+            isMounted = false;
+            unlisteners.forEach(fn => fn());
+        };
     }, []);
 }

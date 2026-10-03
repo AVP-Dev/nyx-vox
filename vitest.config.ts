@@ -15,5 +15,10 @@ export default defineConfig({
         setupFiles: [],
         // E2E tests are Playwright specs (e2e/) and must not run under Vitest.
         exclude: ['node_modules/**', 'e2e/**', 'dist/**', 'out/**', '.next/**'],
+        server: {
+            deps: {
+                inline: [/@tauri-apps/],
+            },
+        },
     },
 });

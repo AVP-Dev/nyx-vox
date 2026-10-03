@@ -10,6 +10,11 @@ export interface UseKeyboardShortcutsOptions {
 }
 
 export function useKeyboardShortcuts(opts: UseKeyboardShortcutsOptions) {
+    const optsRef = useRef(opts);
+    useEffect(() => {
+        optsRef.current = opts;
+    });
+
     // Keep the latest handler in a ref so the single event listener below
     // always calls the current handlePaste (which closes over the latest
     // transcriptText), even though the effect itself is registered once.
@@ -18,9 +23,13 @@ export function useKeyboardShortcuts(opts: UseKeyboardShortcutsOptions) {
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
-            const currentPhase = opts.phaseRef.current;
+            const currentPhase = optsRef.current.phaseRef.current;
             if (currentPhase === 'result' || currentPhase === 'editing') {
                 if (e.key === 'Enter') {
+                    // Allow Shift+Enter to insert newlines in editing mode (FE-2)
+                    if (currentPhase === 'editing' && e.shiftKey) {
+                        return;
+                    }
                     // Plain Enter pastes in both 'result' and 'editing'
                     // (the user expects Enter to send the text), while
                     // Cmd/Ctrl+Enter remains a modifier shortcut.
@@ -29,14 +38,13 @@ export function useKeyboardShortcuts(opts: UseKeyboardShortcutsOptions) {
                     void handlePasteRef.current();
                 }
                 if (e.key === 'Escape') {
-                    opts.setTranscript('');
-                    opts.setPhase('idle');
+                    optsRef.current.setTranscript('');
+                    optsRef.current.setPhase('idle');
                 }
             }
         };
 
         window.addEventListener('keydown', handleKeyDown, true);
         return () => window.removeEventListener('keydown', handleKeyDown, true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 }

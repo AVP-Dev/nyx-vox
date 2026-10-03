@@ -69,15 +69,13 @@ export function HeaderBar(props: HeaderBarProps) {
     };
 
     const liveStreamPreview = useStore(s => s.liveStreamPreview);
-    const committedText = useStore(s => s.committedText);
-    const draftText = useStore(s => s.draftText);
 
     // Auto-scroll to the latest spoken words
     React.useEffect(() => {
         if (scrollRef.current) {
             scrollRef.current.scrollLeft = scrollRef.current.scrollWidth;
         }
-    }, [transcriptText, committedText, draftText, scrollRef]);
+    }, [transcriptText, scrollRef]);
 
     return (
         <div data-tauri-drag-region className="flex items-center h-10 w-full relative px-2 shrink-0 cursor-default">
@@ -105,10 +103,9 @@ export function HeaderBar(props: HeaderBarProps) {
                                         <div className="w-full flex justify-center items-center">
                                             <WaveformVisualizer isActive={isRec} />
                                         </div>
-                                    ) : (transcriptText || committedText || draftText) ? (
+                                    ) : transcriptText ? (
                                         (() => {
-                                            const fullText = transcriptText || (committedText ? `${committedText} ${draftText}`.trim() : draftText);
-                                            const { committed, draft } = splitCommittedAndDraft(fullText);
+                                            const { committed, draft } = splitCommittedAndDraft(transcriptText);
                                             return (
                                                 <div className="flex items-center gap-1 min-w-full justify-end pr-1">
                                                     {committed && <span className="text-white/95 font-medium">{committed}&nbsp;</span>}

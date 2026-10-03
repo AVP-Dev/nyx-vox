@@ -10,7 +10,7 @@ import {
     ArrowLeft, History, AppWindow, Check, CheckCheck
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CONTENT } from '@/components/SettingsPanel';
+import { DICTIONARY as CONTENT } from '@/components/settings/translations';
 
 interface HistoryEntry {
     id: string;

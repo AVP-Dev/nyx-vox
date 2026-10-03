@@ -5,20 +5,25 @@
 > Держи компактно: не история навсегда, а срез "что сейчас".
 
 ## Последнее обновление
-Дата: 2026-09-08
-Кто/что обновило: Агент (Release v1.5.0 Preparation, Verification & Main Merge)
+Дата: 2026-10-03
+Кто/что обновило: Агент (Pair fix round: FE-1..FE-8 frontend audit fixes & tests)
 
 ## Версии (важно)
 - Последний ПУБЛИЧНЫЙ релиз на GitHub — **v1.5.0**
 - Ветка `main` синхронизирована с `dev`, релизный тег `v1.5.0`
+- Ветка исправления фронтенда: `fix/fe-audit-findings`
 - **ПОДСИСТЕМА РАСПОЗНАВАНИЯ РЕЧИ И АУДИОПАЙПЛАЙН СТРОГО ЗАФИКСИРОВАНЫ (FROZEN)**
 
 ## Что сейчас в работе
-- Релиз v1.5.0 подготовлен и верифицирован:
-  - Проверена кроссплатформенная поддержка Windows и macOS.
-  - Проверена вся документация, roadmap, release notes v1.5.0, changelog.
-  - Пройден полный цикл проверок: 117 Rust unit-тестов, clippy (0 warnings), fmt, eslint, vitest (68 tests), Next.js build.
-  - Слияние `dev` в `main` и создание релизного тега `v1.5.0` для автоматической мультиплатформенной сборки в GitHub Actions.
+- Завершена реализация правок фронтенда по итогам парного аудита (FE-1 ... FE-8):
+  - FE-1: Устранена утечка слушателей событий при размонтировании (useTauriEvents, WaveformVisualizer, useWindowManager).
+  - FE-2: Исправлен перехват Enter в режиме редактирования, разрешен перенос строки по Shift+Enter.
+  - FE-3: Устранен шторм IPC WindowServer при live streaming (кэширование размеров окна).
+  - FE-4: Починен lazy-loading SettingsPanel (прямой импорт DICTIONARY из translations.ts).
+  - FE-5 & FE-7: Соответствие ADR #6, удаление чистки галлюцинаций на клиенте и мертвого кода JSON-стриминга.
+  - FE-6 & FE-8: Ликвидация водопада IPC на старте (единый get_all_settings) и 300 мс дебаунс на слайдеры.
+  - Исправлены stale closures в useTauriEvents и useKeyboardShortcuts.
+  - Добавлены юнит-тесты на все затронутые хуки (51 тест Vitest, ESLint clean, Next.js build OK).
 
 ## Что стабильно работает (не трогать без причины)
 - STT pipeline (Whisper, Deepgram, Groq, Gemini, GigaChat) с кастомными моделями

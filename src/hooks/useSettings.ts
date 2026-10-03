@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import type { SttMode, AppLanguage, FormattingMode, FormattingStyle, CustomModelsMap } from '@/lib/types';
 
@@ -44,7 +44,9 @@ export interface SettingsActions {
     toggleSTTMode: () => Promise<void>;
     handleLanguageToggle: () => Promise<void>;
     handleSetVadAutoStop: (enabled: boolean) => Promise<void>;
-    handleSetVadSilenceTimeout: (timeout: number) => Promise<void>;
+    handleSetVadSilenceTimeout: (timeout: number) => void;
+    handleSetNoiseGate: (value: number) => void;
+    handleSetAudioGain: (gain: number) => void;
     handleSetCustomModel: (slot: string, model: string) => Promise<void>;
 }
 
@@ -95,9 +97,40 @@ export function useSettings(): SettingsState & SettingsActions {
         await invoke('set_vad_auto_stop', { enabled }).catch(console.error);
     }, []);
 
-    const handleSetVadSilenceTimeout = useCallback(async (timeout: number) => {
+    const noiseGateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const audioGainTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const vadTimeoutTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const handleSetNoiseGate = useCallback((value: number) => {
+        setNoiseGate(value);
+        if (noiseGateTimer.current) clearTimeout(noiseGateTimer.current);
+        noiseGateTimer.current = setTimeout(() => {
+            invoke('set_noise_gate', { value }).catch(console.error);
+        }, 300);
+    }, []);
+
+    const handleSetAudioGain = useCallback((gain: number) => {
+        setAudioGain(gain);
+        if (audioGainTimer.current) clearTimeout(audioGainTimer.current);
+        audioGainTimer.current = setTimeout(() => {
+            invoke('set_audio_gain', { gain }).catch(console.error);
+        }, 300);
+    }, []);
+
+    const handleSetVadSilenceTimeout = useCallback((timeout: number) => {
         setVadSilenceTimeout(timeout);
-        await invoke('set_vad_silence_timeout', { timeout }).catch(console.error);
+        if (vadTimeoutTimer.current) clearTimeout(vadTimeoutTimer.current);
+        vadTimeoutTimer.current = setTimeout(() => {
+            invoke('set_vad_silence_timeout', { timeout }).catch(console.error);
+        }, 300);
+    }, []);
+
+    useEffect(() => {
+        return () => {
+            if (noiseGateTimer.current) clearTimeout(noiseGateTimer.current);
+            if (audioGainTimer.current) clearTimeout(audioGainTimer.current);
+            if (vadTimeoutTimer.current) clearTimeout(vadTimeoutTimer.current);
+        };
     }, []);
 
     const handleSetCustomModel = useCallback(async (slot: string, model: string) => {
@@ -126,6 +159,6 @@ export function useSettings(): SettingsState & SettingsActions {
         setLastActiveFormatting, setFormattingStyle, setShowQuickMenu, setVadAutoStop, setVadSilenceTimeout, setCustomModels,
         // Handlers
         handleFormattingModeChange, toggleSTTMode, handleLanguageToggle,
-        handleSetVadAutoStop, handleSetVadSilenceTimeout, handleSetCustomModel,
+        handleSetVadAutoStop, handleSetVadSilenceTimeout, handleSetNoiseGate, handleSetAudioGain, handleSetCustomModel,
     };
 }

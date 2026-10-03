@@ -65,59 +65,63 @@ export function useInitialSettings(setters: Setters) {
 
                 setIsVisible(true);
 
-                const results = await Promise.all([
-                    invoke<string>('get_stt_mode'),
-                    invoke<boolean>('get_auto_paste'),
-                    invoke<boolean>('get_clear_on_paste'),
-                    invoke<boolean>('get_start_minimized'),
-                    invoke<boolean>('check_model_available'),
-                    invoke<boolean>('get_always_on_top'),
-                    invoke<string>('get_formatting_mode').catch(() => 'none'),
-                    invoke<string>('get_formatting_style').catch(() => 'casual'),
-                    invoke<boolean>('get_auto_pause').catch(() => false),
-                ]);
+                // Single batch request for all settings (FE-6: eliminates IPC waterfall)
+                const allSettings = await invoke<Record<string, unknown>>('get_all_settings').catch((err) => {
+                    console.error('Failed to load settings via get_all_settings:', err);
+                    return null;
+                });
 
-                setters.setSttMode(results[0] as SttMode);
-                setters.setAutoPaste(results[1]);
-                setters.setClearOnPaste(results[2]);
-                setters.setStartMinimized(results[3]);
-                setters.setAlwaysOnTop(results[5] ?? true);
-
-                const fMode = results[6] as FormattingMode;
-                setters.setFormattingMode(fMode || 'none');
-                if (fMode && fMode !== 'none') setters.setLastActiveFormatting(fMode);
-
-                const fStyle = results[7] as FormattingStyle;
-                setters.setFormattingStyle(fStyle || 'casual');
-                setters.setAutoPauseMedia(results[8] ?? false);
-
-                // Load audio gain, noise gate, VAD and custom models from get_all_settings
-                try {
-                    const allSettings = await invoke<Record<string, unknown>>('get_all_settings');
-                    if (allSettings) {
-                        if (typeof allSettings.audioGain === 'number') {
-                            setters.setAudioGain(allSettings.audioGain);
-                        }
-                        if (typeof allSettings.noiseGate === 'number') {
-                            setters.setNoiseGate(allSettings.noiseGate);
-                        }
-                        if (typeof allSettings.vadAutoStop === 'boolean') {
-                            setters.setVadAutoStop(allSettings.vadAutoStop);
-                        }
-                        if (typeof allSettings.vadSilenceTimeout === 'number') {
-                            setters.setVadSilenceTimeout(allSettings.vadSilenceTimeout);
-                        }
-                        if (allSettings.customModels && typeof allSettings.customModels === 'object') {
-                            setters.setCustomModels(allSettings.customModels as Record<string, string>);
-                        }
+                let savedLang: AppLanguage = 'ru';
+                if (allSettings) {
+                    if (typeof allSettings.sttMode === 'string') {
+                        setters.setSttMode(allSettings.sttMode as SttMode);
                     }
-                } catch { /* non-critical */ }
-
-                const savedLang = await invoke<AppLanguage>('get_app_language').catch(() => 'ru' as const);
-                setters.setAppLanguage(savedLang || 'ru');
+                    if (typeof allSettings.autoPaste === 'boolean') {
+                        setters.setAutoPaste(allSettings.autoPaste);
+                    }
+                    if (typeof allSettings.clearOnPaste === 'boolean') {
+                        setters.setClearOnPaste(allSettings.clearOnPaste);
+                    }
+                    if (typeof allSettings.startMinimized === 'boolean') {
+                        setters.setStartMinimized(allSettings.startMinimized);
+                    }
+                    if (typeof allSettings.alwaysOnTop === 'boolean') {
+                        setters.setAlwaysOnTop(allSettings.alwaysOnTop);
+                    }
+                    if (typeof allSettings.formattingMode === 'string') {
+                        const fMode = allSettings.formattingMode as FormattingMode;
+                        setters.setFormattingMode(fMode || 'none');
+                        if (fMode && fMode !== 'none') setters.setLastActiveFormatting(fMode);
+                    }
+                    if (typeof allSettings.formattingStyle === 'string') {
+                        setters.setFormattingStyle(allSettings.formattingStyle as FormattingStyle);
+                    }
+                    if (typeof allSettings.autoPause === 'boolean') {
+                        setters.setAutoPauseMedia(allSettings.autoPause);
+                    }
+                    if (typeof allSettings.audioGain === 'number') {
+                        setters.setAudioGain(allSettings.audioGain);
+                    }
+                    if (typeof allSettings.noiseGate === 'number') {
+                        setters.setNoiseGate(allSettings.noiseGate);
+                    }
+                    if (typeof allSettings.vadAutoStop === 'boolean') {
+                        setters.setVadAutoStop(allSettings.vadAutoStop);
+                    }
+                    if (typeof allSettings.vadSilenceTimeout === 'number') {
+                        setters.setVadSilenceTimeout(allSettings.vadSilenceTimeout);
+                    }
+                    if (allSettings.customModels && typeof allSettings.customModels === 'object') {
+                        setters.setCustomModels(allSettings.customModels as Record<string, string>);
+                    }
+                    if (typeof allSettings.appLanguage === 'string') {
+                        savedLang = allSettings.appLanguage as AppLanguage;
+                        setters.setAppLanguage(savedLang);
+                    }
+                }
 
                 // Check updates after settings loaded
-                setTimeout(() => checkUpdates(savedLang || 'ru'), 5000);
+                setTimeout(() => checkUpdates(savedLang), 5000);
             } catch (err) {
                 console.error('Initial settings load error:', err);
                 setIsVisible(true);
