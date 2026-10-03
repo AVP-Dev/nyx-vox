@@ -33,6 +33,10 @@ const AUDIO_TAIL_PADDING_MS: u64 = 150;
 const ACOUSTIC_GUARD_MIN_SECS: f32 = 0.350;
 /// Mic polling interval while recording (ms).
 const MIC_POLL_INTERVAL_MS: u64 = 50;
+/// Hard bound on a single interim Groq STT request. The in-flight guard is
+/// released only when the request settles, so an unbounded request that stalls
+/// mid-connection would mute interim streaming for the rest of the session.
+const GROQ_INTERIM_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
 
 // ── Start recording ─────────────────────────────────────────────────────────
 
@@ -217,6 +221,33 @@ fn spawn_interim_stream_worker<R: Runtime>(
         let is_inflight = Arc::new(AtomicBool::new(false));
         let mut cloud_first_chunk_sent = false;
 
+        // BE-1: the cloud interim path used to clone the whole recording buffer on
+        // every tick while holding the mutex that the cpal callback writes under.
+        // Only the samples appended since the previous tick are copied now; the
+        // worker rebuilds the full recording outside the lock, so STT still sees the
+        // complete audio while the audio thread is blocked for one tick's worth of
+        // memcpy instead of the whole session's.
+        let mut cloud_copied_len = 0usize;
+        let mut cloud_full: Vec<f32> = Vec::new();
+
+        // BE-4: this worker is only reached in local-Whisper mode, so sending the
+        // recording to Groq is a privacy leak — the user picked local precisely to
+        // keep audio on the machine, and a leftover Groq key silently defeated that.
+        // Cloud interim is now opt-in via `"cloud_interim": true` in settings.json
+        // and defaults to off.
+        let allow_cloud_interim = {
+            use tauri_plugin_store::StoreExt;
+            app.store("settings.json")
+                .ok()
+                .and_then(|store| store.get("cloud_interim").and_then(|v| v.as_bool()))
+                .unwrap_or(false)
+        };
+        if !allow_cloud_interim {
+            log::info!(
+                "Whisper mode: cloud interim disabled (settings.json cloud_interim != true), audio stays local"
+            );
+        }
+
         while flag_cpal.load(Ordering::SeqCst) {
             let groq_key = {
                 let keys_state = app.try_state::<crate::keys::ApiKeys>();
@@ -227,7 +258,7 @@ fn spawn_interim_stream_worker<R: Runtime>(
                     .unwrap_or_default()
             };
 
-            let has_groq = !groq_key.is_empty();
+            let has_groq = allow_cloud_interim && !groq_key.is_empty();
 
             if has_groq {
                 // ── Cloud API STT Interim Worker (Groq priority, as in main) ──
@@ -238,16 +269,27 @@ fn spawn_interim_stream_worker<R: Runtime>(
                     continue;
                 }
 
-                let (samples, sample_rate) = {
+                let (delta, sample_rate) = {
                     match state.lock().ok() {
-                        Some(lock) => (lock.samples.clone(), lock.sample_rate),
+                        Some(lock) => (
+                            crate::utils::copy_audio_delta(&lock.samples, &mut cloud_copied_len),
+                            lock.sample_rate,
+                        ),
                         None => (Vec::new(), 0),
                     }
                 };
 
+                // `continue` is safe here: the cadence sleep at the top of this
+                // branch already ran.
+                if delta.is_empty() {
+                    continue;
+                }
+                cloud_full.extend_from_slice(&delta);
+                let samples = &cloud_full;
+
                 let min_samples = (sample_rate as usize * 35) / 100;
                 if sample_rate > 0 && samples.len() >= min_samples {
-                    let resampled = crate::utils::resample_to_16k(&samples, sample_rate, 16000);
+                    let resampled = crate::utils::resample_to_16k(samples, sample_rate, 16000);
                     let trimmed = crate::utils::trim_silence(&resampled, 0.0025, 16000);
                     if trimmed.len() as f32 / 16000.0 >= 0.350 {
                         let overall_rms = (trimmed.iter().map(|s| s * s).sum::<f32>()
@@ -276,28 +318,54 @@ fn spawn_interim_stream_worker<R: Runtime>(
                                     let key = groq_key.clone();
 
                                     tauri::async_runtime::spawn(async move {
-                                        if let Ok(res) = client_req
-                                            .post("https://api.groq.com/openai/v1/audio/transcriptions")
-                                            .header("Authorization", format!("Bearer {}", key))
-                                            .multipart(form)
-                                            .send()
-                                            .await
+                                        match tokio::time::timeout(
+                                            GROQ_INTERIM_TIMEOUT,
+                                            client_req
+                                                .post(
+                                                    "https://api.groq.com/openai/v1/audio/transcriptions",
+                                                )
+                                                .header("Authorization", format!("Bearer {}", key))
+                                                .multipart(form)
+                                                .send(),
+                                        )
+                                        .await
                                         {
-                                            if res.status().is_success() {
-                                                if let Ok(json) = res.json::<serde_json::Value>().await {
-                                                    if let Some(text) = json["text"].as_str() {
-                                                        let trimmed = crate::utils::remove_hallucinations(
-                                                            &crate::utils::clean_repetitive_phrases(text),
-                                                        )
-                                                        .trim()
-                                                        .to_string();
-                                                        if flag_check.load(Ordering::SeqCst) && !trimmed.is_empty() {
-                                                            let _ = app_emit.emit("interim-transcription", trimmed);
+                                            Ok(Ok(res)) => {
+                                                if res.status().is_success() {
+                                                    if let Ok(json) =
+                                                        res.json::<serde_json::Value>().await
+                                                    {
+                                                        if let Some(text) = json["text"].as_str() {
+                                                            let trimmed =
+                                                                crate::utils::remove_hallucinations(
+                                                                    &crate::utils::clean_repetitive_phrases(
+                                                                        text,
+                                                                    ),
+                                                                )
+                                                                .trim()
+                                                                .to_string();
+                                                            if flag_check.load(Ordering::SeqCst)
+                                                                && !trimmed.is_empty()
+                                                            {
+                                                                let _ = app_emit.emit(
+                                                                    "interim-transcription",
+                                                                    trimmed,
+                                                                );
+                                                            }
                                                         }
                                                     }
+                                                } else if res.status().as_u16() == 429 {
+                                                    tokio::time::sleep(std::time::Duration::from_millis(1500)).await;
                                                 }
-                                            } else if res.status().as_u16() == 429 {
-                                                tokio::time::sleep(std::time::Duration::from_millis(1500)).await;
+                                            }
+                                            Ok(Err(e)) => {
+                                                log::warn!("Groq interim STT request failed: {}", e);
+                                            }
+                                            Err(_) => {
+                                                log::warn!(
+                                                    "Groq interim STT timed out after {:?}, releasing in-flight guard",
+                                                    GROQ_INTERIM_TIMEOUT
+                                                );
                                             }
                                         }
                                         inflight_guard.store(false, Ordering::SeqCst);

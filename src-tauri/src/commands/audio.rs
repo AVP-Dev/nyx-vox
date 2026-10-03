@@ -1,7 +1,7 @@
 use crate::state::*;
 use crate::utils::*;
 use crate::{ai_provider, deepgram, keys, whisper};
-use std::sync::atomic::Ordering;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter, Manager, State};
 
@@ -85,6 +85,41 @@ pub async fn request_microphone_permission() -> Result<bool, String> {
     .map_err(|e| e.to_string())
 }
 
+/// Which engine a single recording should actually use.
+#[derive(Debug, PartialEq, Eq)]
+enum SttModeDecision {
+    /// Use the engine the user selected.
+    AsSelected,
+    /// Record with local Whisper for this one recording only.
+    OfflineFallback,
+    /// A cloud engine was selected, there is no network and no local model.
+    Unavailable,
+}
+
+/// Decides the effective STT engine from connectivity, without touching state.
+///
+/// Pure so it can be unit tested. It deliberately does not rewrite the user's
+/// selection (BE-5): the previous code wrote `"whisper"` into `settings.json` on a
+/// transient network blip, with no path back to Deepgram/Groq except opening
+/// Settings by hand. The fallback is now scoped to the current recording, and the
+/// next recording re-evaluates connectivity and returns to the chosen engine on
+/// its own.
+fn resolve_stt_mode(
+    requested: &str,
+    online: bool,
+    whisper_model_available: bool,
+) -> SttModeDecision {
+    let is_cloud = requested == "deepgram" || requested == "groq";
+    if !is_cloud || online {
+        return SttModeDecision::AsSelected;
+    }
+    if whisper_model_available {
+        SttModeDecision::OfflineFallback
+    } else {
+        SttModeDecision::Unavailable
+    }
+}
+
 #[tauri::command]
 #[allow(clippy::too_many_arguments)]
 pub async fn start_recording(
@@ -116,30 +151,28 @@ pub async fn start_recording(
     let mut final_mode = mode;
     let model_type = *whisper_model.0.lock().map_err(|e| e.to_string())?;
 
-    if final_mode == "deepgram" || final_mode == "groq" {
-        let is_online = is_online();
+    // `is_online()` opens a socket on a cache miss, so it is only asked when a
+    // cloud engine was actually selected.
+    let mode_decision = if mode == "deepgram" || mode == "groq" {
+        resolve_stt_mode(&mode, is_online(), whisper::is_model_available(model_type))
+    } else {
+        SttModeDecision::AsSelected
+    };
 
-        if !is_online {
-            if whisper::is_model_available(model_type) {
-                let _ = app.emit(
-                    "stt-fallback",
-                    "Нет сети. Авто-переключение на офлайн режим (Whisper).",
-                );
-                if let Ok(mut lock) = stt_mode.0.lock() {
-                    *lock = "whisper".to_string();
-                }
-                use tauri_plugin_store::StoreExt;
-                if let Ok(store) = app.store("settings.json") {
-                    store.set("stt_mode", serde_json::json!("whisper"));
-                    let _ = store.save();
-                }
-                let _ = app.emit("mode-changed", "whisper");
-                final_mode = "whisper".to_string();
-            } else {
-                return Err(
-                    "Нет подключения к интернету, а офлайн модель не установлена.".to_string(),
-                );
-            }
+    match mode_decision {
+        SttModeDecision::AsSelected => {}
+        SttModeDecision::OfflineFallback => {
+            // BE-5: the selected engine stays in state and in settings.json. Only
+            // this recording uses the offline model, so the next one goes back to
+            // Deepgram/Groq as soon as the network is back.
+            let _ = app.emit(
+                "stt-fallback",
+                "Нет сети. Запись в офлайн режиме (Whisper). Выбранный движок вернётся автоматически.",
+            );
+            final_mode = "whisper".to_string();
+        }
+        SttModeDecision::Unavailable => {
+            return Err("Нет подключения к интернету, а офлайн модель не установлена.".to_string());
         }
     }
 
@@ -636,6 +669,17 @@ pub async fn stop_recording(
 #[tauri::command]
 pub async fn paste_text(app: AppHandle, text: String) -> Result<(), String> {
     use tauri_plugin_clipboard_manager::ClipboardExt;
+
+    // Accessibility is checked BEFORE the clipboard is touched: if the permission is
+    // missing the synthetic paste cannot happen at all, and writing the clipboard
+    // first silently destroys whatever the user had copied.
+    #[cfg(target_os = "macos")]
+    if !macos_accessibility_client::accessibility::application_is_trusted() {
+        return Err(
+            "Не предоставлен доступ к Универсальному доступу (Accessibility). Откройте Настройки → Доступность и добавьте NYX Vox.".to_string(),
+        );
+    }
+
     app.clipboard()
         .write_text(text)
         .map_err(|e| format!("ERR_CLIPBOARD: {}", e))?;
@@ -646,15 +690,6 @@ pub async fn paste_text(app: AppHandle, text: String) -> Result<(), String> {
         if let Ok(mut lock) = state.0.lock() {
             *lock = (target_name.clone(), target_id.clone());
         }
-    }
-
-    // Abort early if Accessibility isn't granted — the synthetic Cmd+V would
-    // silently do nothing, leaving the user's window hidden for nothing.
-    #[cfg(target_os = "macos")]
-    if !macos_accessibility_client::accessibility::application_is_trusted() {
-        return Err(
-            "Не предоставлен доступ к Универсальному доступу (Accessibility). Откройте Настройки → Доступность и добавьте NYX Vox.".to_string(),
-        );
     }
 
     // Hide window FIRST so focus transfers to the target app before Cmd+V / Ctrl+V
@@ -679,85 +714,132 @@ pub async fn paste_text(app: AppHandle, text: String) -> Result<(), String> {
     // Without this delay, Cmd+V can land in NYX Vox instead of the target.
     tokio::time::sleep(std::time::Duration::from_millis(400)).await;
 
-    let app_handle = app.clone();
-    let (tx, rx) = tokio::sync::oneshot::channel::<Result<(), String>>();
+    // BE-8: the key chord used to be posted from `run_on_main_thread`, where its
+    // three `std::thread::sleep` calls (30 + 50 + 30 ms) froze the macOS main
+    // thread: no repaint, no input, 110 ms of a dead UI. It runs on a blocking
+    // worker instead — posting CGEvent is not restricted to the main thread.
+    let aborted = Arc::new(AtomicBool::new(false));
+    let worker_app = app.clone();
+    let worker_aborted = Arc::clone(&aborted);
+    let paste = tokio::task::spawn_blocking(move || post_paste_chord(&worker_app, &worker_aborted));
 
-    tauri::async_runtime::spawn(async move {
-        #[cfg(target_os = "windows")]
-        let app_handle_for_closure = app_handle.clone();
-        let _ = app_handle.run_on_main_thread(move || {
-            let result = (|| {
-                #[cfg(target_os = "macos")]
-                {
-                    use core_graphics::event::{
-                        CGEvent, CGEventFlags, CGEventTapLocation, CGKeyCode,
-                    };
-                    use core_graphics::event_source::{CGEventSource, CGEventSourceStateID};
-                    let source = CGEventSource::new(CGEventSourceStateID::HIDSystemState)
-                        .map_err(|_| "CGEventSource init failed".to_string())?;
-                    let k_cmd: CGKeyCode = 55;
-                    let k_v: CGKeyCode = 9;
-                    let (c_dn, c_up, v_dn, v_up) = (
-                        CGEvent::new_keyboard_event(source.clone(), k_cmd, true)
-                            .map_err(|_| "CGEvent cmd-down failed".to_string())?,
-                        CGEvent::new_keyboard_event(source.clone(), k_cmd, false)
-                            .map_err(|_| "CGEvent cmd-up failed".to_string())?,
-                        CGEvent::new_keyboard_event(source.clone(), k_v, true)
-                            .map_err(|_| "CGEvent v-down failed".to_string())?,
-                        CGEvent::new_keyboard_event(source.clone(), k_v, false)
-                            .map_err(|_| "CGEvent v-up failed".to_string())?,
-                    );
-                    v_dn.set_flags(CGEventFlags::CGEventFlagCommand);
-                    v_up.set_flags(CGEventFlags::CGEventFlagCommand);
-                    c_dn.post(CGEventTapLocation::HID);
-                    std::thread::sleep(std::time::Duration::from_millis(30));
-                    v_dn.post(CGEventTapLocation::HID);
-                    std::thread::sleep(std::time::Duration::from_millis(50));
-                    v_up.post(CGEventTapLocation::HID);
-                    std::thread::sleep(std::time::Duration::from_millis(30));
-                    c_up.post(CGEventTapLocation::HID);
-                }
-                #[cfg(target_os = "windows")]
-                {
-                    if let Some(enigo_state) = app_handle_for_closure.try_state::<EnigoState>() {
-                        if let Ok(mut enigo) = enigo_state.0.lock() {
-                            use enigo::{Direction, Key, Keyboard};
-                            enigo
-                                .0
-                                .key(Key::Control, Direction::Press)
-                                .map_err(|e| e.to_string())?;
-                            std::thread::sleep(std::time::Duration::from_millis(30));
-                            enigo
-                                .0
-                                .key(Key::Unicode('v'), Direction::Click)
-                                .map_err(|e| e.to_string())?;
-                            std::thread::sleep(std::time::Duration::from_millis(30));
-                            enigo
-                                .0
-                                .key(Key::Control, Direction::Release)
-                                .map_err(|e| e.to_string())?;
-                        }
-                    }
-                }
-                Ok(())
-            })();
-            let _ = tx.send(result);
-        });
-    });
-
-    match tokio::time::timeout(std::time::Duration::from_secs(2), rx).await {
+    match tokio::time::timeout(std::time::Duration::from_secs(2), paste).await {
         Ok(Ok(Ok(()))) => Ok(()),
         Ok(Ok(Err(e))) => {
-            // Paste failed after the window was hidden — bring it back so the
-            // user isn't left staring at nothing.
-            if let Some(w) = app.get_webview_window("main") {
-                let _ = w.show();
-            }
+            restore_main_window(&app);
             Err(e)
         }
-        Ok(Err(_)) => Err("Paste task was dropped".to_string()),
-        Err(_) => Err("Paste timed out".to_string()),
+        Ok(Err(join_err)) => {
+            restore_main_window(&app);
+            Err(format!("Paste thread error: {}", join_err))
+        }
+        Err(_) => {
+            // A timeout no longer leaves an already-scheduled paste behind: the
+            // worker checks this flag before every post and releases a
+            // half-pressed modifier, so a late worker cannot paste into NYX Vox.
+            aborted.store(true, Ordering::SeqCst);
+            Err("Paste timed out".to_string())
+        }
     }
+}
+
+/// Shows the overlay again after a failed paste. The window was hidden before the
+/// attempt, so without this the user is left staring at nothing.
+fn restore_main_window(app: &AppHandle) {
+    if let Some(w) = app.get_webview_window("main") {
+        let _ = w.show();
+    }
+}
+
+/// Posts the paste chord (Cmd+V on macOS, Ctrl+V on Windows) with the key timing
+/// the window server needs.
+///
+/// Runs on a blocking worker, never on the main UI thread (BE-8). `aborted` is set
+/// by the caller's timeout and is checked before every post, so an expired paste
+/// never reaches the application that happens to be frontmost at that moment.
+#[cfg(target_os = "macos")]
+fn post_paste_chord(_app: &AppHandle, aborted: &AtomicBool) -> Result<(), String> {
+    use core_graphics::event::{CGEvent, CGEventFlags, CGEventTapLocation, CGKeyCode};
+    use core_graphics::event_source::{CGEventSource, CGEventSourceStateID};
+
+    let source = CGEventSource::new(CGEventSourceStateID::HIDSystemState)
+        .map_err(|_| "CGEventSource init failed".to_string())?;
+    let k_cmd: CGKeyCode = 55;
+    let k_v: CGKeyCode = 9;
+    let c_dn = CGEvent::new_keyboard_event(source.clone(), k_cmd, true)
+        .map_err(|_| "CGEvent cmd-down failed".to_string())?;
+    let c_up = CGEvent::new_keyboard_event(source.clone(), k_cmd, false)
+        .map_err(|_| "CGEvent cmd-up failed".to_string())?;
+    let v_dn = CGEvent::new_keyboard_event(source.clone(), k_v, true)
+        .map_err(|_| "CGEvent v-down failed".to_string())?;
+    let v_up = CGEvent::new_keyboard_event(source.clone(), k_v, false)
+        .map_err(|_| "CGEvent v-up failed".to_string())?;
+    v_dn.set_flags(CGEventFlags::CGEventFlagCommand);
+    v_up.set_flags(CGEventFlags::CGEventFlagCommand);
+
+    // On abort the modifier must be lifted again, otherwise Cmd stays logically
+    // held for every other application.
+    macro_rules! abort_if_cancelled {
+        () => {
+            if aborted.load(Ordering::SeqCst) {
+                c_up.post(CGEventTapLocation::HID);
+                return Err("Вставка отменена: превышено время ожидания".to_string());
+            }
+        };
+    }
+
+    abort_if_cancelled!();
+    c_dn.post(CGEventTapLocation::HID);
+    std::thread::sleep(std::time::Duration::from_millis(30));
+
+    abort_if_cancelled!();
+    v_dn.post(CGEventTapLocation::HID);
+    std::thread::sleep(std::time::Duration::from_millis(50));
+
+    abort_if_cancelled!();
+    v_up.post(CGEventTapLocation::HID);
+    std::thread::sleep(std::time::Duration::from_millis(30));
+
+    c_up.post(CGEventTapLocation::HID);
+    Ok(())
+}
+
+#[cfg(target_os = "windows")]
+fn post_paste_chord(app: &AppHandle, aborted: &AtomicBool) -> Result<(), String> {
+    use enigo::{Direction, Key, Keyboard};
+
+    let Some(enigo_state) = app.try_state::<EnigoState>() else {
+        return Err("Enigo не инициализирован".to_string());
+    };
+    let mut enigo = enigo_state
+        .0
+        .lock()
+        .map_err(|e| format!("Enigo lock poisoned: {}", e))?;
+
+    enigo
+        .0
+        .key(Key::Control, Direction::Press)
+        .map_err(|e| e.to_string())?;
+    if aborted.load(Ordering::SeqCst) {
+        let _ = enigo.0.key(Key::Control, Direction::Release);
+        return Err("Вставка отменена: превышено время ожидания".to_string());
+    }
+    std::thread::sleep(std::time::Duration::from_millis(30));
+    enigo
+        .0
+        .key(Key::Unicode('v'), Direction::Click)
+        .map_err(|e| e.to_string())?;
+    std::thread::sleep(std::time::Duration::from_millis(30));
+    enigo
+        .0
+        .key(Key::Control, Direction::Release)
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+fn post_paste_chord(_app: &AppHandle, _aborted: &AtomicBool) -> Result<(), String> {
+    Err("Вставка текста не поддерживается на этой платформе".to_string())
 }
 
 #[tauri::command]
@@ -922,5 +1004,68 @@ pub async fn reset_accessibility_permissions(app: AppHandle) -> Result<(), Strin
     {
         let _ = app;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── resolve_stt_mode (BE-5) ─────────────────────────────────────────────
+
+    #[test]
+    fn online_cloud_engine_is_used_as_selected() {
+        assert_eq!(
+            resolve_stt_mode("deepgram", true, false),
+            SttModeDecision::AsSelected
+        );
+        assert_eq!(
+            resolve_stt_mode("groq", true, false),
+            SttModeDecision::AsSelected
+        );
+    }
+
+    /// The regression behind BE-5: a one-second outage must not turn the user's
+    /// chosen engine into a permanent offline setting.
+    #[test]
+    fn offline_cloud_engine_falls_back_without_changing_the_choice() {
+        assert_eq!(
+            resolve_stt_mode("groq", false, true),
+            SttModeDecision::OfflineFallback
+        );
+    }
+
+    #[test]
+    fn offline_cloud_engine_without_local_model_is_unavailable() {
+        assert_eq!(
+            resolve_stt_mode("deepgram", false, false),
+            SttModeDecision::Unavailable
+        );
+    }
+
+    #[test]
+    fn local_engine_never_falls_back() {
+        for model_available in [true, false] {
+            assert_eq!(
+                resolve_stt_mode("whisper", false, model_available),
+                SttModeDecision::AsSelected
+            );
+            assert_eq!(
+                resolve_stt_mode("gemini", false, model_available),
+                SttModeDecision::AsSelected
+            );
+            assert_eq!(
+                resolve_stt_mode("gigachat", false, model_available),
+                SttModeDecision::AsSelected
+            );
+        }
+    }
+
+    #[test]
+    fn unknown_engine_is_left_alone() {
+        assert_eq!(
+            resolve_stt_mode("something-else", false, true),
+            SttModeDecision::AsSelected
+        );
     }
 }

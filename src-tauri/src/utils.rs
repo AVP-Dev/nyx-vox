@@ -83,7 +83,17 @@ pub fn system_media_control(cmd: i32) {
     }
 }
 
+/// Resamples to 16 kHz with linear interpolation.
+///
+/// Guards a zero rate (BE-11): with `from_rate == 0` the ratio collapses to 0.0,
+/// `out_len` saturates to `usize::MAX` and `Vec::with_capacity` panics with
+/// "capacity overflow". A zero rate means the capture device never reported a
+/// format, so there is nothing to resample — return an empty slice rather than
+/// aborting the process from an audio path.
 pub fn resample_to_16k(samples: &[f32], from_rate: u32, to_rate: u32) -> Vec<f32> {
+    if samples.is_empty() || from_rate == 0 || to_rate == 0 {
+        return Vec::new();
+    }
     if from_rate == to_rate {
         return samples.to_vec();
     }
@@ -102,6 +112,54 @@ pub fn resample_to_16k(samples: &[f32], from_rate: u32, to_rate: u32) -> Vec<f32
         }
     }
     result
+}
+
+/// Copies only the samples appended since `*copied_len` and advances the cursor.
+///
+/// The interim STT workers used to clone the ENTIRE recording buffer while holding
+/// the same `std::sync::Mutex` that the cpal real-time callback takes to append
+/// samples (BE-1). At 48 kHz a three-minute recording is a 34 MB memcpy per tick,
+/// which blocks the audio thread long enough to drop samples. Copying only the
+/// delta makes the lock hold time proportional to one tick of audio instead of to
+/// the whole session, while the caller still gets the full recording by
+/// accumulating the deltas outside the lock.
+///
+/// `copied_len` belongs to the calling worker alone, so no shared state is added to
+/// the audio structs. A buffer that shrank since the last tick (cleared on stop,
+/// or a restarted session) makes the cursor meaningless, so it rewinds to the
+/// beginning instead of slicing out of range or skipping the first samples of the
+/// new audio.
+pub fn copy_audio_delta(samples: &[f32], copied_len: &mut usize) -> Vec<f32> {
+    if *copied_len > samples.len() {
+        *copied_len = 0;
+    }
+    if *copied_len == samples.len() {
+        return Vec::new();
+    }
+    let delta = samples[*copied_len..].to_vec();
+    *copied_len = samples.len();
+    delta
+}
+
+/// Truncates `text` to at most `max_bytes` bytes without ever splitting a UTF-8
+/// character, preferring to cut at the last space so a word stays whole.
+///
+/// `&text[..max_bytes]` panics when the index lands inside a multi-byte character
+/// (BE-7). `is_char_boundary` only ever walks back a few bytes for UTF-8, so the
+/// loop is bounded and cannot run away.
+pub fn truncate_utf8_at_word(text: &str, max_bytes: usize) -> String {
+    if text.len() <= max_bytes {
+        return text.to_string();
+    }
+    let mut end = max_bytes.min(text.len());
+    while end > 0 && !text.is_char_boundary(end) {
+        end -= 1;
+    }
+    let truncated = &text[..end];
+    match truncated.rfind(' ') {
+        Some(pos) => truncated[..pos].trim_end().to_string(),
+        None => truncated.to_string(),
+    }
 }
 
 /// Returns a shared, pooled reqwest Client with Keep-Alive and TLS session caching.
@@ -166,88 +224,47 @@ pub fn samples_to_i16_pcm(samples: &[f32]) -> Vec<u8> {
 pub fn get_frontmost_app_info() -> (String, String) {
     #[cfg(target_os = "macos")]
     {
-        use core_foundation::array::CFArray;
-        use core_foundation::base::TCFType;
-        use core_foundation::dictionary::CFDictionary;
-        use core_foundation::number::CFNumber;
-        use core_foundation::string::CFString;
-        use core_graphics::display::{
-            kCGNullWindowID, kCGWindowListOptionOnScreenOnly, CGWindowListCopyWindowInfo,
+        // In-process AppKit instead of fork/exec of osascript (BE-9).
+        //
+        // The previous implementation walked every on-screen window through
+        // CGWindowListCopyWindowInfo and then spawned an `osascript` process per
+        // call to resolve the bundle id. This function runs on every hotkey press
+        // and every 2 s while the overlay is visible, so each call paid a process
+        // spawn plus an AppleScript round trip. NSWorkspace.frontmostApplication is
+        // an O(1) message send inside the process.
+        //
+        // Behaviour that callers depend on is preserved: our own app is reported as
+        // ("Unknown", "Unknown"), because when NYX Vox is frontmost the application
+        // the user was actually typing in sits behind it and cannot be recovered
+        // cheaply. Every caller already treats "Unknown" as "no target".
+        use objc2_app_kit::NSWorkspace;
+
+        let workspace = NSWorkspace::sharedWorkspace();
+        let Some(frontmost) = workspace.frontmostApplication() else {
+            return ("Unknown".to_string(), "Unknown".to_string());
         };
 
-        // 1. Get all on-screen windows in Z-order (top to bottom)
-        let window_list_ref =
-            unsafe { CGWindowListCopyWindowInfo(kCGWindowListOptionOnScreenOnly, kCGNullWindowID) };
-
-        use core_foundation::base::CFType;
-        if !window_list_ref.is_null() {
-            let window_list = unsafe {
-                CFArray::<CFDictionary>::wrap_under_create_rule(window_list_ref as *const _)
-            };
-            let count = window_list.len();
-
-            for i in 0..count {
-                let dict_ref = unsafe {
-                    core_foundation::array::CFArrayGetValueAtIndex(
-                        window_list.as_concrete_TypeRef(),
-                        i,
-                    )
-                };
-                if dict_ref.is_null() {
-                    continue;
-                }
-
-                let dict = unsafe {
-                    CFDictionary::<CFString, CFType>::wrap_under_get_rule(dict_ref as *const _)
-                };
-
-                // Keys
-                let pid_key = CFString::from_static_string("kCGWindowOwnerPID");
-                let name_key = CFString::from_static_string("kCGWindowOwnerName");
-                let layer_key = CFString::from_static_string("kCGWindowLayer");
-
-                let pid_val = dict.find(pid_key);
-                let name_val = dict.find(name_key);
-                let layer_val = dict.find(layer_key);
-
-                if let (Some(p_ptr), Some(n_ptr), Some(l_ptr)) = (pid_val, name_val, layer_val) {
-                    let pid_num =
-                        unsafe { CFNumber::wrap_under_get_rule(p_ptr.as_CFTypeRef() as *const _) };
-                    let layer_num =
-                        unsafe { CFNumber::wrap_under_get_rule(l_ptr.as_CFTypeRef() as *const _) };
-                    let owner_name_cf =
-                        unsafe { CFString::wrap_under_get_rule(n_ptr.as_CFTypeRef() as *const _) };
-
-                    let pid = pid_num.to_i64().unwrap_or(0);
-                    let layer = layer_num.to_i32().unwrap_or(0);
-                    let owner_name = owner_name_cf.to_string();
-
-                    // Skip our own app and background/system layers (layer > 0)
-                    if owner_name == "NYX Vox" || owner_name == "app" || layer > 0 {
-                        continue;
-                    }
-
-                    // For the found PID, get the Bundle ID via AppleScript
-                    let script = format!(
-                        "tell application \"System Events\" to return bundle identifier of first application process whose unix id is {}",
-                        pid
-                    );
-
-                    if let Ok(output) = std::process::Command::new("osascript")
-                        .arg("-e")
-                        .arg(&script)
-                        .output()
-                    {
-                        let bundle_id = String::from_utf8_lossy(&output.stdout).trim().to_string();
-                        if !bundle_id.is_empty() {
-                            return (owner_name, bundle_id);
-                        }
-                    }
-
-                    return (owner_name, "Unknown".to_string());
-                }
-            }
+        let name = frontmost
+            .localizedName()
+            .map(|n| n.to_string())
+            .unwrap_or_default();
+        let is_own_app = name.is_empty()
+            || name.eq_ignore_ascii_case("NYX Vox")
+            || name.eq_ignore_ascii_case("app");
+        if is_own_app {
+            return ("Unknown".to_string(), "Unknown".to_string());
         }
+
+        let bundle_id = frontmost
+            .bundleIdentifier()
+            .map(|b| b.to_string())
+            .filter(|b| !b.is_empty())
+            .unwrap_or_else(|| "Unknown".to_string());
+
+        // Explicit return: this `#[cfg]` block sits in statement position, so its
+        // tail expression would be dropped and the function would fall through to
+        // the ("Unknown", "Unknown") fallback below.
+        return (name, bundle_id);
     }
     #[cfg(target_os = "windows")]
     {
@@ -1013,6 +1030,135 @@ mod tests {
         let input = vec![0.0; 48000];
         let output = resample_to_16k(&input, 48000, 16000);
         assert!(output.iter().all(|&s| s == 0.0));
+    }
+
+    /// BE-11: `from_rate == 0` used to divide by zero, saturate `out_len` to
+    /// `usize::MAX` and panic in `Vec::with_capacity`.
+    #[test]
+    fn resample_zero_from_rate_returns_empty_instead_of_panicking() {
+        let input = vec![0.5; 4096];
+        let output = resample_to_16k(&input, 0, 16000);
+        assert!(output.is_empty());
+    }
+
+    #[test]
+    fn resample_zero_to_rate_returns_empty() {
+        let input = vec![0.5; 4096];
+        let output = resample_to_16k(&input, 44100, 0);
+        assert!(output.is_empty());
+    }
+
+    /// Same-rate shortcut used to run before the zero-rate guard; keep it a copy,
+    /// and never let it through with a zero rate.
+    #[test]
+    fn resample_zero_rates_are_both_rejected() {
+        assert!(resample_to_16k(&[1.0, 2.0], 0, 0).is_empty());
+    }
+
+    // ── copy_audio_delta (BE-1) ─────────────────────────────────────────────
+
+    #[test]
+    fn audio_delta_first_call_returns_everything() {
+        let buffer = vec![1.0, 2.0, 3.0];
+        let mut copied = 0usize;
+        assert_eq!(copy_audio_delta(&buffer, &mut copied), vec![1.0, 2.0, 3.0]);
+        assert_eq!(copied, 3);
+    }
+
+    #[test]
+    fn audio_delta_returns_only_appended_samples() {
+        let mut buffer = vec![1.0, 2.0];
+        let mut copied = 0usize;
+        assert_eq!(copy_audio_delta(&buffer, &mut copied), vec![1.0, 2.0]);
+
+        buffer.extend_from_slice(&[3.0, 4.0, 5.0]);
+        assert_eq!(copy_audio_delta(&buffer, &mut copied), vec![3.0, 4.0, 5.0]);
+        assert_eq!(copied, 5);
+    }
+
+    #[test]
+    fn audio_delta_is_empty_when_nothing_appended() {
+        let buffer = vec![1.0, 2.0];
+        let mut copied = 0usize;
+        copy_audio_delta(&buffer, &mut copied);
+        assert!(copy_audio_delta(&buffer, &mut copied).is_empty());
+    }
+
+    /// A cleared buffer invalidates the cursor: the next tick must re-read from the
+    /// start, not skip audio that arrived before the cursor caught up.
+    #[test]
+    fn audio_delta_rewinds_when_buffer_shrank() {
+        let mut copied = 100usize;
+        let buffer = vec![1.0, 2.0];
+        assert_eq!(copy_audio_delta(&buffer, &mut copied), vec![1.0, 2.0]);
+        assert_eq!(copied, 2);
+
+        let refilled = vec![7.0, 8.0, 9.0];
+        copied = 1000;
+        assert_eq!(copy_audio_delta(&refilled, &mut copied), refilled);
+        assert_eq!(copied, 3);
+    }
+
+    #[test]
+    fn audio_delta_concatenates_back_to_full_buffer() {
+        let mut buffer: Vec<f32> = Vec::new();
+        let mut copied = 0usize;
+        let mut whole: Vec<f32> = Vec::new();
+        for tick in 0..10 {
+            let chunk = vec![tick as f32; 48];
+            buffer.extend_from_slice(&chunk);
+            whole.extend_from_slice(&copy_audio_delta(&buffer, &mut copied));
+        }
+        assert_eq!(whole, buffer);
+    }
+
+    // ── truncate_utf8_at_word (BE-7) ────────────────────────────────────────
+
+    #[test]
+    fn truncate_shortens_at_word_boundary() {
+        assert_eq!(
+            truncate_utf8_at_word("one two three four", 12),
+            "one two".to_string()
+        );
+    }
+
+    /// The panic this replaces: a 2-byte Cyrillic character straddling the cut.
+    #[test]
+    fn truncate_never_splits_multibyte_characters() {
+        let text = "абвгдеёжзийклмн";
+        for limit in 0..=text.len() {
+            let out = truncate_utf8_at_word(text, limit);
+            assert!(
+                text.starts_with(&out),
+                "limit {} produced {:?} which is not a prefix",
+                limit,
+                out
+            );
+            assert!(out.len() <= limit, "limit {} exceeded", limit);
+        }
+    }
+
+    #[test]
+    fn truncate_handles_cut_inside_emoji_and_cyrillic() {
+        // 4-byte emoji followed by Cyrillic: any 1..4 byte offset from the start
+        // lands inside a character.
+        let text = "😀 привет мир";
+        for limit in 0..=text.len() {
+            let out = truncate_utf8_at_word(text, limit);
+            assert!(text.starts_with(&out));
+            assert!(out.len() <= limit);
+        }
+    }
+
+    #[test]
+    fn truncate_without_space_returns_prefix() {
+        // 4 bytes of 2-byte Cyrillic is two characters, not three.
+        assert_eq!(truncate_utf8_at_word("абвгд", 4), "аб".to_string());
+    }
+
+    #[test]
+    fn truncate_noop_when_within_limit() {
+        assert_eq!(truncate_utf8_at_word("short", 100), "short".to_string());
     }
 
     // ── clean_repetitive_phrases ─────────────────────────────────────────────

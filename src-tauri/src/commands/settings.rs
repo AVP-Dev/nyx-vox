@@ -159,21 +159,42 @@ pub async fn get_custom_models(
     Ok(state.0.lock().map_err(|e| e.to_string())?.clone())
 }
 
+/// Lowest accepted noise gate. Below this everything but a silent room is treated
+/// as speech, so VAD stops firing.
+pub const NOISE_GATE_MIN: f32 = 0.0005;
+/// Highest accepted noise gate. Above this quiet speech is indistinguishable from
+/// background noise and every recording is trimmed away.
+pub const NOISE_GATE_MAX: f32 = 0.05;
+
+/// Validates and clamps a noise-gate threshold coming from the UI.
+///
+/// `set_audio_gain` and `set_vad_silence_timeout` both clamped before writing;
+/// `set_noise_gate` wrote whatever it was given, so a NaN (which JSON cannot even
+/// represent, and which `f32::clamp` passes straight through) reached the live
+/// state and made every subsequent VAD comparison false.
+pub fn normalize_noise_gate(threshold: f32) -> Result<f32, String> {
+    if !threshold.is_finite() {
+        return Err("Шумовой порог должен быть конечным числом".to_string());
+    }
+    Ok(threshold.clamp(NOISE_GATE_MIN, NOISE_GATE_MAX))
+}
+
 #[tauri::command]
 pub async fn set_noise_gate(
     app: AppHandle,
     state: State<'_, NoiseGateThreshold>,
     threshold: f32,
 ) -> Result<(), String> {
+    let normalized = normalize_noise_gate(threshold)?;
     let store = app
         .store("settings.json")
         .map_err(|e: tauri_plugin_store::Error| e.to_string())?;
-    store.set("noise_gate", serde_json::json!(threshold));
+    store.set("noise_gate", serde_json::json!(normalized));
     store
         .save()
         .map_err(|e: tauri_plugin_store::Error| e.to_string())?;
     if let Ok(mut lock) = state.0.lock() {
-        *lock = threshold;
+        *lock = normalized;
     }
     Ok(())
 }
@@ -608,4 +629,41 @@ pub async fn get_window_position(app: AppHandle) -> Result<serde_json::Value, St
     let x = store.get("window_x").and_then(|v| v.as_f64());
     let y = store.get("window_y").and_then(|v| v.as_f64());
     Ok(serde_json::json!({ "x": x, "y": y }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── normalize_noise_gate ────────────────────────────────────────────────
+
+    #[test]
+    fn noise_gate_keeps_in_range_values() {
+        assert_eq!(normalize_noise_gate(0.002).unwrap(), 0.002);
+    }
+
+    #[test]
+    fn noise_gate_clamps_out_of_range_values() {
+        assert_eq!(normalize_noise_gate(0.0).unwrap(), NOISE_GATE_MIN);
+        assert_eq!(normalize_noise_gate(-5.0).unwrap(), NOISE_GATE_MIN);
+        assert_eq!(normalize_noise_gate(1.0).unwrap(), NOISE_GATE_MAX);
+    }
+
+    /// `f32::clamp` returns NaN for NaN input, and a NaN threshold makes every
+    /// `rms > noise_gate` comparison false — VAD would never trigger again.
+    #[test]
+    fn noise_gate_rejects_nan() {
+        assert!(normalize_noise_gate(f32::NAN).is_err());
+        assert!(normalize_noise_gate(f32::INFINITY).is_err());
+        assert!(normalize_noise_gate(f32::NEG_INFINITY).is_err());
+    }
+
+    #[test]
+    fn noise_gate_output_is_always_finite_and_bounded() {
+        for raw in [f32::MIN, -1.0, 0.0, 0.5, f32::MAX] {
+            let out = normalize_noise_gate(raw).unwrap();
+            assert!(out.is_finite());
+            assert!((NOISE_GATE_MIN..=NOISE_GATE_MAX).contains(&out));
+        }
+    }
 }

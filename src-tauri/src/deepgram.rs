@@ -198,21 +198,34 @@ fn spawn_interim_stream_worker<R: Runtime>(
             Err(_) => return,
         };
 
-        while flag_cpal.load(Ordering::SeqCst) {
-            let data_opt = {
-                state
-                    .lock()
-                    .ok()
-                    .map(|lock| (lock.samples.clone(), lock.sample_rate))
-            };
+        // BE-1: the fallback polled the STT API with the whole recording cloned out
+        // of the audio mutex on every tick. Copy only the appended delta under the
+        // lock and rebuild the full recording outside it.
+        let mut http_copied_len = 0usize;
+        let mut http_full: Vec<f32> = Vec::new();
 
-            let (samples, sample_rate) = match data_opt {
-                Some(d) => d,
-                None => {
-                    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
-                    continue;
+        while flag_cpal.load(Ordering::SeqCst) {
+            let (delta, sample_rate) = {
+                match state.lock().ok() {
+                    Some(lock) => (
+                        crate::utils::copy_audio_delta(&lock.samples, &mut http_copied_len),
+                        lock.sample_rate,
+                    ),
+                    None => {
+                        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+                        continue;
+                    }
                 }
             };
+
+            // Nothing new since the previous tick. The explicit sleep is required:
+            // `continue` skips the cadence sleep at the bottom of the loop.
+            if delta.is_empty() {
+                tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+                continue;
+            }
+            http_full.extend_from_slice(&delta);
+            let samples = &http_full;
 
             if sample_rate > 0 && samples.len() >= (sample_rate as usize / 3) {
                 // Speech presence check: do not query STT on silence to prevent hallucinations
@@ -230,7 +243,7 @@ fn spawn_interim_stream_worker<R: Runtime>(
                     continue;
                 }
 
-                let resampled = crate::utils::resample_to_16k(&samples, sample_rate, 16000);
+                let resampled = crate::utils::resample_to_16k(samples, sample_rate, 16000);
                 let trimmed_audio = crate::utils::trim_silence(&resampled, 0.0025, 16000);
                 if trimmed_audio.len() >= 4800 {
                     if let Ok(wav_data) = crate::utils::samples_to_wav(trimmed_audio, 16000) {
@@ -413,16 +426,19 @@ async fn try_websocket_stream<R: Runtime>(
     while flag_cpal.load(Ordering::SeqCst) {
         tokio::time::sleep(std::time::Duration::from_millis(120)).await;
 
-        let (samples, sample_rate) = {
+        // BE-1: `sent_samples` doubles as the delta cursor, so only the samples
+        // appended since the previous tick are copied out of the audio mutex. The
+        // whole buffer used to be cloned here — every 120 ms, while the cpal
+        // callback waits on the same mutex.
+        let (new_slice, sample_rate) = {
             let lock = state.lock().map_err(|e| e.to_string())?;
-            (lock.samples.clone(), lock.sample_rate)
+            let rate = lock.sample_rate;
+            let slice = crate::utils::copy_audio_delta(&lock.samples, &mut sent_samples);
+            (slice, rate)
         };
 
-        if sample_rate > 0 && samples.len() > sent_samples {
-            let new_slice = &samples[sent_samples..];
-            sent_samples = samples.len();
-
-            let resampled = crate::utils::resample_to_16k(new_slice, sample_rate, 16000);
+        if sample_rate > 0 && !new_slice.is_empty() {
+            let resampled = crate::utils::resample_to_16k(&new_slice, sample_rate, 16000);
             let pcm_bytes = crate::utils::samples_to_i16_pcm(&resampled);
             if !pcm_bytes.is_empty() && write.send(Message::Binary(pcm_bytes)).await.is_err() {
                 break;

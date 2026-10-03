@@ -12,6 +12,10 @@ use crate::state::{AiSemaphore, AudioBuffer, FormattingStyle, FormattingStyleSta
 const GROQ_STT_MODEL: &str = "whisper-large-v3-turbo";
 const GROQ_REFINEMENT_MODEL: &str = "llama-3.3-70b-versatile";
 const GEMINI_MODEL: &str = "gemini-3.8-flash";
+/// Hard bound on a single interim Groq STT request. The in-flight guard is released
+/// only when the request settles, so an unbounded request that stalls mid-connection
+/// would mute interim streaming for the rest of the session.
+const GROQ_INTERIM_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
 
 // ── Shared recording state ────────────────────────────────────────────────────
 pub type SharedAiState = Arc<Mutex<AudioBuffer>>;
@@ -144,14 +148,21 @@ pub fn start_recording<R: Runtime>(
         let device = match host.default_input_device() {
             Some(d) => d,
             None => {
+                log::error!("No input audio device found");
                 let _ = app_stream.emit("recording-error", "No mic");
+                // BE-3: this flag gates the interim worker loop and the frontend's
+                // stop phase. Leaving it true on a microphone failure pinned the app
+                // in "recording" forever with no way out.
+                flag_cpal.store(false, Ordering::SeqCst);
                 return;
             }
         };
         let config = match device.default_input_config() {
             Ok(c) => c,
             Err(e) => {
+                log::error!("Failed to get default input config: {}", e);
                 let _ = app_stream.emit("recording-error", e.to_string());
+                flag_cpal.store(false, Ordering::SeqCst);
                 return;
             }
         };
@@ -276,6 +287,11 @@ fn spawn_interim_stream_worker<R: Runtime>(
         let client = crate::utils::shared_http_client();
         let is_inflight = Arc::new(AtomicBool::new(false));
 
+        // BE-1: only the samples appended since the previous tick are copied out of
+        // the audio mutex, and the worker rebuilds the full recording outside it.
+        let mut copied_len = 0usize;
+        let mut full_samples: Vec<f32> = Vec::new();
+
         while flag_cpal.load(Ordering::SeqCst) {
             let groq_key = {
                 let keys_state = app.try_state::<crate::keys::ApiKeys>();
@@ -296,20 +312,28 @@ fn spawn_interim_stream_worker<R: Runtime>(
                 continue;
             }
 
-            let data_opt = {
-                state
-                    .lock()
-                    .ok()
-                    .map(|lock| (lock.samples.clone(), lock.sample_rate))
-            };
-
-            let (samples, sample_rate) = match data_opt {
-                Some(d) => d,
-                None => {
-                    tokio::time::sleep(std::time::Duration::from_millis(250)).await;
-                    continue;
+            let (delta, sample_rate) = {
+                match state.lock().ok() {
+                    Some(lock) => (
+                        crate::utils::copy_audio_delta(&lock.samples, &mut copied_len),
+                        lock.sample_rate,
+                    ),
+                    None => {
+                        tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+                        continue;
+                    }
                 }
             };
+
+            // Nothing new since the previous tick — hold the cadence instead of
+            // re-sending an identical request. The explicit sleep is required:
+            // the one at the bottom of the loop is skipped by `continue`.
+            if delta.is_empty() {
+                tokio::time::sleep(std::time::Duration::from_millis(650)).await;
+                continue;
+            }
+            full_samples.extend_from_slice(&delta);
+            let samples = &full_samples;
 
             if sample_rate > 0 && samples.len() >= (sample_rate as usize / 3) {
                 let frame_size = (sample_rate / 20).max(1) as usize;
@@ -326,7 +350,7 @@ fn spawn_interim_stream_worker<R: Runtime>(
                     continue;
                 }
 
-                let resampled = crate::utils::resample_to_16k(&samples, sample_rate, 16000);
+                let resampled = crate::utils::resample_to_16k(samples, sample_rate, 16000);
                 let trimmed_audio = crate::utils::trim_silence(&resampled, 0.0025, 16000);
                 if trimmed_audio.len() >= 4800 && !groq_key.is_empty() {
                     if let Ok(wav_data) = crate::utils::samples_to_wav(trimmed_audio, 16000) {
@@ -355,34 +379,55 @@ fn spawn_interim_stream_worker<R: Runtime>(
                             let key = groq_key.clone();
 
                             tauri::async_runtime::spawn(async move {
-                                if let Ok(res) = client_req
-                                    .post("https://api.groq.com/openai/v1/audio/transcriptions")
-                                    .header("Authorization", format!("Bearer {}", key))
-                                    .multipart(form)
-                                    .send()
-                                    .await
+                                match tokio::time::timeout(
+                                    GROQ_INTERIM_TIMEOUT,
+                                    client_req
+                                        .post("https://api.groq.com/openai/v1/audio/transcriptions")
+                                        .header("Authorization", format!("Bearer {}", key))
+                                        .multipart(form)
+                                        .send(),
+                                )
+                                .await
                                 {
-                                    let status = res.status();
-                                    if status.is_success() {
-                                        if let Ok(json) = res.json::<serde_json::Value>().await {
-                                            if let Some(text) = json["text"].as_str() {
-                                                let cleaned =
-                                                    crate::utils::clean_repetitive_phrases(text);
-                                                let cleaned =
-                                                    crate::utils::remove_hallucinations(&cleaned);
-                                                let trimmed = cleaned.trim();
-                                                if !trimmed.is_empty()
-                                                    && flag_check.load(Ordering::SeqCst)
-                                                {
-                                                    let _ = app_emit
-                                                        .emit("interim-transcription", trimmed);
+                                    Ok(Ok(res)) => {
+                                        let status = res.status();
+                                        if status.is_success() {
+                                            if let Ok(json) = res.json::<serde_json::Value>().await
+                                            {
+                                                if let Some(text) = json["text"].as_str() {
+                                                    let cleaned =
+                                                        crate::utils::clean_repetitive_phrases(
+                                                            text,
+                                                        );
+                                                    let cleaned =
+                                                        crate::utils::remove_hallucinations(
+                                                            &cleaned,
+                                                        );
+                                                    let trimmed = cleaned.trim();
+                                                    if !trimmed.is_empty()
+                                                        && flag_check.load(Ordering::SeqCst)
+                                                    {
+                                                        let _ = app_emit
+                                                            .emit("interim-transcription", trimmed);
+                                                    }
                                                 }
                                             }
-                                        }
-                                    } else if status.as_u16() == 429 {
-                                        log::warn!("Groq interim STT: rate limited (429), pausing interim stream for 1.5s");
-                                        tokio::time::sleep(std::time::Duration::from_millis(1500))
+                                        } else if status.as_u16() == 429 {
+                                            log::warn!("Groq interim STT: rate limited (429), pausing interim stream for 1.5s");
+                                            tokio::time::sleep(std::time::Duration::from_millis(
+                                                1500,
+                                            ))
                                             .await;
+                                        }
+                                    }
+                                    Ok(Err(e)) => {
+                                        log::warn!("Groq interim STT request failed: {}", e);
+                                    }
+                                    Err(_) => {
+                                        log::warn!(
+                                            "Groq interim STT timed out after {:?}, releasing in-flight guard",
+                                            GROQ_INTERIM_TIMEOUT
+                                        );
                                     }
                                 }
                                 inflight_guard.store(false, Ordering::SeqCst);
@@ -461,16 +506,10 @@ pub async fn stop_recording<R: Runtime>(
     } else {
         crate::prompts::GROQ_STT_PROMPT.to_string()
     };
-    // Truncate at word boundary to avoid cutting mid-sentence
-    let stt_prompt = if stt_prompt.len() > 896 {
-        let truncated = &stt_prompt[..896];
-        match truncated.rfind(' ') {
-            Some(pos) => truncated[..pos].to_string(),
-            None => truncated.to_string(),
-        }
-    } else {
-        stt_prompt
-    };
+    // Truncate at a word boundary without ever splitting a UTF-8 character (BE-7):
+    // `&stt_prompt[..896]` panics as soon as the index lands inside a multi-byte
+    // character, which any growth of the STT prompts would eventually trigger.
+    let stt_prompt = crate::utils::truncate_utf8_at_word(&stt_prompt, 896);
     // For "mixed" mode, send "ru" as base language (Russian with occasional English)
     let effective_lang = if language == "mixed" { "ru" } else { language };
     log::info!(
