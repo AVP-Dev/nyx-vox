@@ -6,24 +6,21 @@
 
 ## Последнее обновление
 Дата: 2026-10-03
-Кто/что обновило: Агент (Pair fix round: FE-1..FE-8 frontend audit fixes & tests)
+Кто/что обновило: Агент (Release v1.5.1: audit remediation FE-1..FE-8 & BE-1..BE-11, documentation, release tags)
 
 ## Версии (важно)
-- Последний ПУБЛИЧНЫЙ релиз на GitHub — **v1.5.0**
-- Ветка `main` синхронизирована с `dev`, релизный тег `v1.5.0`
-- Ветка исправления фронтенда: `fix/fe-audit-findings`
+- Готовится релиз **v1.5.1** (устранение находок аудита, оптимизация IPC, защита приватности в Whisper mode)
+- Предыдущий публичный релиз на GitHub — **v1.5.0**
+- Ветка релиза и правок: `fix/fe-audit-findings`
 - **ПОДСИСТЕМА РАСПОЗНАВАНИЯ РЕЧИ И АУДИОПАЙПЛАЙН СТРОГО ЗАФИКСИРОВАНЫ (FROZEN)**
 
 ## Что сейчас в работе
-- Завершена реализация правок фронтенда по итогам парного аудита (FE-1 ... FE-8):
-  - FE-1: Устранена утечка слушателей событий при размонтировании (useTauriEvents, WaveformVisualizer, useWindowManager).
-  - FE-2: Исправлен перехват Enter в режиме редактирования, разрешен перенос строки по Shift+Enter.
-  - FE-3: Устранен шторм IPC WindowServer при live streaming (кэширование размеров окна).
-  - FE-4: Починен lazy-loading SettingsPanel (прямой импорт DICTIONARY из translations.ts).
-  - FE-5 & FE-7: Соответствие ADR #6, удаление чистки галлюцинаций на клиенте и мертвого кода JSON-стриминга.
-  - FE-6 & FE-8: Ликвидация водопада IPC на старте (единый get_all_settings) и 300 мс дебаунс на слайдеры.
-  - Исправлены stale closures в useTauriEvents и useKeyboardShortcuts.
-  - Добавлены юнит-тесты на все затронутые хуки (51 тест Vitest, ESLint clean, Next.js build OK).
+- Подготовка релиза v1.5.1:
+  - Применены и проверены правки фронтенда (FE-1 ... FE-8)
+  - Применены и проверены 4 патча бэкенда (BE-1 ... BE-11, BE-2 отозвана)
+  - Обновлены версии во всех манифестах (`package.json`, `version.ts`, `Cargo.toml`, `tauri.conf.json`, `Cargo.lock`)
+  - Подготовлена документация релиза (`docs/tags/v1.5.1/release.md`, `README.md`, `history.md`, `CHANGELOG.md`, `CHANGELOG.ru.md`, `decisions.md`)
+  - Запуск CI в GitHub Actions для сборки релизного бандла macOS (`.dmg`) и Windows (`.exe`, `.msi`) для проверки на целевых устройствах.
 
 ## Что стабильно работает (не трогать без причины)
 - STT pipeline (Whisper, Deepgram, Groq, Gemini, GigaChat) с кастомными моделями

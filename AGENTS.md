@@ -10,7 +10,7 @@
 NYX Vox — a macOS & Windows desktop app for AI-assisted voice dictation. Speak into the
 microphone, get speech transcribed (locally via Whisper, or in the cloud via
 Deepgram / Groq / Gemini / GigaChat), and have the result formatted by AI
-(Gemini, DeepSeek, Qwen, Groq, GigaChat). Status: active development, v1.5.0.
+(Gemini, DeepSeek, Qwen, Groq, GigaChat). Status: active development, v1.5.1.
 
 ## Stack
 - Languages: Rust 2021 (backend) + TypeScript / Next.js 16 / React 19 (frontend)
@@ -120,7 +120,8 @@ If the user reports an issue or requests a change without this exact formula (e.
 > - Acoustic Guard & Tail Guard: полезный остаток < 350 мс или RMS < 0.003 не отправляется на инференс (возвращается committed_text)
 > - Whisper Engine: temp=0.0, fallback=false, no_speech=0.68, logprob=-1.0, compression=2.4, no_context=true, language="ru"
 > - Черный список: субтитры, переводчики, изолированные закрывающие слова («Спасибо», «Благодарю», «Конец»)
-> - Стриминг: Groq priority (500–600 мс) + Local Whisper fallback (800 мс) со склейкой `safe_space_concatenate` без блокировки по паузе
+> - Стриминг в режиме Whisper: **локальный только**, период 800 мс, облачный interim выключен по умолчанию (утечка аудио, BE-4). Облачный interim — только явным opt-in `"cloud_interim": true` в settings.json
+> - Промежуточные воркеры Groq/Deepgram копируют из аудио-буфера только дельту с прошлого тика, полный буфер пересобирается вне мьютекса cpal (BE-1)
 > - In-Flight Guard: отбрасывание запаздывающих запросов (drop lagging interim)
 > - LLM Formatter Prompt: 6 правил (очистка мусора, сохранение эмоциональных междометий, пунктуация, без рерайтинга)»
 

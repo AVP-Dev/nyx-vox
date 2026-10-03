@@ -4,7 +4,43 @@
 
 ---
 
-## 📅 Version 1.5.0 (Current)
+## 📅 Version 1.5.1 (Current)
+
+### 🛡️ Privacy Hardening & Local Isolation (BE-4)
+- Local Whisper mode is strictly offline by default; disabled unintended streaming to Groq when API key is set.
+- Cloud interim streaming in Whisper mode is now an explicit opt-in (`"cloud_interim": true` in `settings.json`).
+
+### ⚡ RT Audio Streaming & Delta Buffering (BE-1)
+- Replaced full buffer cloning under the CPAL audio mutex with delta-slice copying across all interim workers (Whisper, Deepgram HTTP fallback, Deepgram WS, and AI provider).
+- Audio reassembly occurs outside the lock, preventing RT buffer starvation and audio stutter.
+
+### 🧼 Zero-Leak Event & Window Lifecycle Architecture (FE-1, FE-3)
+- Implemented `isMounted` cancellation guards in `useTauriEvents`, `WaveformVisualizer`, and `useWindowManager` preventing unlistener leaks on unmount.
+- Added dimension and state caching in `useWindowManager` to eliminate redundant WindowServer IPC calls during continuous live speech streaming.
+- Eliminated stale closures in keyboard shortcuts and event listeners via fresh ref bindings.
+
+### 🚀 IPC Performance Optimization & Slider Debounce (FE-6, FE-8)
+- Replaced 10-call startup IPC waterfall with a single atomic `get_all_settings` call.
+- Added 300ms debounce with unmount cleanup for settings sliders (`audioGain`, `noiseGate`, `vadSilenceTimeout`).
+
+### 🍎 macOS System Performance & Thread Safety (BE-8, BE-9)
+- Replaced `fork/exec osascript` for active window tracking with native `NSWorkspace` / `NSRunningApplication` via `objc2-app-kit`.
+- Moved synthetic paste chord dispatching on macOS to `tokio::task::spawn_blocking` with cooperative cancellation abort.
+
+### 📝 Dictation UX & Bundle Optimization (FE-2, FE-4)
+- Enabled `Shift + Enter` in `editing` mode to insert newlines without triggering accidental paste injection.
+- Restored lazy-loading of `SettingsPanel` by decoupling localization dictionary imports directly into `translations.ts`.
+
+### 🛡️ Defensive Hardening & Resilience (BE-3, BE-5, BE-7, BE-11, FE-5)
+- Safely reset `recording_flag` on microphone initialization failure; enforced 10s timeout on interim POST requests.
+- Soft STT fallback to Whisper during transient network failures without corrupting or overwriting persistent user settings.
+- Safe UTF-8 character boundary slicing for STT prompt context.
+- Guarded `resample_to_16k` against division by zero and validated `noiseGate` bounds.
+- Fully aligned frontend with ADR #6 (backend single source of truth for text cleanup) and pruned dead streaming code.
+
+---
+
+## 📅 Version 1.5.0
 
 ### 🪟 Native Windows 10/11 Support
 - Full desktop adaptation for Windows operating systems:
