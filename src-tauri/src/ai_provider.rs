@@ -371,7 +371,6 @@ fn spawn_interim_stream_worker<R: Runtime>(
                             let form = reqwest::multipart::Form::new()
                                 .part("file", part)
                                 .text("model", stt_model)
-                                .text("language", "ru".to_string())
                                 .text("prompt", crate::prompts::GROQ_STT_PROMPT.to_string())
                                 .text("temperature", "0.0");
 
@@ -502,7 +501,7 @@ pub async fn stop_recording<R: Runtime>(
         .mime_str("audio/wav")
         .map_err(|e| e.to_string())?;
 
-    let stt_prompt = if language == "mixed" {
+    let stt_prompt = if language == "mixed" || language == "auto" {
         format!(
             "{}\n\nVocabulary: {}",
             crate::prompts::MIXED_RU_EN_STT_PROMPT,
@@ -515,12 +514,16 @@ pub async fn stop_recording<R: Runtime>(
     // `&stt_prompt[..896]` panics as soon as the index lands inside a multi-byte
     // character, which any growth of the STT prompts would eventually trigger.
     let stt_prompt = crate::utils::truncate_utf8_at_word(&stt_prompt, 896);
-    // For "mixed" mode, send "ru" as base language (Russian with occasional English)
-    let effective_lang = if language == "mixed" { "ru" } else { language };
+    // auto/mixed/multi mean auto-detect: omit `language` so whisper-large-v3-turbo
+    // detects English instead of being forced into the Russian vocabulary.
+    let effective_lang: Option<&str> = match language {
+        "auto" | "mixed" | "multi" => None,
+        other => Some(other),
+    };
     log::info!(
         "Groq STT: language={}, effective_lang={}, prompt_len={}",
         language,
-        effective_lang,
+        effective_lang.unwrap_or("auto"),
         stt_prompt.len()
     );
     log::debug!("Groq STT prompt: {}", stt_prompt);
@@ -530,11 +533,13 @@ pub async fn stop_recording<R: Runtime>(
         .and_then(|s| s.0.lock().ok().and_then(|m| m.get("groq_stt").cloned()))
         .unwrap_or_else(|| GROQ_STT_MODEL.to_string());
 
-    let form = reqwest::multipart::Form::new()
+    let mut form = reqwest::multipart::Form::new()
         .part("file", part)
         .text("model", stt_model)
-        .text("prompt", stt_prompt)
-        .text("language", effective_lang.to_string());
+        .text("prompt", stt_prompt);
+    if let Some(lang) = effective_lang {
+        form = form.text("language", lang.to_string());
+    }
 
     let res = tokio::time::timeout(
         std::time::Duration::from_secs(30),

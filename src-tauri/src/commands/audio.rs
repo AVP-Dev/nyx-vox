@@ -181,7 +181,7 @@ pub async fn start_recording(
     let lang = match final_mode.as_str() {
         "deepgram" => "multi",
         "whisper" => "auto",
-        "groq" => "ru",
+        "groq" => "auto",
         "gemini" => "mixed",
         "gigachat" => "mixed",
         _ => "mixed",
@@ -323,7 +323,7 @@ pub async fn stop_recording(
     let lang = match mode.as_str() {
         "deepgram" => "multi",
         "whisper" => "auto",
-        "groq" => "ru",
+        "groq" => "auto",
         "gemini" => "mixed",
         "gigachat" => "mixed",
         _ => "mixed",

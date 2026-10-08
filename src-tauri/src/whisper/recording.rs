@@ -304,7 +304,6 @@ fn spawn_interim_stream_worker<R: Runtime>(
                                     let form = reqwest::multipart::Form::new()
                                         .part("file", part)
                                         .text("model", "whisper-large-v3-turbo")
-                                        .text("language", "ru".to_string())
                                         .text("prompt", crate::prompts::GROQ_STT_PROMPT.to_string())
                                         .text("temperature", "0.0");
 

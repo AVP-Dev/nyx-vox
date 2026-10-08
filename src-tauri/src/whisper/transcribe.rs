@@ -174,8 +174,7 @@ fn configure_params<'a>(
     let mut params = FullParams::new(whisper_rs::SamplingStrategy::Greedy { best_of: 1 });
 
     let lang_code = match language {
-        "mixed" => Some("ru"),
-        "auto" => None, // let whisper.cpp auto-detect the spoken language
+        "mixed" | "auto" => None, // let whisper.cpp auto-detect the spoken language
         _ => Some(language),
     };
     params.set_language(lang_code);
@@ -227,7 +226,7 @@ fn configure_params<'a>(
 fn build_initial_prompt(language: &str) -> String {
     match language {
         "en" => "Hello! We are discussing tasks, meetings, services, and software development: GitHub, GitLab, Node.js, Bun, API, CLI, JSON, TypeScript, React, Next.js, Docker, Linux, macOS, Telegram, WhatsApp, DeepSeek, Gemini, Groq, Whisper, PostgreSQL.".to_string(),
-        "mixed" => crate::prompts::MIXED_RU_EN_STT_PROMPT.to_string(),
+        "mixed" | "auto" => crate::prompts::MIXED_RU_EN_STT_PROMPT.to_string(),
         _ => "Привет! Обсуждаем задачи, встречи, код и сервисы: Сбер, Яндекс, Telegram, WhatsApp, Zoom, GitHub, GitLab, Node.js, Bun, API, CLI, JSON, TypeScript, React, Next.js, Docker, Linux, macOS, DeepSeek, Gemini, Groq, Whisper, PostgreSQL.".to_string(),
     }
 }
