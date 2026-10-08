@@ -28,7 +28,7 @@
              [Обнаружена пауза 800 мс ИЛИ Hard Cutoff 12-15с ИЛИ Стоп]
                                         │
                                         ▼
-             [Tail Guard: длительность хвоста < 250 мс?]
+             [Tail Guard: длительность хвоста < 350 мс?]
                          ├── ДА ──> Взять committed_text (0 инференсов, 0 задержки)
                          └── НЕТ ──> Собрать: [Акустический нахлест 400 мс] + [Аудио Хвоста]
                                         │
@@ -155,7 +155,7 @@
 > - Acoustic Overlap: 300–400 мс из предыдущего чанка  
 > - Context Prompt: последние 8–10 слов зафиксированного буфера  
 > - Suffix-Prefix Deduplication: сравнение 1–2 слов на стыке, отсечение дубликатов, нормализация пробелов  
-> - Tail Guard: хвост < 250 мс не отправляется на инференс (возвращается committed_text)  
-> - Whisper Engine: temp=0.0, fallback=false, no_speech=0.6, logprob=-1.0, compression=2.4, no_context=true, language="ru"  
+> - Tail Guard: хвост < 350 мс не отправляется на инференс (возвращается committed_text)  
+> - Whisper Engine: temp=0.0, fallback=false, no_speech=0.68, logprob=-1.0, compression=2.4, no_context=true, language="ru"  
 > - In-Flight Guard: интервал 250–400 мс, drop lagging interim  
 > - LLM Formatter Prompt: 6 правил (очистка мусора, сохранение эмоциональных междометий, пунктуация, без рерайтинга)»

@@ -6,6 +6,11 @@
 
 ## 📅 Version 1.5.1 (Current)
 
+### 🌍 STT Language Auto-Detect (EN→RU fix)
+- Removed forced `language=ru` from Groq transcription requests (final + all three interim paths): Groq mode now uses `auto`, and `auto/mixed/multi` omit `language` so `whisper-large-v3-turbo` auto-detects English instead of decoding it with the Russian vocabulary.
+- Local Whisper: `mixed|auto` now auto-detects (`None`) with the bilingual prompt instead of forced Russian.
+- Fixes the bug where pure English speech was transcribed as Russian text (user-verified: RU/EN clean and mixed all work).
+
 ### 🛡️ Privacy Hardening & Local Isolation (BE-4)
 - Local Whisper mode is strictly offline by default; disabled unintended streaming to Groq when API key is set.
 - Cloud interim streaming in Whisper mode is now an explicit opt-in (`"cloud_interim": true` in `settings.json`).
