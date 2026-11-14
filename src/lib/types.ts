@@ -2,7 +2,16 @@ export type Phase = 'idle' | 'recording' | 'processing' | 'result' | 'editing';
 
 export type FormattingMode = 'none' | 'gemini' | 'deepseek' | 'qwen' | 'groq' | 'gigachat';
 
-export type SttMode = 'deepgram' | 'whisper' | 'groq' | 'gemini' | 'gigachat';
+export type SttMode =
+    | 'deepgram'
+    | 'whisper'
+    | 'groq'
+    | 'gemini'
+    | 'gigachat'
+    | 'elevenlabs'
+    | 'azure_speech'
+    | 'speechmatics'
+    | 'nvidia';
 
 export type AppLanguage = 'ru' | 'en';
 

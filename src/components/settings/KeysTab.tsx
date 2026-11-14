@@ -81,17 +81,33 @@ interface KeysTabProps {
             qwenApiKeyLabel: string;
             deepseekApiKeyLabel: string;
             gigachatApiKeyLabel: string;
+            elevenlabsApiKeyLabel: string;
+            azureSpeechApiKeyLabel: string;
+            speechmaticsApiKeyLabel: string;
+            nvidiaSttApiKeyLabel: string;
             apiKeysTitle: string;
             howToChoose: string;
             apiKeyHowTo: string;
             apiKeyPlaceholder: string;
             apiKeySave: string;
+            apiKeyOpenDashboard: string;
             customModelLabel?: string;
             customModelPreset?: string;
             customModelCustom?: string;
             customModelPlaceholder?: string;
             resetToDefault?: string;
             keySteps?: Record<string, string[]>;
+            keyDescriptions?: Record<string, string>;
+            azureSpeechConfigTitle: string;
+            azureSpeechConfigDesc: string;
+            azureResourceEndpointLabel: string;
+            azureResourceEndpointPlaceholder: string;
+            azureDeploymentLabel: string;
+            azureDeploymentPlaceholder: string;
+            azureConfigSave: string;
+            nvidiaFunctionIdLabel: string;
+            nvidiaFunctionIdDesc: string;
+            nvidiaFunctionIdPlaceholder: string;
         };
     };
     dgApiKey: string; setDgApiKey: (v: string) => void;
@@ -100,6 +116,13 @@ interface KeysTabProps {
     qwenApiKey: string; setQwenApiKey: (v: string) => void;
     deepseekApiKey: string; setDeepseekApiKey: (v: string) => void;
     gigachatApiKey: string; setGigachatApiKey: (v: string) => void;
+    elevenlabsApiKey: string; setElevenlabsApiKey: (v: string) => void;
+    azureSpeechApiKey: string; setAzureSpeechApiKey: (v: string) => void;
+    speechmaticsApiKey: string; setSpeechmaticsApiKey: (v: string) => void;
+    nvidiaSttApiKey: string; setNvidiaSttApiKey: (v: string) => void;
+    azureEndpoint: string; setAzureEndpoint: (v: string) => void;
+    azureDeployment: string; setAzureDeployment: (v: string) => void;
+    handleSaveAzureConfig: () => void;
     showKeys: Record<string, boolean>;
     setShowKeys: (v: React.SetStateAction<Record<string, boolean>>) => void;
     handleSaveKey: (service: string, key: string) => void;
@@ -113,6 +136,9 @@ interface KeysTabProps {
 export const KeysTab: React.FC<KeysTabProps> = ({
     c, dgApiKey, setDgApiKey, groqApiKey, setGroqApiKey, geminiApiKey, setGeminiApiKey,
     qwenApiKey, setQwenApiKey, deepseekApiKey, setDeepseekApiKey, gigachatApiKey, setGigachatApiKey,
+    elevenlabsApiKey, setElevenlabsApiKey, azureSpeechApiKey, setAzureSpeechApiKey,
+    speechmaticsApiKey, setSpeechmaticsApiKey, nvidiaSttApiKey, setNvidiaSttApiKey,
+    azureEndpoint, setAzureEndpoint, azureDeployment, setAzureDeployment, handleSaveAzureConfig,
     showKeys, setShowKeys, handleSaveKey, handleDeleteKey, savedStatus, setTab,
     customModels = {}, handleSetCustomModel
 }) => {
@@ -133,6 +159,10 @@ export const KeysTab: React.FC<KeysTabProps> = ({
         { id: 'qwen', label: c.settings.qwenApiKeyLabel, value: qwenApiKey, setter: setQwenApiKey, url: 'https://dashscope.console.aliyun.com/apiKey' },
         { id: 'deepseek', label: c.settings.deepseekApiKeyLabel, value: deepseekApiKey, setter: setDeepseekApiKey, url: 'https://platform.deepseek.com' },
         { id: 'gigachat', label: c.settings.gigachatApiKeyLabel, value: gigachatApiKey, setter: setGigachatApiKey, url: 'https://developers.sber.ru' },
+        { id: 'elevenlabs', label: c.settings.elevenlabsApiKeyLabel, value: elevenlabsApiKey, setter: setElevenlabsApiKey, url: 'https://elevenlabs.io/app/settings/api-keys' },
+        { id: 'azure_speech', label: c.settings.azureSpeechApiKeyLabel, value: azureSpeechApiKey, setter: setAzureSpeechApiKey, url: 'https://ai.azure.com' },
+        { id: 'speechmatics', label: c.settings.speechmaticsApiKeyLabel, value: speechmaticsApiKey, setter: setSpeechmaticsApiKey, url: 'https://portal.speechmatics.com' },
+        { id: 'nvidia', label: c.settings.nvidiaSttApiKeyLabel, value: nvidiaSttApiKey, setter: setNvidiaSttApiKey, url: 'https://build.nvidia.com' },
     ];
 
     return (
@@ -150,6 +180,7 @@ export const KeysTab: React.FC<KeysTabProps> = ({
                 {services.map(service => {
                     const modelSlots = SERVICE_MODEL_SLOTS[service.id];
                     const isModelsOpen = openModels === service.id;
+                    const description = c.settings.keyDescriptions?.[service.id];
 
                     return (
                         <div key={service.id} className="space-y-2.5">
@@ -178,6 +209,12 @@ export const KeysTab: React.FC<KeysTabProps> = ({
                                 </div>
                             </div>
 
+                            {description && (
+                                <p className="px-1 text-[10px] leading-relaxed text-muted">
+                                    {description}
+                                </p>
+                            )}
+
                             <AnimatePresence>
                                 {openGuide === service.id && (
                                     <motion.div 
@@ -195,7 +232,7 @@ export const KeysTab: React.FC<KeysTabProps> = ({
                                             ))}
                                             <a href={service.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[10px] text-cyan-400 hover:text-cyan-300 font-bold mt-1 pt-1 border-t border-cyan-500/10 w-full">
                                                 <ExternalLink className="w-2.5 h-2.5" />
-                                                {service.id === 'deepgram' ? 'console.deepgram.com' : 'Open Dashboard'}
+                                                {service.id === 'deepgram' ? 'console.deepgram.com' : c.settings.apiKeyOpenDashboard}
                                             </a>
                                         </div>
                                     </motion.div>
@@ -312,6 +349,46 @@ export const KeysTab: React.FC<KeysTabProps> = ({
                         </div>
                     );
                 })}
+            </div>
+            <div className="space-y-3 rounded-xl border border-subtle bg-surface/40 p-4">
+                <label className="block space-y-1.5">
+                    <span className="text-[11px] text-muted">{c.settings.nvidiaFunctionIdLabel}</span>
+                    <input
+                        type="text"
+                        value={customModels.nvidia_stt || ''}
+                        onChange={(event) => handleSetCustomModel?.('nvidia_stt', event.target.value)}
+                        placeholder={c.settings.nvidiaFunctionIdPlaceholder}
+                        className="w-full bg-surface border border-subtle rounded-xl px-3 py-2.5 text-[12px] text-white placeholder-white/20 focus:outline-none focus:border-white/30 transition-colors font-mono"
+                    />
+                </label>
+                <p className="text-[10px] leading-relaxed text-muted">{c.settings.nvidiaFunctionIdDesc}</p>
+            </div>
+            <div className="space-y-3 rounded-xl border border-subtle bg-surface/40 p-4">
+                <div className="text-[11px] font-bold text-white/50 uppercase tracking-widest">{c.settings.azureSpeechConfigTitle}</div>
+                <p className="text-[10px] leading-relaxed text-muted">{c.settings.azureSpeechConfigDesc}</p>
+                <label className="block space-y-1.5">
+                    <span className="text-[11px] text-muted">{c.settings.azureResourceEndpointLabel}</span>
+                    <input
+                        type="url"
+                        value={azureEndpoint}
+                        onChange={(event) => setAzureEndpoint(event.target.value)}
+                        placeholder={c.settings.azureResourceEndpointPlaceholder}
+                        className="w-full bg-surface border border-subtle rounded-xl px-3 py-2.5 text-[12px] text-white placeholder-white/20 focus:outline-none focus:border-white/30 transition-colors font-mono"
+                    />
+                </label>
+                <label className="block space-y-1.5">
+                    <span className="text-[11px] text-muted">{c.settings.azureDeploymentLabel}</span>
+                    <input
+                        type="text"
+                        value={azureDeployment}
+                        onChange={(event) => setAzureDeployment(event.target.value)}
+                        placeholder={c.settings.azureDeploymentPlaceholder}
+                        className="w-full bg-surface border border-subtle rounded-xl px-3 py-2.5 text-[12px] text-white placeholder-white/20 focus:outline-none focus:border-white/30 transition-colors font-mono"
+                    />
+                </label>
+                <button onClick={handleSaveAzureConfig} className={`w-full px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${savedStatus.azure_speech_config ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-surface-hover hover:bg-white/15 text-primary'}`}>
+                    {savedStatus.azure_speech_config ? <Check className="w-4 h-4 mx-auto" /> : c.settings.azureConfigSave}
+                </button>
             </div>
         </div>
     );

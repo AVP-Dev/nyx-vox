@@ -1,6 +1,9 @@
 use crate::state::*;
 use crate::utils::*;
-use crate::{ai_provider, deepgram, keys, whisper};
+use crate::{
+    ai_provider, azure_speech, cloud_stt, deepgram, elevenlabs, keys, nvidia_stt, speechmatics,
+    whisper,
+};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter, Manager, State};
@@ -109,7 +112,10 @@ fn resolve_stt_mode(
     online: bool,
     whisper_model_available: bool,
 ) -> SttModeDecision {
-    let is_cloud = requested == "deepgram" || requested == "groq";
+    let is_cloud = matches!(
+        requested,
+        "deepgram" | "groq" | "elevenlabs" | "azure_speech" | "speechmatics" | "nvidia"
+    );
     if !is_cloud || online {
         return SttModeDecision::AsSelected;
     }
@@ -118,6 +124,184 @@ fn resolve_stt_mode(
     } else {
         SttModeDecision::Unavailable
     }
+}
+
+fn provider_service(mode: &str) -> Option<keys::Service> {
+    match mode {
+        "elevenlabs" => Some(keys::Service::Elevenlabs),
+        "azure_speech" => Some(keys::Service::AzureSpeech),
+        "speechmatics" => Some(keys::Service::Speechmatics),
+        "nvidia" => Some(keys::Service::Nvidia),
+        _ => None,
+    }
+}
+
+fn is_provider_realtime_mode(mode: &str) -> bool {
+    matches!(mode, "elevenlabs" | "azure_speech" | "speechmatics")
+}
+
+fn provider_name(mode: &str) -> &'static str {
+    match mode {
+        "elevenlabs" => "ElevenLabs",
+        "azure_speech" => "Azure Speech",
+        "speechmatics" => "Speechmatics",
+        "nvidia" => "NVIDIA Build",
+        _ => "cloud STT",
+    }
+}
+
+fn start_provider_capture(
+    app: AppHandle,
+    mode: String,
+    audio_state: ai_provider::SharedAiState,
+    recording_flag: Arc<AtomicBool>,
+    api_key: String,
+    azure_config: AzureSpeechConfig,
+    task: CloudSttTask,
+) -> Result<(), String> {
+    if is_provider_realtime_mode(&mode) && task.0.lock().map_err(|e| e.to_string())?.is_some() {
+        return Err("A cloud STT session is already active".to_string());
+    }
+
+    if mode == "azure_speech"
+        && (azure_config.endpoint.trim().is_empty() || azure_config.deployment.trim().is_empty())
+    {
+        return Err("Укажите Azure endpoint и имя deployment в настройках ключей.".to_string());
+    }
+
+    ai_provider::start_recording_capture_only(
+        app.clone(),
+        Arc::clone(&audio_state),
+        Arc::clone(&recording_flag),
+    )?;
+    if mode == "nvidia" {
+        return Ok(());
+    }
+
+    let handle = spawn_provider_stream(
+        app,
+        mode,
+        audio_state,
+        recording_flag,
+        api_key,
+        azure_config,
+    );
+    *task.0.lock().map_err(|e| e.to_string())? = Some(handle);
+    Ok(())
+}
+
+fn spawn_provider_stream(
+    app: AppHandle,
+    mode: String,
+    audio_state: ai_provider::SharedAiState,
+    recording_flag: Arc<AtomicBool>,
+    api_key: String,
+    azure_config: AzureSpeechConfig,
+) -> tokio::task::JoinHandle<Result<String, String>> {
+    let (sender, receiver) = tokio::sync::mpsc::channel(24);
+    tokio::spawn(async move {
+        let pipe = cloud_stt::pipe_audio_chunks(
+            Arc::clone(&audio_state),
+            Arc::clone(&recording_flag),
+            sender,
+        );
+        let stream = stream_provider(app, &mode, &api_key, &azure_config, receiver);
+        let (pipe_result, stream_result) = tokio::join!(pipe, stream);
+        match stream_result {
+            Err(error) => Err(error),
+            Ok(text) => {
+                pipe_result?;
+                Ok(text)
+            }
+        }
+    })
+}
+
+async fn stream_provider(
+    app: AppHandle,
+    mode: &str,
+    api_key: &str,
+    azure_config: &AzureSpeechConfig,
+    receiver: cloud_stt::AudioChunkReceiver,
+) -> Result<String, String> {
+    match mode {
+        "elevenlabs" => elevenlabs::stream_realtime(app, api_key, None, receiver).await,
+        "azure_speech" => {
+            azure_speech::stream_realtime(
+                app,
+                &azure_config.endpoint,
+                &azure_config.deployment,
+                api_key,
+                receiver,
+            )
+            .await
+        }
+        "speechmatics" => speechmatics::stream_realtime(app, api_key, "multi", receiver).await,
+        _ => Err(format!("Unsupported realtime STT mode: {mode}")),
+    }
+}
+
+async fn finish_provider_stream(
+    task: &CloudSttTask,
+    recording_flag: &AtomicBool,
+) -> Result<String, String> {
+    recording_flag.store(false, Ordering::SeqCst);
+    let handle = task
+        .0
+        .lock()
+        .map_err(|e| e.to_string())?
+        .take()
+        .ok_or_else(|| "Cloud STT stream was not started".to_string())?;
+    handle
+        .await
+        .map_err(|e| format!("Cloud STT task failed: {e}"))?
+}
+
+fn clear_cloud_audio(state: &ai_provider::SharedAiState) -> Result<(), String> {
+    let mut lock = state.lock().map_err(|e| e.to_string())?;
+    lock.samples.clear();
+    lock.sample_rate = 0;
+    Ok(())
+}
+
+async fn transcribe_elevenlabs_with_fallback<R: tauri::Runtime>(
+    app: &AppHandle<R>,
+    audio_state: &ai_provider::SharedAiState,
+    api_key: &str,
+    threshold: f32,
+    gain: f32,
+    realtime: Result<String, String>,
+    preview: Option<&str>,
+) -> Result<String, String> {
+    let realtime_error = match realtime {
+        Ok(text) if !text.trim().is_empty() => return Ok(text),
+        Ok(_) => "ElevenLabs realtime returned an empty transcript".to_string(),
+        Err(error) => error,
+    };
+    let Some(wav) = ai_provider::take_recording_wav(app, audio_state, threshold, gain)? else {
+        return Ok(preview.unwrap_or_default().trim().to_string());
+    };
+    match elevenlabs::transcribe_batch(wav, api_key, None).await {
+        Ok(text) if !text.trim().is_empty() => Ok(text),
+        Ok(_) => Ok(preview.unwrap_or_default().trim().to_string()),
+        Err(error) => Err(format!(
+            "ElevenLabs realtime failed ({realtime_error}); batch fallback failed ({error})"
+        )),
+    }
+}
+
+async fn transcribe_nvidia_batch<R: tauri::Runtime>(
+    app: &AppHandle<R>,
+    audio_state: &ai_provider::SharedAiState,
+    api_key: &str,
+    function_id: &str,
+    threshold: f32,
+    gain: f32,
+) -> Result<String, String> {
+    let Some(wav) = ai_provider::take_recording_wav(app, audio_state, threshold, gain)? else {
+        return Ok(String::new());
+    };
+    nvidia_stt::transcribe_batch(wav, api_key, function_id).await
 }
 
 #[tauri::command]
@@ -135,6 +319,9 @@ pub async fn start_recording(
     ai_state: State<'_, ai_provider::SharedAiState>,
     dg_state: State<'_, deepgram::SharedDeepgramState>,
     whisper_model: State<'_, WhisperModel>,
+    cloud_stt_task: State<'_, CloudSttTask>,
+    azure_speech_settings: State<'_, AzureSpeechSettings>,
+    custom_models: State<'_, CustomModels>,
 ) -> Result<(), String> {
     let mode = stt_mode.0.lock().map_err(|e| e.to_string())?.clone();
     let ap = *auto_pause.0.lock().map_err(|e| e.to_string())?;
@@ -153,7 +340,10 @@ pub async fn start_recording(
     // Decided while `mode` is still owned here; `final_mode` takes it below.
     // `is_online()` opens a socket on a cache miss, so it is only asked when a
     // cloud engine was actually selected.
-    let mode_decision = if mode == "deepgram" || mode == "groq" {
+    let mode_decision = if matches!(
+        mode.as_str(),
+        "deepgram" | "groq" | "elevenlabs" | "azure_speech" | "speechmatics" | "nvidia"
+    ) {
         resolve_stt_mode(&mode, is_online(), whisper::is_model_available(model_type))
     } else {
         SttModeDecision::AsSelected
@@ -265,6 +455,35 @@ pub async fn start_recording(
                 ));
             }
         }
+    } else if let Some(service) = provider_service(&final_mode) {
+        let key = api_keys
+            .0
+            .lock()
+            .map_err(|e| e.to_string())?
+            .get(&service)
+            .cloned()
+            .flatten()
+            .filter(|value| !value.trim().is_empty())
+            .ok_or_else(|| format!("Добавьте ключ {} в настройках.", provider_name(&final_mode)))?;
+        if final_mode == "nvidia" {
+            let models = custom_models.0.lock().map_err(|e| e.to_string())?;
+            let function_id = models.get("nvidia_stt").cloned().unwrap_or_default();
+            nvidia_stt::validate_function_id(&function_id)?;
+        }
+        let azure_config = azure_speech_settings
+            .0
+            .lock()
+            .map_err(|e| e.to_string())?
+            .clone();
+        start_provider_capture(
+            app.clone(),
+            final_mode.clone(),
+            Arc::clone(&ai_state),
+            Arc::clone(&recording_flag.0),
+            key,
+            azure_config,
+            cloud_stt_task.inner().clone(),
+        )?;
     }
 
     if let Ok(mut lock) = active_stt_mode.0.lock() {
@@ -291,6 +510,8 @@ pub async fn stop_recording(
     whisper_model: State<'_, WhisperModel>,
     noise_gate: State<'_, NoiseGateThreshold>,
     audio_gain: State<'_, AudioGain>,
+    cloud_stt_task: State<'_, CloudSttTask>,
+    custom_models: State<'_, CustomModels>,
     streamed_text: Option<String>,
 ) -> Result<String, String> {
     processing_flag
@@ -326,6 +547,7 @@ pub async fn stop_recording(
         "groq" => "auto",
         "gemini" => "mixed",
         "gigachat" => "mixed",
+        "speechmatics" => "ru",
         _ => "mixed",
     };
 
@@ -383,7 +605,52 @@ pub async fn stop_recording(
         None => false,
     };
 
-    let batch_result = if has_streamed_preview {
+    let batch_result = if is_provider_realtime_mode(&mode) {
+        let realtime = finish_provider_stream(&cloud_stt_task, &recording_flag.0).await;
+        let result = if mode == "elevenlabs" {
+            let api_key = api_keys
+                .0
+                .lock()
+                .map_err(|e| e.to_string())?
+                .get(&keys::Service::Elevenlabs)
+                .cloned()
+                .flatten()
+                .unwrap_or_default();
+            transcribe_elevenlabs_with_fallback(
+                &app,
+                &ai_state,
+                &api_key,
+                threshold,
+                gain,
+                realtime,
+                streamed_text.as_deref(),
+            )
+            .await
+        } else {
+            realtime
+        };
+        let cleanup = clear_cloud_audio(&ai_state);
+        cleanup?;
+        result?
+    } else if mode == "nvidia" {
+        recording_flag.0.store(false, Ordering::SeqCst);
+        let api_key = api_keys
+            .0
+            .lock()
+            .map_err(|e| e.to_string())?
+            .get(&keys::Service::Nvidia)
+            .cloned()
+            .flatten()
+            .unwrap_or_default();
+        let function_id = {
+            let models = custom_models.0.lock().map_err(|e| e.to_string())?;
+            models.get("nvidia_stt").cloned().unwrap_or_default()
+        };
+        let result =
+            transcribe_nvidia_batch(&app, &ai_state, &api_key, &function_id, threshold, gain).await;
+        clear_cloud_audio(&ai_state)?;
+        result?
+    } else if has_streamed_preview {
         log::info!(
             "stop_recording: Single-Pass instant finish using live streamed preview text directly (mode: {})",
             mode

@@ -249,6 +249,20 @@ pub async fn set_stt_mode(
     stt_mode: State<'_, SttMode>,
     app: AppHandle,
 ) -> Result<(), String> {
+    if !matches!(
+        mode.as_str(),
+        "deepgram"
+            | "whisper"
+            | "groq"
+            | "gemini"
+            | "gigachat"
+            | "elevenlabs"
+            | "azure_speech"
+            | "speechmatics"
+            | "nvidia"
+    ) {
+        return Err(format!("Unsupported STT mode: {mode}"));
+    }
     let store = app
         .store("settings.json")
         .map_err(|e: tauri_plugin_store::Error| e.to_string())?;
@@ -492,6 +506,102 @@ pub async fn get_services_status(
         }
     }
     Ok(status)
+}
+
+#[tauri::command]
+pub async fn get_azure_speech_config(
+    settings: State<'_, AzureSpeechSettings>,
+) -> Result<AzureSpeechConfig, String> {
+    settings
+        .0
+        .lock()
+        .map(|config| config.clone())
+        .map_err(|e| format!("Не удалось прочитать настройки Azure Speech: {e}"))
+}
+
+#[tauri::command]
+pub async fn set_azure_speech_config(
+    app: AppHandle,
+    settings: State<'_, AzureSpeechSettings>,
+    endpoint: String,
+    deployment: String,
+) -> Result<(), String> {
+    let config = validate_azure_speech_config(&endpoint, &deployment)?;
+    let store = app
+        .store("settings.json")
+        .map_err(|e: tauri_plugin_store::Error| e.to_string())?;
+    store.set("azure_speech_endpoint", serde_json::json!(config.endpoint));
+    store.set(
+        "azure_speech_deployment",
+        serde_json::json!(config.deployment),
+    );
+    store
+        .save()
+        .map_err(|e: tauri_plugin_store::Error| e.to_string())?;
+
+    *settings
+        .0
+        .lock()
+        .map_err(|e| format!("Не удалось сохранить настройки Azure Speech: {e}"))? = config;
+    Ok(())
+}
+
+fn validate_azure_speech_config(
+    endpoint: &str,
+    deployment: &str,
+) -> Result<AzureSpeechConfig, String> {
+    let endpoint = endpoint.trim();
+    let deployment = deployment.trim();
+    let normalized_endpoint = if endpoint.contains("://") {
+        endpoint.to_string()
+    } else {
+        format!("https://{endpoint}")
+    };
+    let parsed = url::Url::parse(&normalized_endpoint)
+        .map_err(|e| format!("Некорректный endpoint Azure AI Foundry: {e}"))?;
+    if parsed.scheme() != "https"
+        || parsed.host_str().is_none()
+        || !parsed.username().is_empty()
+        || parsed.password().is_some()
+        || !matches!(parsed.path(), "" | "/")
+        || parsed.query().is_some()
+        || parsed.fragment().is_some()
+    {
+        return Err("Укажите корневой HTTPS endpoint ресурса Azure AI Foundry.".to_string());
+    }
+    if deployment.is_empty() || deployment.len() > 128 {
+        return Err("Имя deployment Azure должно содержать от 1 до 128 символов.".to_string());
+    }
+    Ok(AzureSpeechConfig {
+        endpoint: normalized_endpoint.trim_end_matches('/').to_string(),
+        deployment: deployment.to_string(),
+    })
+}
+
+#[cfg(test)]
+mod azure_speech_config_tests {
+    use super::validate_azure_speech_config;
+
+    #[test]
+    fn normalizes_host_only_azure_endpoint() {
+        let config =
+            validate_azure_speech_config("my-resource.services.ai.azure.com", "mai-transcribe")
+                .expect("host-only endpoint should be normalized");
+
+        assert_eq!(config.endpoint, "https://my-resource.services.ai.azure.com");
+        assert_eq!(config.deployment, "mai-transcribe");
+    }
+
+    #[test]
+    fn rejects_non_root_or_insecure_azure_endpoint() {
+        for endpoint in [
+            "http://resource.services.ai.azure.com",
+            "https://resource.services.ai.azure.com/path",
+            "https://user@resource.services.ai.azure.com",
+        ] {
+            assert!(validate_azure_speech_config(endpoint, "mai-transcribe").is_err());
+        }
+    }
 }
 
 #[tauri::command]

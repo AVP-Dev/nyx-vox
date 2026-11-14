@@ -1,13 +1,18 @@
 mod ai_provider;
+mod azure_speech;
+mod cloud_stt;
 mod commands;
 mod deepgram;
 mod deepseek;
 mod diag;
+mod elevenlabs;
 mod gigachat;
 mod history;
 mod keys;
+mod nvidia_stt;
 mod prompts;
 mod qwen;
+mod speechmatics;
 mod state;
 mod transliteration;
 mod tray;
@@ -153,6 +158,7 @@ pub fn run() {
             app.manage(ProcessingFlag::default());
             app.manage(RecordingFlag::default());
             app.manage(ActiveSttMode(Mutex::new(String::new())));
+            app.manage(CloudSttTask::default());
             app.manage(DidPauseMedia::default());
             app.manage(SttMode(Mutex::new("deepgram".to_string())));
             app.manage(FormattingMode(Mutex::new("none".to_string())));
@@ -173,6 +179,7 @@ pub fn run() {
             app.manage(VadAutoStop(Mutex::new(false)));
             app.manage(VadSilenceTimeout(Mutex::new(7.0)));
             app.manage(CustomModels(Mutex::new(std::collections::HashMap::new())));
+            app.manage(AzureSpeechSettings::default());
 
             #[cfg(target_os = "windows")]
             {
@@ -213,6 +220,23 @@ pub fn run() {
 
                     load_str_setting!("stt_mode", SttMode);
                     load_str_setting!("formatting_mode", FormattingMode);
+
+                    if let Some(settings) = app.try_state::<AzureSpeechSettings>() {
+                        let endpoint = store
+                            .get("azure_speech_endpoint")
+                            .and_then(|v| v.as_str().map(str::to_string))
+                            .unwrap_or_default();
+                        let deployment = store
+                            .get("azure_speech_deployment")
+                            .and_then(|v| v.as_str().map(str::to_string))
+                            .unwrap_or_default();
+                        if let Ok(mut config) = settings.0.lock() {
+                            *config = AzureSpeechConfig {
+                                endpoint,
+                                deployment,
+                            };
+                        }
+                    }
 
                     if let Some(m) = store
                         .get("whisper_model")
@@ -524,6 +548,8 @@ pub fn run() {
             commands::cmd_set_api_key,
             commands::get_api_key,
             commands::get_services_status,
+            commands::get_azure_speech_config,
+            commands::set_azure_speech_config,
             commands::set_stt_mode,
             commands::get_stt_mode,
             commands::set_formatting_mode,

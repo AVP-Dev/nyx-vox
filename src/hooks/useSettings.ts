@@ -76,7 +76,10 @@ export function useSettings(): SettingsState & SettingsActions {
     }, []);
 
     const toggleSTTMode = useCallback(async () => {
-        const modes: SttMode[] = ['deepgram', 'whisper', 'groq', 'gemini', 'gigachat'];
+        const modes: SttMode[] = [
+            'deepgram', 'whisper', 'groq', 'gemini', 'gigachat',
+            'elevenlabs', 'azure_speech', 'speechmatics', 'nvidia',
+        ];
         setSttMode(prev => {
             const next = modes[(modes.indexOf(prev) + 1) % modes.length];
             invoke('set_stt_mode', { mode: next }).catch(console.error);

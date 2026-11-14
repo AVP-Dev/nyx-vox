@@ -23,16 +23,28 @@ pub enum Service {
     Qwen,
     #[serde(rename = "gigachat", alias = "GigaChat")]
     Gigachat,
+    #[serde(rename = "elevenlabs", alias = "ElevenLabs")]
+    Elevenlabs,
+    #[serde(rename = "azure_speech", alias = "AzureSpeech")]
+    AzureSpeech,
+    #[serde(rename = "speechmatics", alias = "Speechmatics")]
+    Speechmatics,
+    #[serde(rename = "nvidia", alias = "NVIDIA")]
+    Nvidia,
 }
 
 impl Service {
-    pub const ALL: [Service; 6] = [
+    pub const ALL: [Service; 10] = [
         Service::Gemini,
         Service::Deepseek,
         Service::Groq,
         Service::Deepgram,
         Service::Qwen,
         Service::Gigachat,
+        Service::Elevenlabs,
+        Service::AzureSpeech,
+        Service::Speechmatics,
+        Service::Nvidia,
     ];
 
     pub fn store_key(&self) -> &'static str {
@@ -43,6 +55,10 @@ impl Service {
             Service::Deepgram => "deepgram_api_key",
             Service::Qwen => "qwen_api_key",
             Service::Gigachat => "gigachat_api_key",
+            Service::Elevenlabs => "elevenlabs_api_key",
+            Service::AzureSpeech => "azure_speech_api_key",
+            Service::Speechmatics => "speechmatics_api_key",
+            Service::Nvidia => "nvidia_api_key",
         }
     }
 }
@@ -276,7 +292,7 @@ mod tests {
     }
 
     #[test]
-    fn service_all_contains_six_variants() {
-        assert_eq!(Service::ALL.len(), 6);
+    fn service_all_contains_ten_variants() {
+        assert_eq!(Service::ALL.len(), 10);
     }
 }

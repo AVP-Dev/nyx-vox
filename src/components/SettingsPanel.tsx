@@ -19,7 +19,7 @@ import { HistoryTab } from './settings/HistoryTab';
 import { InfoTab } from './settings/InfoTab';
 import { ToastContainer, useToast } from './ui/Toast';
 import { ConfirmDialog, useConfirm } from './ui/ConfirmDialog';
-import type { FormattingMode } from '@/lib/types';
+import type { FormattingMode, SttMode } from '@/lib/types';
 import { APP_VERSION } from '@/constants/version';
 export { APP_VERSION };
 
@@ -37,6 +37,10 @@ const ENGINE_HELP: Record<string, Record<string, EngineHelpItem>> = {
         gemini: { title: 'Gemini', badge: 'SOTA', type: 'Multimodal', desc: 'Google AI. Высочайшая точность + стиль.' },
         whisper: { title: 'Local', badge: 'Privasi', type: 'Offline', desc: '100% приватно. Работает без интернета.' },
         gigachat: { title: 'GigaChat', badge: 'Сбер', type: 'LLM', desc: 'SberAI. Быстрая, доступна без VPN.' },
+        elevenlabs: { title: 'ElevenLabs', badge: 'Scribe', type: 'Cloud', desc: 'Потоковая транскрибация и пакетный резервный запрос.' },
+        azure_speech: { title: 'Azure Speech', badge: 'MAI', type: 'Cloud', desc: 'Потоковая транскрибация через Microsoft Foundry.' },
+        speechmatics: { title: 'Speechmatics', badge: 'Realtime', type: 'Cloud', desc: 'Потоковое распознавание речи с частичными результатами.' },
+        nvidia: { title: 'NVIDIA Build', badge: 'NVCF', type: 'Cloud', desc: 'Пакетное распознавание через выбранную модель NVIDIA Build.' },
         formatting: { title: 'Formatting', badge: 'AI', type: 'LLM', desc: '✨ AI режим: автоматически исправляет ошибки, убирает "эээ" и расставляет абзацы.' }
     },
     en: {
@@ -45,6 +49,10 @@ const ENGINE_HELP: Record<string, Record<string, EngineHelpItem>> = {
         gemini: { title: 'Gemini', badge: 'SOTA', type: 'Multimodal', desc: 'Google AI. Premium accuracy and formatting.' },
         whisper: { title: 'Local', badge: 'PRIVACY', type: 'Offline', desc: '100% private. Works without internet.' },
         gigachat: { title: 'GigaChat', badge: 'Sber', type: 'LLM', desc: 'SberAI. Russian neural network, works without VPN.' },
+        elevenlabs: { title: 'ElevenLabs', badge: 'Scribe', type: 'Cloud', desc: 'Realtime transcription with a batch fallback request.' },
+        azure_speech: { title: 'Azure Speech', badge: 'MAI', type: 'Cloud', desc: 'Realtime transcription through Microsoft Foundry.' },
+        speechmatics: { title: 'Speechmatics', badge: 'Realtime', type: 'Cloud', desc: 'Realtime speech recognition with partial results.' },
+        nvidia: { title: 'NVIDIA Build', badge: 'NVCF', type: 'Cloud', desc: 'Batch recognition through a selected NVIDIA Build model.' },
         formatting: { title: 'Formatting', badge: 'AI', type: 'LLM', desc: '✨ AI mode: fixes typos, removes filler words, and structures text into paragraphs.' }
     }
 };
@@ -66,8 +74,8 @@ interface SettingsPanelProps {
     formattingStyle: 'casual' | 'professional';
     onSetFormattingStyle: (s: 'casual' | 'professional') => void;
     // Shared settings
-    sttMode: 'deepgram' | 'whisper' | 'groq' | 'gemini' | 'gigachat';
-    onSetSttMode: (m: 'deepgram' | 'whisper' | 'groq' | 'gemini' | 'gigachat') => void;
+    sttMode: SttMode;
+    onSetSttMode: (m: SttMode) => void;
     formattingMode: FormattingMode;
     onSetFormattingMode: (m: FormattingMode) => void;
     noiseGate: number;
@@ -118,6 +126,12 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     const [qwenApiKey, setQwenApiKey] = useState('');
     const [deepseekApiKey, setDeepseekApiKey] = useState('');
     const [gigachatApiKey, setGigachatApiKey] = useState('');
+    const [elevenlabsApiKey, setElevenlabsApiKey] = useState('');
+    const [azureSpeechApiKey, setAzureSpeechApiKey] = useState('');
+    const [speechmaticsApiKey, setSpeechmaticsApiKey] = useState('');
+    const [nvidiaSttApiKey, setNvidiaSttApiKey] = useState('');
+    const [azureEndpoint, setAzureEndpoint] = useState('');
+    const [azureDeployment, setAzureDeployment] = useState('');
     const [showKeys, setShowKeys] = useState<Record<string, boolean>>({});
     const [savedStatus, setSavedStatus] = useState<Record<string, boolean>>({});
     const [accGranted, setAccGranted] = useState<boolean | null>(null);
@@ -192,7 +206,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
                 const wm = await invoke<'small' | 'medium' | 'turbo'>('get_whisper_model_type'); setWhisperModel(wm);
 
-                const services = ['deepgram', 'groq', 'gemini', 'qwen', 'deepseek', 'gigachat'] as const;
+                const services = ['deepgram', 'groq', 'gemini', 'qwen', 'deepseek', 'gigachat', 'elevenlabs', 'azure_speech', 'speechmatics', 'nvidia'] as const;
                 const apiKeys = await Promise.all(
                     services.map(s => invoke<string>('get_api_key', { service: s }))
                 );
@@ -202,6 +216,18 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 setQwenApiKey(apiKeys[3]);
                 setDeepseekApiKey(apiKeys[4]);
                 setGigachatApiKey(apiKeys[5]);
+                setElevenlabsApiKey(apiKeys[6]);
+                setAzureSpeechApiKey(apiKeys[7]);
+                setSpeechmaticsApiKey(apiKeys[8]);
+                setNvidiaSttApiKey(apiKeys[9]);
+
+                try {
+                    const azureConfig = await invoke<{ endpoint: string; deployment: string }>('get_azure_speech_config');
+                    setAzureEndpoint(azureConfig.endpoint || '');
+                    setAzureDeployment(azureConfig.deployment || '');
+                } catch (err) {
+                    console.error('Azure Speech config load error:', err);
+                }
 
                 const hist = await invoke<[boolean, string]>('get_history_settings');
                 setHistorySmartCleanup(hist[0]);
@@ -238,9 +264,22 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         setModelAvailable(avail);
     };
 
-    const handleModeChange = async (m: 'deepgram' | 'whisper' | 'groq' | 'gemini' | 'gigachat') => {
+    const handleModeChange = async (m: SttMode) => {
         onSetSttMode(m);
         await invoke('set_stt_mode', { mode: m });
+    };
+
+    const handleSaveAzureConfig = async () => {
+        try {
+            await invoke('set_azure_speech_config', {
+                endpoint: azureEndpoint.trim(),
+                deployment: azureDeployment.trim(),
+            });
+            setSavedStatus((prev) => ({ ...prev, azure_speech_config: true }));
+            setTimeout(() => setSavedStatus((prev) => ({ ...prev, azure_speech_config: false })), 2000);
+        } catch (err) {
+            addToast(String(err), 'error');
+        }
     };
 
     const handleFormattingModeChange = async (m: FormattingMode) => {
@@ -317,6 +356,10 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
             else if (service === 'qwen') setQwenApiKey('');
             else if (service === 'deepseek') setDeepseekApiKey('');
             else if (service === 'gigachat') setGigachatApiKey('');
+            else if (service === 'elevenlabs') setElevenlabsApiKey('');
+            else if (service === 'azure_speech') setAzureSpeechApiKey('');
+            else if (service === 'speechmatics') setSpeechmaticsApiKey('');
+            else if (service === 'nvidia') setNvidiaSttApiKey('');
         }
     };
 
@@ -470,6 +513,13 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                                             geminiApiKey={geminiApiKey} setGeminiApiKey={setGeminiApiKey} qwenApiKey={qwenApiKey} setQwenApiKey={setQwenApiKey}
                                             deepseekApiKey={deepseekApiKey} setDeepseekApiKey={setDeepseekApiKey}
                                             gigachatApiKey={gigachatApiKey} setGigachatApiKey={setGigachatApiKey}
+                                            elevenlabsApiKey={elevenlabsApiKey} setElevenlabsApiKey={setElevenlabsApiKey}
+                                            azureSpeechApiKey={azureSpeechApiKey} setAzureSpeechApiKey={setAzureSpeechApiKey}
+                                            speechmaticsApiKey={speechmaticsApiKey} setSpeechmaticsApiKey={setSpeechmaticsApiKey}
+                                            nvidiaSttApiKey={nvidiaSttApiKey} setNvidiaSttApiKey={setNvidiaSttApiKey}
+                                            azureEndpoint={azureEndpoint} setAzureEndpoint={setAzureEndpoint}
+                                            azureDeployment={azureDeployment} setAzureDeployment={setAzureDeployment}
+                                            handleSaveAzureConfig={handleSaveAzureConfig}
                                             showKeys={showKeys} setShowKeys={setShowKeys} handleSaveKey={handleSaveKey} handleDeleteKey={handleDeleteKey}
                                             savedStatus={savedStatus} setTab={setTab}
                                             customModels={customModels} handleSetCustomModel={handleSetCustomModel}

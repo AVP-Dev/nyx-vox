@@ -5,15 +5,17 @@
 > Держи компактно: не история навсегда, а срез "что сейчас".
 
 ## Последнее обновление
-Дата: 2026-10-08
-Кто/что обновило: opencode (STT-фикс d20c7a5: auto-detect языка вместо forced ru; баг EN→RU закрыт проверкой пользователя)
+Дата: 2026-11-14
+Кто/что обновило: codex (подготовка тестовой версии v1.6.0)
 
 ## Версии (важно)
 - Релиз **v1.5.1** опубликован (тег на `d20c7a5`, включает хотфикс сборки и STT-фикс)
-- Ветки `main` и `dev` — постоянные, обе на `d20c7a5`
+- **v1.6.0** выбрана как следующая минорная версия для расширения STT; release-документ и индексы подготовлены, приложение собрано и установлено в `/Applications/NYX Vox.app`. Изменения находятся в `chore/pair-nyx-vox-8033308a`; перенос в `dev` ещё не завершён.
 - **ПОДСИСТЕМА РАСПОЗНАВАНИЯ РЕЧИ И АУДИОПАЙПЛАЙН СТРОГО ЗАФИКСИРОВАНЫ (FROZEN)**
 
 ## Что сейчас в работе
+- **Pair task #1 закрыт:** сверены API ElevenLabs, Azure, Speechmatics, NVIDIA Build и Xiaomi MiMo; отчет добавлен в `docs/STT_PROVIDERS_AUDIT.md`. Xiaomi `mimo-v2.5-asr` оставлен только в research, поскольку API не принимает live-аудио чанками. По прямой команде пользователя добавлен capture-only путь без Groq interim worker; ElevenLabs, Azure и Speechmatics подключены к realtime-маршруту, NVIDIA Build — к batch-маршруту с UUID функции NVCF; языковое поле убрано, чтобы совместимые модели автоматически определяли язык. Speechmatics использует `melia-1`, `language=multi`, `language_hints=[ru,en]`. agy одобрил изменения и сообщил о 149 успешных Rust-тестах и 52 frontend-тестах на проверенной ревизии. `cargo check`, `cargo fmt --check`, `bun run lint` и `git diff --check` прошли до последнего упрощения; после него проверки ещё не выполнялись. Live API-запросы без пользовательских ключей не выполнялись.
+- **Подготовка тестовой версии v1.6.0:** сборка создана и установлена в `/Applications/NYX Vox.app`; после текущего упрощения настроек приложение нужно пересобрать и переустановить. Изменения в `dev` не перенесены.
 - **STT-фикс языка (`d20c7a5`) влит в `main`, тег `v1.5.1` перевыпущен.** Убрано форсирование
   `language=ru` в Groq-запросах (финал + 3 interim-пути): `groq→auto`, пропуск `language`
   для `auto/mixed/multi` (авто-детект `whisper-large-v3-turbo`), локальный Whisper
@@ -28,7 +30,7 @@
   - Запуск CI в GitHub Actions для сборки релизного бандла macOS (`.dmg`) и Windows (`.exe`, `.msi`) для проверки на целевых устройствах.
 
 ## Что стабильно работает (не трогать без причины)
-- STT pipeline (Whisper, Deepgram, Groq, Gemini, GigaChat) с кастомными моделями
+- STT pipeline (Whisper, Deepgram, Groq, Gemini, GigaChat, ElevenLabs, Azure Speech, Speechmatics, NVIDIA Build)
 - AI formatting (Gemini, DeepSeek, Qwen, Groq, GigaChat) с кастомными моделями
 - Интеллектуальный VAD авто-стоп по тишине (3-15 сек)
 - Автопаста (macOS: CGEvent + Accessibility; Windows: Enigo Ctrl+V)
