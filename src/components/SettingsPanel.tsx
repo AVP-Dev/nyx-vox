@@ -118,9 +118,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     const [downloading, setDownloading] = useState(false);
     const [downloadProgress, setDownloadProgress] = useState('');
     const [isPaused, setIsPaused] = useState(false);
-    const [nemotronAssetAvailable, setNemotronAssetAvailable] = useState(false);
-    const [nemotronAssetDownloading, setNemotronAssetDownloading] = useState(false);
-    const [nemotronAssetProgress, setNemotronAssetProgress] = useState(0);
 
     // API Keys
     const [dgApiKey, setDgApiKey] = useState('');
@@ -237,7 +234,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 setHistoryRetentionPeriod(hist[1]);
 
                 checkModelAvailability();
-                await checkNemotronAssetStatus();
             } catch (err) { console.error('Load Error:', err); }
         };
         loadSettings();
@@ -259,26 +255,14 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 }
             }
         });
-        const unlistenNemotron = listen<{ percent: number }>('nemotron-download-progress', (event) => {
-            setNemotronAssetProgress(event.payload.percent);
-        });
-
         return () => {
             unlisten.then(f => f());
-            unlistenNemotron.then(f => f());
         };
     }, [setLang]);
 
     const checkModelAvailability = async () => {
         const avail = await invoke<boolean>('check_model_available');
         setModelAvailable(avail);
-    };
-
-    const checkNemotronAssetStatus = async () => {
-        const status = await invoke<{ available: boolean; downloading: boolean; progress: number }>('get_nemotron_status');
-        setNemotronAssetAvailable(status.available);
-        setNemotronAssetDownloading(status.downloading);
-        setNemotronAssetProgress(status.progress);
     };
 
     const handleModeChange = async (m: SttMode) => {
@@ -344,32 +328,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         try {
             await invoke('delete_whisper_model');
             setModelAvailable(false);
-        } catch (err) {
-            addToast(`${lang === 'ru' ? 'Ошибка удаления модели' : 'Error deleting model'}: ${err}`, 'error');
-        }
-    };
-
-    const handleDownloadNemotronAsset = async () => {
-        setNemotronAssetDownloading(true);
-        setNemotronAssetProgress(0);
-        try {
-            await invoke('download_nemotron_model');
-            setNemotronAssetAvailable(true);
-            setNemotronAssetProgress(100);
-        } catch (err) {
-            addToast(String(err), 'error');
-            setNemotronAssetProgress(0);
-        } finally {
-            setNemotronAssetDownloading(false);
-            await checkNemotronAssetStatus().catch((statusError) => console.error('Nemotron status error:', statusError));
-        }
-    };
-
-    const handleDeleteNemotronAsset = async () => {
-        try {
-            await invoke('delete_nemotron_model');
-            setNemotronAssetAvailable(false);
-            setNemotronAssetProgress(0);
         } catch (err) {
             addToast(`${lang === 'ru' ? 'Ошибка удаления модели' : 'Error deleting model'}: ${err}`, 'error');
         }
@@ -547,9 +505,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                                             whisperModel={whisperModel} handleWhisperModelChange={handleWhisperModelChange}
                                             modelAvailable={modelAvailable} downloading={downloading} downloadProgress={downloadProgress}
                                             handleDownload={handleDownload} handleDeleteModel={handleDeleteModel}
-                                            nemotronAssetAvailable={nemotronAssetAvailable} nemotronAssetDownloading={nemotronAssetDownloading}
-                                            nemotronAssetProgress={nemotronAssetProgress} handleDownloadNemotronAsset={handleDownloadNemotronAsset}
-                                            handleDeleteNemotronAsset={handleDeleteNemotronAsset}
                                             isPaused={isPaused} handlePause={handlePauseDownload} handleResume={handleResumeDownload} handleCancel={handleCancelDownload}
                                         />
                                     )}

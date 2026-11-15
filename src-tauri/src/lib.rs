@@ -444,6 +444,7 @@ pub fn run() {
 
             tray_builder
                 .menu(&tray_menu)
+                .show_menu_on_left_click(false)
                 .on_menu_event(|app_handle, event| match event.id.as_ref() {
                     "quit" => quit_app_safely(app_handle),
                     "show" => toggle_window(app_handle),
@@ -452,7 +453,9 @@ pub fn run() {
                         show_overlay(app_handle);
                     }
                     "settings" => {
-                        let _ = app_handle.emit("open-settings", ());
+                        if let Err(error) = app_handle.emit("open-settings", ()) {
+                            log::warn!("Failed to emit open-settings from tray menu: {error}");
+                        }
                         show_overlay(app_handle);
                     }
                     "history" => {
@@ -464,20 +467,17 @@ pub fn run() {
                     "reset_pos" => reset_window_position_inner(app_handle),
                     _ => {}
                 })
-                .on_tray_icon_event(|_tray, event| {
-                    match event {
-                        TrayIconEvent::Click {
-                            button: tauri::tray::MouseButton::Left,
-                            ..
-                        }
-                        | TrayIconEvent::DoubleClick {
-                            button: tauri::tray::MouseButton::Left,
-                            ..
-                        } => {
-                            // Left click now does nothing (handled by OS if menu is set)
-                        }
-                        _ => {}
-                    }
+                .on_tray_icon_event(|tray, event| match event {
+                    TrayIconEvent::Click {
+                        button: tauri::tray::MouseButton::Left,
+                        button_state: tauri::tray::MouseButtonState::Up,
+                        ..
+                    } => toggle_window(tray.app_handle()),
+                    TrayIconEvent::DoubleClick {
+                        button: tauri::tray::MouseButton::Left,
+                        ..
+                    } => show_overlay(tray.app_handle()),
+                    _ => {}
                 })
                 .build(app)?;
 

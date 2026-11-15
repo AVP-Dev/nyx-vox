@@ -36,11 +36,6 @@ interface EnginesTabProps {
     downloadProgress: string;
     handleDownload: () => void;
     handleDeleteModel: () => void;
-    nemotronAssetAvailable: boolean;
-    nemotronAssetDownloading: boolean;
-    nemotronAssetProgress: number;
-    handleDownloadNemotronAsset: () => void;
-    handleDeleteNemotronAsset: () => void;
     isPaused: boolean;
     handlePause: () => void;
     handleResume: () => void;
@@ -51,14 +46,8 @@ export const EnginesTab: React.FC<EnginesTabProps> = ({
     c, lang, sttMode, handleModeChange, showHelp, setShowHelp, ENGINE_HELP,
     formattingMode, handleFormattingModeChange, whisperModel, handleWhisperModelChange,
     modelAvailable, downloading, downloadProgress, handleDownload, handleDeleteModel,
-    nemotronAssetAvailable, nemotronAssetDownloading, nemotronAssetProgress,
-    handleDownloadNemotronAsset, handleDeleteNemotronAsset,
     isPaused, handlePause, handleResume, handleCancel
 }) => {
-    const safeNemotronProgress = Number.isFinite(nemotronAssetProgress)
-        ? Math.min(100, Math.max(0, nemotronAssetProgress))
-        : 0;
-
     return (
         <div className="space-y-5">
             <div>
@@ -172,63 +161,6 @@ export const EnginesTab: React.FC<EnginesTabProps> = ({
                     </motion.div>
                 )}
             </AnimatePresence>
-
-            <div>
-                <SectionTitle>{c.settings.nemotronAssetTitle}</SectionTitle>
-                <div className="p-4 rounded-xl bg-white/3 border border-subtle space-y-3">
-                    <div className="flex items-start gap-3">
-                        <div className="mt-0.5">
-                            {nemotronAssetDownloading ? (
-                                <Loader2 className="w-4 h-4 text-primary animate-spin" />
-                            ) : nemotronAssetAvailable ? (
-                                <Check className="w-4 h-4 text-emerald-400" />
-                            ) : (
-                                <Cpu className="w-4 h-4 text-white/30" />
-                            )}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                            <div className={`text-[12px] font-medium ${nemotronAssetAvailable && !nemotronAssetDownloading ? 'text-emerald-400' : 'text-muted'}`}>
-                                {nemotronAssetDownloading
-                                    ? c.settings.nemotronAssetDownloading
-                                    : nemotronAssetAvailable
-                                        ? c.settings.nemotronAssetInstalled
-                                        : c.settings.nemotronAssetMissing}
-                            </div>
-                            <p className="mt-1 text-[10px] leading-relaxed text-white/35">{c.settings.nemotronAssetDesc}</p>
-                        </div>
-                    </div>
-
-                    {nemotronAssetDownloading ? (
-                        <div className="space-y-1.5">
-                            <div
-                                role="progressbar"
-                                aria-label={c.settings.nemotronAssetProgressLabel}
-                                aria-valuemin={0}
-                                aria-valuemax={100}
-                                aria-valuenow={safeNemotronProgress}
-                                className="h-1.5 overflow-hidden rounded-full bg-white/10"
-                            >
-                                <div className="h-full rounded-full bg-primary transition-[width] duration-300" style={{ width: `${safeNemotronProgress}%` }} />
-                            </div>
-                            <div className="text-right text-[10px] text-white/40">{Math.round(safeNemotronProgress)}%</div>
-                        </div>
-                    ) : nemotronAssetAvailable ? (
-                        <button
-                            onClick={handleDeleteNemotronAsset}
-                            className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg bg-red-500/5 hover:bg-red-500/10 border border-red-500/10 text-red-400/60 hover:text-red-400 text-[11px] font-medium transition-all"
-                        >
-                            <Trash className="w-3 h-3" />{c.settings.nemotronAssetDelete}
-                        </button>
-                    ) : (
-                        <button
-                            onClick={handleDownloadNemotronAsset}
-                            className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg bg-surface-hover hover:bg-white/15 text-primary text-[11px] font-medium transition-all"
-                        >
-                            <Download className="w-3.5 h-3.5" />{c.settings.nemotronAssetDownload}
-                        </button>
-                    )}
-                </div>
-            </div>
 
             <div>
                 <SectionTitle>{c.settings.formattingEngine}</SectionTitle>

@@ -20,18 +20,15 @@ describe('cloud STT settings translations', () => {
         }
     });
 
-    it('provides Nemotron asset card status and action copy in Russian and English', () => {
+    it('does not expose Nemotron asset controls or NVIDIA function ID copy before those engines are supported', () => {
         for (const language of ['ru', 'en'] as const) {
             const settings = DICTIONARY[language].settings;
 
-            expect(settings.nemotronAssetTitle).toBeTruthy();
-            expect(settings.nemotronAssetDesc).toBeTruthy();
-            expect(settings.nemotronAssetInstalled).toBeTruthy();
-            expect(settings.nemotronAssetMissing).toBeTruthy();
-            expect(settings.nemotronAssetDownloading).toBeTruthy();
-            expect(settings.nemotronAssetProgressLabel).toBeTruthy();
-            expect(settings.nemotronAssetDownload).toBeTruthy();
-            expect(settings.nemotronAssetDelete).toBeTruthy();
+            expect(settings).not.toHaveProperty('nemotronAssetTitle');
+            expect(settings).not.toHaveProperty('nemotronAssetDesc');
+            expect(settings).not.toHaveProperty('nvidiaFunctionIdLabel');
+            expect(settings).not.toHaveProperty('nvidiaFunctionIdDesc');
+            expect(settings).not.toHaveProperty('nvidiaFunctionIdPlaceholder');
         }
     });
 });

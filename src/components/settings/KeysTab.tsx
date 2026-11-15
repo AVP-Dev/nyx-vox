@@ -105,9 +105,6 @@ interface KeysTabProps {
             azureDeploymentLabel: string;
             azureDeploymentPlaceholder: string;
             azureConfigSave: string;
-            nvidiaFunctionIdLabel: string;
-            nvidiaFunctionIdDesc: string;
-            nvidiaFunctionIdPlaceholder: string;
         };
     };
     dgApiKey: string; setDgApiKey: (v: string) => void;
@@ -349,19 +346,6 @@ export const KeysTab: React.FC<KeysTabProps> = ({
                         </div>
                     );
                 })}
-            </div>
-            <div className="space-y-3 rounded-xl border border-subtle bg-surface/40 p-4">
-                <label className="block space-y-1.5">
-                    <span className="text-[11px] text-muted">{c.settings.nvidiaFunctionIdLabel}</span>
-                    <input
-                        type="text"
-                        value={customModels.nvidia_stt || ''}
-                        onChange={(event) => handleSetCustomModel?.('nvidia_stt', event.target.value)}
-                        placeholder={c.settings.nvidiaFunctionIdPlaceholder}
-                        className="w-full bg-surface border border-subtle rounded-xl px-3 py-2.5 text-[12px] text-white placeholder-white/20 focus:outline-none focus:border-white/30 transition-colors font-mono"
-                    />
-                </label>
-                <p className="text-[10px] leading-relaxed text-muted">{c.settings.nvidiaFunctionIdDesc}</p>
             </div>
             <div className="space-y-3 rounded-xl border border-subtle bg-surface/40 p-4">
                 <div className="text-[11px] font-bold text-white/50 uppercase tracking-widest">{c.settings.azureSpeechConfigTitle}</div>

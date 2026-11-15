@@ -35,11 +35,6 @@ const makeProps = (
     downloadProgress: '',
     handleDownload: vi.fn(),
     handleDeleteModel: vi.fn(),
-    nemotronAssetAvailable: false,
-    nemotronAssetDownloading: false,
-    nemotronAssetProgress: 0,
-    handleDownloadNemotronAsset: vi.fn(),
-    handleDeleteNemotronAsset: vi.fn(),
     isPaused: false,
     handlePause: vi.fn(),
     handleResume: vi.fn(),
@@ -47,40 +42,25 @@ const makeProps = (
     ...overrides,
 });
 
-describe('EnginesTab Nemotron asset card', () => {
-    it('renders outside Whisper mode without showing the Whisper model selector', () => {
-        render(<EnginesTab {...makeProps({ sttMode: 'deepgram' })} />);
+describe('EnginesTab model controls', () => {
+    it('does not render Nemotron asset controls without a selectable Nemotron engine', () => {
+        const { rerender } = render(<EnginesTab {...makeProps({ sttMode: 'deepgram' })} />);
 
-        expect(screen.getByText(DICTIONARY.en.settings.nemotronAssetTitle)).toBeTruthy();
-        expect(screen.queryByText('Local Model Selection')).toBeNull();
+        expect(screen.queryByText(/Nemotron/i)).toBeNull();
+
+        rerender(<EnginesTab {...makeProps({ sttMode: 'whisper' })} />);
+
+        expect(screen.queryByText(/Nemotron/i)).toBeNull();
     });
 
-    it('shows Download for a missing asset and calls its handler', () => {
-        const props = makeProps();
+    it('keeps the selected Whisper model download controls available', () => {
+        const props = makeProps({ sttMode: 'whisper' });
         render(<EnginesTab {...props} />);
 
-        fireEvent.click(screen.getByRole('button', { name: DICTIONARY.en.settings.nemotronAssetDownload }));
+        expect(screen.getByText('Local Model Selection')).toBeTruthy();
+        expect(screen.getByText(DICTIONARY.en.settings.modelStatus)).toBeTruthy();
+        fireEvent.click(screen.getByRole('button', { name: DICTIONARY.en.settings.modelDownload }));
 
-        expect(props.handleDownloadNemotronAsset).toHaveBeenCalledTimes(1);
-        expect(screen.queryByRole('button', { name: DICTIONARY.en.settings.nemotronAssetDelete })).toBeNull();
-    });
-
-    it('shows Delete for an installed asset and calls its handler', () => {
-        const props = makeProps({ nemotronAssetAvailable: true });
-        render(<EnginesTab {...props} />);
-
-        fireEvent.click(screen.getByRole('button', { name: DICTIONARY.en.settings.nemotronAssetDelete }));
-
-        expect(props.handleDeleteNemotronAsset).toHaveBeenCalledTimes(1);
-        expect(screen.queryByRole('button', { name: DICTIONARY.en.settings.nemotronAssetDownload })).toBeNull();
-    });
-
-    it('shows a determinate progress bar while downloading', () => {
-        render(<EnginesTab {...makeProps({ nemotronAssetDownloading: true, nemotronAssetProgress: 63 })} />);
-
-        expect(screen.getByRole('progressbar', { name: DICTIONARY.en.settings.nemotronAssetProgressLabel }).getAttribute('aria-valuenow')).toBe('63');
-        expect(screen.getByText('63%')).toBeTruthy();
-        expect(screen.queryByRole('button', { name: DICTIONARY.en.settings.nemotronAssetDownload })).toBeNull();
-        expect(screen.queryByRole('button', { name: DICTIONARY.en.settings.nemotronAssetDelete })).toBeNull();
+        expect(props.handleDownload).toHaveBeenCalledTimes(1);
     });
 });
