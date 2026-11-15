@@ -48,8 +48,32 @@ pub struct RecordingFlag(pub Arc<AtomicBool>);
 // This can differ from configured SttMode when runtime fallback is applied.
 pub struct ActiveSttMode(pub Mutex<String>);
 
-// STT Mode: "deepgram" or "whisper" or "groq"
+/// Join handle for the current provider-owned cloud STT stream, when active.
+#[derive(Clone)]
+pub struct CloudSttTask(pub Arc<Mutex<Option<tokio::task::JoinHandle<Result<String, String>>>>>);
+
+impl Default for CloudSttTask {
+    fn default() -> Self {
+        Self(Arc::new(Mutex::new(None)))
+    }
+}
+
+// STT provider identifier persisted in settings.json.
 pub struct SttMode(pub Mutex<String>);
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct AzureSpeechConfig {
+    pub endpoint: String,
+    pub deployment: String,
+}
+
+pub struct AzureSpeechSettings(pub Mutex<AzureSpeechConfig>);
+
+impl Default for AzureSpeechSettings {
+    fn default() -> Self {
+        Self(Mutex::new(AzureSpeechConfig::default()))
+    }
+}
 
 pub struct WhisperModel(pub Mutex<WhisperModelType>);
 

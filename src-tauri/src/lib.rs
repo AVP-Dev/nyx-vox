@@ -1,13 +1,19 @@
 mod ai_provider;
+mod azure_speech;
+mod cloud_stt;
 mod commands;
 mod deepgram;
 mod deepseek;
 mod diag;
+mod elevenlabs;
 mod gigachat;
 mod history;
 mod keys;
+mod nemotron;
+mod nvidia_stt;
 mod prompts;
 mod qwen;
+mod speechmatics;
 mod state;
 mod transliteration;
 mod tray;
@@ -150,9 +156,11 @@ pub fn run() {
             app.manage(WhisperDownloadFlag::default());
             app.manage(WhisperDownloadPaused::default());
             app.manage(WhisperDownloadCancelled::default());
+            app.manage(nemotron::NemotronDownloadState::default());
             app.manage(ProcessingFlag::default());
             app.manage(RecordingFlag::default());
             app.manage(ActiveSttMode(Mutex::new(String::new())));
+            app.manage(CloudSttTask::default());
             app.manage(DidPauseMedia::default());
             app.manage(SttMode(Mutex::new("deepgram".to_string())));
             app.manage(FormattingMode(Mutex::new("none".to_string())));
@@ -173,6 +181,7 @@ pub fn run() {
             app.manage(VadAutoStop(Mutex::new(false)));
             app.manage(VadSilenceTimeout(Mutex::new(7.0)));
             app.manage(CustomModels(Mutex::new(std::collections::HashMap::new())));
+            app.manage(AzureSpeechSettings::default());
 
             #[cfg(target_os = "windows")]
             {
@@ -213,6 +222,23 @@ pub fn run() {
 
                     load_str_setting!("stt_mode", SttMode);
                     load_str_setting!("formatting_mode", FormattingMode);
+
+                    if let Some(settings) = app.try_state::<AzureSpeechSettings>() {
+                        let endpoint = store
+                            .get("azure_speech_endpoint")
+                            .and_then(|v| v.as_str().map(str::to_string))
+                            .unwrap_or_default();
+                        let deployment = store
+                            .get("azure_speech_deployment")
+                            .and_then(|v| v.as_str().map(str::to_string))
+                            .unwrap_or_default();
+                        if let Ok(mut config) = settings.0.lock() {
+                            *config = AzureSpeechConfig {
+                                endpoint,
+                                deployment,
+                            };
+                        }
+                    }
 
                     if let Some(m) = store
                         .get("whisper_model")
@@ -418,6 +444,7 @@ pub fn run() {
 
             tray_builder
                 .menu(&tray_menu)
+                .show_menu_on_left_click(false)
                 .on_menu_event(|app_handle, event| match event.id.as_ref() {
                     "quit" => quit_app_safely(app_handle),
                     "show" => toggle_window(app_handle),
@@ -426,7 +453,9 @@ pub fn run() {
                         show_overlay(app_handle);
                     }
                     "settings" => {
-                        let _ = app_handle.emit("open-settings", ());
+                        if let Err(error) = app_handle.emit("open-settings", ()) {
+                            log::warn!("Failed to emit open-settings from tray menu: {error}");
+                        }
                         show_overlay(app_handle);
                     }
                     "history" => {
@@ -438,20 +467,17 @@ pub fn run() {
                     "reset_pos" => reset_window_position_inner(app_handle),
                     _ => {}
                 })
-                .on_tray_icon_event(|_tray, event| {
-                    match event {
-                        TrayIconEvent::Click {
-                            button: tauri::tray::MouseButton::Left,
-                            ..
-                        }
-                        | TrayIconEvent::DoubleClick {
-                            button: tauri::tray::MouseButton::Left,
-                            ..
-                        } => {
-                            // Left click now does nothing (handled by OS if menu is set)
-                        }
-                        _ => {}
-                    }
+                .on_tray_icon_event(|tray, event| match event {
+                    TrayIconEvent::Click {
+                        button: tauri::tray::MouseButton::Left,
+                        button_state: tauri::tray::MouseButtonState::Up,
+                        ..
+                    } => toggle_window(tray.app_handle()),
+                    TrayIconEvent::DoubleClick {
+                        button: tauri::tray::MouseButton::Left,
+                        ..
+                    } => show_overlay(tray.app_handle()),
+                    _ => {}
                 })
                 .build(app)?;
 
@@ -524,6 +550,8 @@ pub fn run() {
             commands::cmd_set_api_key,
             commands::get_api_key,
             commands::get_services_status,
+            commands::get_azure_speech_config,
+            commands::set_azure_speech_config,
             commands::set_stt_mode,
             commands::get_stt_mode,
             commands::set_formatting_mode,
@@ -555,6 +583,9 @@ pub fn run() {
             commands::resume_whisper_download,
             commands::cancel_whisper_download,
             commands::delete_whisper_model,
+            commands::get_nemotron_status,
+            commands::download_nemotron_model,
+            commands::delete_nemotron_model,
             commands::reset_window_position,
             commands::get_start_minimized,
             commands::set_start_minimized,

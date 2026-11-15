@@ -5,15 +5,20 @@
 > Держи компактно: не история навсегда, а срез "что сейчас".
 
 ## Последнее обновление
-Дата: 2026-10-08
-Кто/что обновило: opencode (STT-фикс d20c7a5: auto-detect языка вместо forced ru; баг EN→RU закрыт проверкой пользователя)
+Дата: 2026-11-15
+Кто/что обновило: codex (pair tasks #4–#5: восстановление окна и очистка Engines UI)
 
 ## Версии (важно)
 - Релиз **v1.5.1** опубликован (тег на `d20c7a5`, включает хотфикс сборки и STT-фикс)
-- Ветки `main` и `dev` — постоянные, обе на `d20c7a5`
+- **v1.6.0** подготовлена как тестовая минорная версия расширения STT; release-документ и индексы обновлены, commit `9d8e836` перенесён fast-forward в `dev`. App-only production bundle собран успешно и установлен в `/Applications/NYX Vox.app`. DMG не создавался: пользователю для теста установлен `.app`.
 - **ПОДСИСТЕМА РАСПОЗНАВАНИЯ РЕЧИ И АУДИОПАЙПЛАЙН СТРОГО ЗАФИКСИРОВАНЫ (FROZEN)**
 
 ## Что сейчас в работе
+- **Pair task #3 (реализация завершена, agy APPROVED):** бэкенд сохраняет команды загрузки, SHA-256-проверки и удаления Nemotron 3.5 ASR Q8_0 GGUF (~708 МБ). Ветка `dev` зафиксировала реализацию в `cbd4dc7` и установку тестового `.app` версии 1.6.0 в `/Applications/NYX Vox.app` (документальный follow-up — `c9c8e9c`). UI-контролы загрузки удалены в Task #5 до появления выбираемого Nemotron STT-движка; команды бэкенда остаются.
+- **Pair tasks #4–#5 (реализованы, проверки зелёные; verdict agy и PR ожидаются):** Task #4 восстанавливает/сворачивает окно кликом по трею, показывает Settings из скрытого или свернутого состояния, возвращает окно из minimized и ограничивает позицию рабочей областью монитора; событие `open-settings` закрывает WelcomeOverlay перед Settings. Task #5 удаляет элементы Nemotron из EnginesTab/SettingsPanel и ручной NVIDIA function UUID из KeysTab, сохраняя загрузчик Whisper. Проверки: `cargo fmt -- --check`, `cargo check`, `cargo test` (154 passed), `bun run test` (57 passed, 10 файлов), `bun run lint`; `bun run tauri build --bundles app` собрал `.app`. Frozen audio/STT/transcription files не менялись.
+- **Сверка документации:** прежняя запись Pair task #3 описывала видимую Nemotron-карточку в Settings → Engines. После Task #5 это описание устарело: backend asset manager сохранён, но UI намеренно скрыт до появления выбираемого Nemotron STT-движка.
+- **Pair task #1 закрыт:** сверены API ElevenLabs, Azure, Speechmatics, NVIDIA Build и Xiaomi MiMo; отчет добавлен в `docs/STT_PROVIDERS_AUDIT.md`. Xiaomi `mimo-v2.5-asr` оставлен только в research, поскольку API не принимает live-аудио чанками. По прямой команде пользователя добавлен capture-only путь без Groq interim worker; ElevenLabs, Azure и Speechmatics подключены к realtime-маршруту, NVIDIA Build — к batch-маршруту с UUID функции NVCF; языковое поле убрано, чтобы совместимые модели автоматически определяли язык. Speechmatics использует `melia-1`, `language=multi`, `language_hints=[ru,en]`. agy подтвердил 149 успешных Rust-тестов и 52 frontend-теста после упрощения; `cargo check`, `cargo fmt --check`, `bun run lint` и `git diff --check` прошли. Live API-запросы без пользовательских ключей не выполнялись.
+- **Тестовая версия v1.6.0:** `bun run tauri build --bundles app` завершилась с кодом 0; bundle собран и установлен в `/Applications/NYX Vox.app`, версия подтверждена как 1.6.0. Ветка `dev` обновлена fast-forward до `9d8e836`. Отдельный `.dmg` не создавался.
 - **STT-фикс языка (`d20c7a5`) влит в `main`, тег `v1.5.1` перевыпущен.** Убрано форсирование
   `language=ru` в Groq-запросах (финал + 3 interim-пути): `groq→auto`, пропуск `language`
   для `auto/mixed/multi` (авто-детект `whisper-large-v3-turbo`), локальный Whisper
@@ -28,7 +33,7 @@
   - Запуск CI в GitHub Actions для сборки релизного бандла macOS (`.dmg`) и Windows (`.exe`, `.msi`) для проверки на целевых устройствах.
 
 ## Что стабильно работает (не трогать без причины)
-- STT pipeline (Whisper, Deepgram, Groq, Gemini, GigaChat) с кастомными моделями
+- STT pipeline (Whisper, Deepgram, Groq, Gemini, GigaChat, ElevenLabs, Azure Speech, Speechmatics, NVIDIA Build)
 - AI formatting (Gemini, DeepSeek, Qwen, Groq, GigaChat) с кастомными моделями
 - Интеллектуальный VAD авто-стоп по тишине (3-15 сек)
 - Автопаста (macOS: CGEvent + Accessibility; Windows: Enigo Ctrl+V)

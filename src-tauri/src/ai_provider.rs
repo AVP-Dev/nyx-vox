@@ -115,6 +115,25 @@ pub fn start_recording<R: Runtime>(
     state: SharedAiState,
     recording_flag: Arc<AtomicBool>,
 ) -> Result<(), String> {
+    start_recording_with_interim(app, state, recording_flag, true)
+}
+
+/// Start microphone capture for a cloud STT provider that owns its live stream.
+/// This shares the capture/VAD path without launching the Groq interim worker.
+pub fn start_recording_capture_only<R: Runtime>(
+    app: AppHandle<R>,
+    state: SharedAiState,
+    recording_flag: Arc<AtomicBool>,
+) -> Result<(), String> {
+    start_recording_with_interim(app, state, recording_flag, false)
+}
+
+fn start_recording_with_interim<R: Runtime>(
+    app: AppHandle<R>,
+    state: SharedAiState,
+    recording_flag: Arc<AtomicBool>,
+    use_groq_interim: bool,
+) -> Result<(), String> {
     let lang = app
         .state::<crate::state::AppLanguage>()
         .0
@@ -271,7 +290,9 @@ pub fn start_recording<R: Runtime>(
         }
     });
 
-    spawn_interim_stream_worker(app, state, recording_flag);
+    if use_groq_interim {
+        spawn_interim_stream_worker(app, state, recording_flag);
+    }
 
     Ok(())
 }

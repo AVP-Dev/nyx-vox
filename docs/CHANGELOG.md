@@ -4,7 +4,16 @@
 
 ---
 
-## 📅 Version 1.5.1 (Current)
+## 📅 Version 1.6.0 (Current test build)
+
+### ☁️ Expanded Cloud STT Providers
+- Added selectable ElevenLabs Scribe realtime transcription with batch fallback, Azure MAI Transcribe realtime, Speechmatics Realtime, and NVIDIA Build batch transcription.
+- Added provider-specific API key and configuration fields, including Azure Foundry endpoint/deployment and NVIDIA NVCF function UUID. Compatible NVIDIA multilingual models detect the language automatically.
+- Isolated new provider capture from the Groq interim worker and connected provider-specific start/stop handling.
+- Speechmatics uses the Melia 1 multilingual model with Russian/English language hints; NVIDIA has no separate language setting.
+- Xiaomi MiMo remains research-only because its documented audio API is file-based rather than live audio streaming.
+
+## 📅 Version 1.5.1
 
 ### 🌍 STT Language Auto-Detect (EN→RU fix)
 - Removed forced `language=ru` from Groq transcription requests (final + all three interim paths): Groq mode now uses `auto`, and `auto/mixed/multi` omit `language` so `whisper-large-v3-turbo` auto-detects English instead of decoding it with the Russian vocabulary.

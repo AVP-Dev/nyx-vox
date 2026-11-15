@@ -4,6 +4,7 @@ This directory contains detailed release notes for every version of NYX Vox.
 
 ## 🏷️ Versions
 
+- [v1.6.0](v1.6.0/release.md) - **Expanded Cloud STT Providers** 🧪
 - [v1.5.1](v1.5.1/release.md) - **Audit Remediation & Stability Hardening** 🚀
 - [v1.5.0](v1.5.0/release.md) - **Windows Native Support & Groq LPU™** 🚀
 - [v1.4.1](v1.4.1/release.md) - **Deepgram Nova-3 & Multilingual Code-Switching** 🚀
@@ -27,6 +28,7 @@ This directory contains detailed release notes for every version of NYX Vox.
 
 ## 🏷️ Версии
 
+- [v1.6.0](v1.6.0/release.md) — **Новые облачные STT-провайдеры** 🧪
 - [v1.5.1](v1.5.1/release.md) — **Устранение находок аудита и повышение стабильности** 🚀
 - [v1.5.0](v1.5.0/release.md) — **Нативная поддержка Windows и Groq LPU™** 🚀
 - [v1.4.1](v1.4.1/release.md) — **Deepgram Nova-3 и мультиязычный режим** 🚀

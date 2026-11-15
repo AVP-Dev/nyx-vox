@@ -1,7 +1,8 @@
 import React from 'react';
-import { Wifi, Zap, Globe, HardDrive, HelpCircle, Check, Loader2, Download, Trash, Pause, Play, X } from 'lucide-react';
+import { Wifi, Zap, Globe, HardDrive, Cpu, HelpCircle, Check, Loader2, Download, Trash, Pause, Play, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SectionTitle } from './Common';
+import type { SttMode } from '@/lib/types';
 
 type FormattingMode = 'none' | 'gemini' | 'deepseek' | 'qwen' | 'groq' | 'gigachat';
 interface EngineInfo {
@@ -21,8 +22,8 @@ export interface EngineHelp {
 interface EnginesTabProps {
     c: typeof DICTIONARY.en;
     lang: string;
-    sttMode: 'deepgram' | 'whisper' | 'groq' | 'gemini' | 'gigachat';
-    handleModeChange: (mode: 'deepgram' | 'whisper' | 'groq' | 'gemini' | 'gigachat') => void;
+    sttMode: SttMode;
+    handleModeChange: (mode: SttMode) => void;
     showHelp: string | null;
     setShowHelp: (v: string | null) => void;
     ENGINE_HELP: EngineHelp;
@@ -101,6 +102,42 @@ export const EnginesTab: React.FC<EnginesTabProps> = ({
                         desc={c.settings.whisperDesc} 
                         onClick={() => handleModeChange('whisper')}
                         activeColor="border-strong"
+                    />
+                    <EngineButton
+                        active={sttMode === 'elevenlabs'}
+                        icon={<Globe className={`w-4 h-4 mb-1.5 shrink-0 ${sttMode === 'elevenlabs' ? 'text-violet-400' : 'text-white/30'}`} />}
+                        label={c.settings.elevenlabsSTTLabel}
+                        desc={c.settings.elevenlabsSTTDesc}
+                        onClick={() => handleModeChange('elevenlabs')}
+                        activeColor="border-violet-500/30"
+                        activeLabelColor="text-violet-400/90"
+                    />
+                    <EngineButton
+                        active={sttMode === 'azure_speech'}
+                        icon={<Globe className={`w-4 h-4 mb-1.5 shrink-0 ${sttMode === 'azure_speech' ? 'text-sky-400' : 'text-white/30'}`} />}
+                        label={c.settings.azureSpeechSTTLabel}
+                        desc={c.settings.azureSpeechSTTDesc}
+                        onClick={() => handleModeChange('azure_speech')}
+                        activeColor="border-sky-500/30"
+                        activeLabelColor="text-sky-400/90"
+                    />
+                    <EngineButton
+                        active={sttMode === 'speechmatics'}
+                        icon={<Globe className={`w-4 h-4 mb-1.5 shrink-0 ${sttMode === 'speechmatics' ? 'text-cyan-400' : 'text-white/30'}`} />}
+                        label={c.settings.speechmaticsSTTLabel}
+                        desc={c.settings.speechmaticsSTTDesc}
+                        onClick={() => handleModeChange('speechmatics')}
+                        activeColor="border-cyan-500/30"
+                        activeLabelColor="text-cyan-400/90"
+                    />
+                    <EngineButton
+                        active={sttMode === 'nvidia'}
+                        icon={<Cpu className={`w-4 h-4 mb-1.5 shrink-0 ${sttMode === 'nvidia' ? 'text-emerald-400' : 'text-white/30'}`} />}
+                        label={c.settings.nvidiaSTTLabel}
+                        desc={c.settings.nvidiaSTTDesc}
+                        onClick={() => handleModeChange('nvidia')}
+                        activeColor="border-emerald-500/30"
+                        activeLabelColor="text-emerald-400/90"
                     />
                 </div>
             </div>

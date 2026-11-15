@@ -2,6 +2,12 @@
 
 > Auto-generated index. Each version links to its detailed release notes.
 
+## Testing Builds
+
+| Version | Date | Focus | Release Notes |
+|---|---|---|---|
+| v1.6.0 | 2026-11 | Cloud STT Provider Expansion (test build) | [v1.6.0](v1.6.0/release.md) |
+
 ## Stable Releases
 
 | Version | Date | Focus | Release Notes |

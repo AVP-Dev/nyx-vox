@@ -60,6 +60,19 @@ describe('useTauriEvents', () => {
         expect(listeners.has('interim-transcription')).toBe(true);
     });
 
+    it('opens settings and dismisses the welcome overlay on the tray event', async () => {
+        renderHook(() => useTauriEvents(opts));
+        await vi.waitFor(() => expect(listeners.has('open-settings')).toBe(true));
+
+        listeners.get('open-settings')!({ payload: undefined });
+
+        expect(opts.setShowWelcome).toHaveBeenCalledWith(false);
+        expect(opts.setShowSettings).toHaveBeenCalledWith(true);
+        expect(opts.setShowWelcome.mock.invocationCallOrder[0]).toBeLessThan(
+            opts.setShowSettings.mock.invocationCallOrder[0]
+        );
+    });
+
     it('passes ai-result directly without client-side hallucination filtering (FE-5 & ADR #6)', async () => {
         renderHook(() => useTauriEvents(opts));
         await vi.waitFor(() => expect(listeners.has('ai-result')).toBe(true));
