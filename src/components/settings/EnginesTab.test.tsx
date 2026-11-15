@@ -35,6 +35,11 @@ const makeProps = (
     downloadProgress: '',
     handleDownload: vi.fn(),
     handleDeleteModel: vi.fn(),
+    nemotronAssetAvailable: false,
+    nemotronAssetDownloading: false,
+    nemotronAssetProgress: 0,
+    handleDownloadNemotronAsset: vi.fn(),
+    handleDeleteNemotronAsset: vi.fn(),
     isPaused: false,
     handlePause: vi.fn(),
     handleResume: vi.fn(),
@@ -43,7 +48,7 @@ const makeProps = (
 });
 
 describe('EnginesTab model controls', () => {
-    it('does not render Nemotron asset controls without a selectable Nemotron engine', () => {
+    it('shows only the selected engine model controls', () => {
         const { rerender } = render(<EnginesTab {...makeProps({ sttMode: 'deepgram' })} />);
 
         expect(screen.queryByText(/Nemotron/i)).toBeNull();
@@ -51,16 +56,33 @@ describe('EnginesTab model controls', () => {
         rerender(<EnginesTab {...makeProps({ sttMode: 'whisper' })} />);
 
         expect(screen.queryByText(/Nemotron/i)).toBeNull();
+        expect(screen.getByText('Whisper Model Selection')).toBeTruthy();
+
+        rerender(<EnginesTab {...makeProps({ sttMode: 'nvidia' })} />);
+
+        expect(screen.getByText(DICTIONARY.en.settings.nemotronAssetTitle)).toBeTruthy();
+        expect(screen.queryByText('Whisper Model Selection')).toBeNull();
     });
 
     it('keeps the selected Whisper model download controls available', () => {
         const props = makeProps({ sttMode: 'whisper' });
         render(<EnginesTab {...props} />);
 
-        expect(screen.getByText('Local Model Selection')).toBeTruthy();
+        expect(screen.getByText('Whisper Model Selection')).toBeTruthy();
         expect(screen.getByText(DICTIONARY.en.settings.modelStatus)).toBeTruthy();
         fireEvent.click(screen.getByRole('button', { name: DICTIONARY.en.settings.modelDownload }));
 
         expect(props.handleDownload).toHaveBeenCalledTimes(1);
+    });
+
+    it('starts downloading and offers deletion for the selected Nemotron model', () => {
+        const props = makeProps({ sttMode: 'nvidia' });
+        const { rerender } = render(<EnginesTab {...props} />);
+
+        fireEvent.click(screen.getByRole('button', { name: DICTIONARY.en.settings.nemotronAssetDownload }));
+        expect(props.handleDownloadNemotronAsset).toHaveBeenCalledTimes(1);
+
+        rerender(<EnginesTab {...makeProps({ sttMode: 'nvidia', nemotronAssetAvailable: true })} />);
+        expect(screen.getByRole('button', { name: DICTIONARY.en.settings.nemotronAssetDelete })).toBeTruthy();
     });
 });
