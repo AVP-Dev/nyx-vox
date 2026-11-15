@@ -10,6 +10,9 @@ describe('STT settings translations', () => {
             expect(settings.azureSpeechApiKeyLabel).toBeTruthy();
             expect(settings.speechmaticsApiKeyLabel).toBeTruthy();
             expect(settings.nvidiaSttApiKeyLabel).toBeTruthy();
+            expect(settings.nvidiaFunctionIdLabel).toBeTruthy();
+            expect(settings.nvidiaFunctionIdDesc).toBeTruthy();
+            expect(settings.nvidiaFunctionIdPlaceholder).toBe('1598d209-5e27-4d3c-8079-4751568b1081');
             expect(settings.keyDescriptions.elevenlabs).toBeTruthy();
             expect(settings.keyDescriptions.azure_speech).toBeTruthy();
             expect(settings.keyDescriptions.speechmatics).toBeTruthy();
@@ -30,9 +33,6 @@ describe('STT settings translations', () => {
             expect(settings.nemotronAssetDesc).toContain('nvidia/nemotron-3.5-asr-streaming-0.6b');
             expect(settings.nemotronAssetDownload).toBeTruthy();
             expect(settings.nemotronAssetDelete).toBeTruthy();
-            expect(settings).not.toHaveProperty('nvidiaFunctionIdLabel');
-            expect(settings).not.toHaveProperty('nvidiaFunctionIdDesc');
-            expect(settings).not.toHaveProperty('nvidiaFunctionIdPlaceholder');
         }
     });
 });

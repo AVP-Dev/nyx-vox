@@ -85,6 +85,9 @@ interface KeysTabProps {
             azureSpeechApiKeyLabel: string;
             speechmaticsApiKeyLabel: string;
             nvidiaSttApiKeyLabel: string;
+            nvidiaFunctionIdLabel: string;
+            nvidiaFunctionIdDesc: string;
+            nvidiaFunctionIdPlaceholder: string;
             apiKeysTitle: string;
             howToChoose: string;
             apiKeyHowTo: string;
@@ -272,6 +275,26 @@ export const KeysTab: React.FC<KeysTabProps> = ({
                                     </button>
                                 )}
                             </div>
+
+                            {service.id === 'nvidia' && (
+                                <div className="space-y-1.5">
+                                    <label htmlFor="nvidia-function-id" className="block text-[11px] text-muted">
+                                        {c.settings.nvidiaFunctionIdLabel}
+                                    </label>
+                                    <input
+                                        id="nvidia-function-id"
+                                        type="text"
+                                        value={customModels.nvidia_stt || ''}
+                                        onChange={(event) => handleSetCustomModel?.('nvidia_stt', event.target.value)}
+                                        placeholder={c.settings.nvidiaFunctionIdPlaceholder}
+                                        aria-describedby="nvidia-function-id-description"
+                                        className="w-full bg-surface border border-subtle rounded-xl px-3 py-2.5 text-[12px] text-white placeholder-white/20 focus:outline-none focus:border-white/30 transition-colors font-mono"
+                                    />
+                                    <p id="nvidia-function-id-description" className="text-[10px] leading-relaxed text-muted">
+                                        {c.settings.nvidiaFunctionIdDesc}
+                                    </p>
+                                </div>
+                            )}
 
                             <AnimatePresence>
                                 {isModelsOpen && modelSlots && (

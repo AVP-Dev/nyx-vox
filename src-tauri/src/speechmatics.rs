@@ -84,19 +84,29 @@ where
         .send(Message::Text(message.to_string().into()))
         .await
         .map_err(|e| format!("Speechmatics StartRecognition failed: {e}"))?;
-    let event = timeout(
-        Duration::from_secs(10),
-        cloud_stt::next_json(socket, "Speechmatics"),
-    )
+    timeout(Duration::from_secs(10), async {
+        loop {
+            let event = cloud_stt::next_json(socket, "Speechmatics")
+                .await?
+                .ok_or_else(|| "Speechmatics closed before RecognitionStarted".to_string())?;
+            if is_recognition_started(&event)? {
+                return Ok::<(), String>(());
+            }
+        }
+    })
     .await
-    .map_err(|_| "Speechmatics recognition start timed out".to_string())??
-    .ok_or_else(|| "Speechmatics closed before RecognitionStarted".to_string())?;
+    .map_err(|_| "Speechmatics recognition start timed out".to_string())??;
+    Ok(())
+}
+
+fn is_recognition_started(event: &Value) -> Result<bool, String> {
     match event
         .get("message")
         .and_then(Value::as_str)
         .unwrap_or_default()
     {
-        "RecognitionStarted" => Ok(()),
+        "RecognitionStarted" => Ok(true),
+        "Info" => Ok(false),
         "Error" => Err(format!("Speechmatics: {event}")),
         value => Err(format!(
             "Speechmatics expected RecognitionStarted, received {value}"
@@ -158,7 +168,7 @@ async fn await_end<R: Runtime>(
 
 #[cfg(test)]
 mod tests {
-    use super::transcript_from_event;
+    use super::{is_recognition_started, transcript_from_event};
     use serde_json::json;
 
     #[test]
@@ -177,5 +187,18 @@ mod tests {
             })),
             Some(("hello there", false))
         );
+    }
+
+    #[test]
+    fn skips_info_while_waiting_for_recognition_started() {
+        assert!(!is_recognition_started(&json!({
+            "message":"Info",
+            "reason":"recognition_started"
+        }))
+        .unwrap());
+        assert!(is_recognition_started(&json!({
+            "message":"RecognitionStarted"
+        }))
+        .unwrap());
     }
 }
