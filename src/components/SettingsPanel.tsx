@@ -35,7 +35,7 @@ const ENGINE_HELP: Record<string, Record<string, EngineHelpItem>> = {
         deepgram: { title: 'Deepgram', badge: 'Pro', type: 'Cloud', desc: 'Молниеносно, пунктуация, диктофонное качество.' },
         groq: { title: 'Groq', badge: 'Free', type: 'Cloud', desc: 'Whisper на стероидах. Бесплатно и очень быстро.' },
         gemini: { title: 'Gemini', badge: 'SOTA', type: 'Multimodal', desc: 'Google AI. Высочайшая точность + стиль.' },
-        whisper: { title: 'Local', badge: 'Privasi', type: 'Offline', desc: '100% приватно. Работает без интернета.' },
+        whisper: { title: 'Whisper', badge: 'Privasi', type: 'Local', desc: '100% приватно. Работает без интернета.' },
         gigachat: { title: 'GigaChat', badge: 'Сбер', type: 'LLM', desc: 'SberAI. Быстрая, доступна без VPN.' },
         elevenlabs: { title: 'ElevenLabs', badge: 'Scribe', type: 'Cloud', desc: 'Потоковая транскрибация и пакетный резервный запрос.' },
         azure_speech: { title: 'Azure Speech', badge: 'MAI', type: 'Cloud', desc: 'Потоковая транскрибация через Microsoft Foundry.' },
@@ -47,7 +47,7 @@ const ENGINE_HELP: Record<string, Record<string, EngineHelpItem>> = {
         deepgram: { title: 'Deepgram', badge: 'PRO', type: 'Cloud', desc: 'Lightning fast, great punctuation, commercial grade.' },
         groq: { title: 'Groq', badge: 'FREE', type: 'Cloud', desc: 'Blazing fast Whisper LPU. Best value.' },
         gemini: { title: 'Gemini', badge: 'SOTA', type: 'Multimodal', desc: 'Google AI. Premium accuracy and formatting.' },
-        whisper: { title: 'Local', badge: 'PRIVACY', type: 'Offline', desc: '100% private. Works without internet.' },
+        whisper: { title: 'Whisper', badge: 'PRIVACY', type: 'Local', desc: '100% private. Works without internet.' },
         gigachat: { title: 'GigaChat', badge: 'Sber', type: 'LLM', desc: 'SberAI. Russian neural network, works without VPN.' },
         elevenlabs: { title: 'ElevenLabs', badge: 'Scribe', type: 'Cloud', desc: 'Realtime transcription with a batch fallback request.' },
         azure_speech: { title: 'Azure Speech', badge: 'MAI', type: 'Cloud', desc: 'Realtime transcription through Microsoft Foundry.' },
@@ -118,6 +118,9 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     const [downloading, setDownloading] = useState(false);
     const [downloadProgress, setDownloadProgress] = useState('');
     const [isPaused, setIsPaused] = useState(false);
+    const [nemotronAssetAvailable, setNemotronAssetAvailable] = useState(false);
+    const [nemotronAssetDownloading, setNemotronAssetDownloading] = useState(false);
+    const [nemotronAssetProgress, setNemotronAssetProgress] = useState(0);
 
     // API Keys
     const [dgApiKey, setDgApiKey] = useState('');
@@ -234,6 +237,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 setHistoryRetentionPeriod(hist[1]);
 
                 checkModelAvailability();
+                await checkNemotronAssetStatus();
             } catch (err) { console.error('Load Error:', err); }
         };
         loadSettings();
@@ -255,14 +259,26 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 }
             }
         });
+        const unlistenNemotron = listen<{ percent: number }>('nemotron-download-progress', (event) => {
+            setNemotronAssetDownloading(true);
+            setNemotronAssetProgress(event.payload.percent);
+        });
         return () => {
             unlisten.then(f => f());
+            unlistenNemotron.then(f => f());
         };
     }, [setLang]);
 
     const checkModelAvailability = async () => {
         const avail = await invoke<boolean>('check_model_available');
         setModelAvailable(avail);
+    };
+
+    const checkNemotronAssetStatus = async () => {
+        const status = await invoke<{ available: boolean; downloading: boolean; progress: number }>('get_nemotron_status');
+        setNemotronAssetAvailable(status.available);
+        setNemotronAssetDownloading(status.downloading);
+        setNemotronAssetProgress(status.progress);
     };
 
     const handleModeChange = async (m: SttMode) => {
@@ -328,6 +344,32 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         try {
             await invoke('delete_whisper_model');
             setModelAvailable(false);
+        } catch (err) {
+            addToast(`${lang === 'ru' ? 'Ошибка удаления модели' : 'Error deleting model'}: ${err}`, 'error');
+        }
+    };
+
+    const handleDownloadNemotronAsset = async () => {
+        setNemotronAssetDownloading(true);
+        setNemotronAssetProgress(0);
+        try {
+            await invoke('download_nemotron_model');
+            setNemotronAssetAvailable(true);
+            setNemotronAssetProgress(100);
+        } catch (err) {
+            addToast(String(err), 'error');
+            setNemotronAssetProgress(0);
+        } finally {
+            setNemotronAssetDownloading(false);
+            await checkNemotronAssetStatus().catch((statusError) => console.error('Nemotron status error:', statusError));
+        }
+    };
+
+    const handleDeleteNemotronAsset = async () => {
+        try {
+            await invoke('delete_nemotron_model');
+            setNemotronAssetAvailable(false);
+            setNemotronAssetProgress(0);
         } catch (err) {
             addToast(`${lang === 'ru' ? 'Ошибка удаления модели' : 'Error deleting model'}: ${err}`, 'error');
         }
@@ -505,6 +547,9 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                                             whisperModel={whisperModel} handleWhisperModelChange={handleWhisperModelChange}
                                             modelAvailable={modelAvailable} downloading={downloading} downloadProgress={downloadProgress}
                                             handleDownload={handleDownload} handleDeleteModel={handleDeleteModel}
+                                            nemotronAssetAvailable={nemotronAssetAvailable} nemotronAssetDownloading={nemotronAssetDownloading}
+                                            nemotronAssetProgress={nemotronAssetProgress} handleDownloadNemotronAsset={handleDownloadNemotronAsset}
+                                            handleDeleteNemotronAsset={handleDeleteNemotronAsset}
                                             isPaused={isPaused} handlePause={handlePauseDownload} handleResume={handleResumeDownload} handleCancel={handleCancelDownload}
                                         />
                                     )}
