@@ -5,8 +5,8 @@
 > Держи компактно: не история навсегда, а срез "что сейчас".
 
 ## Последнее обновление
-Дата: 2026-11-14
-Кто/что обновило: codex (подготовка тестовой версии v1.6.0)
+Дата: 2026-11-15
+Кто/что обновило: codex (Nemotron GGUF download/delete, pair task #3)
 
 ## Версии (важно)
 - Релиз **v1.5.1** опубликован (тег на `d20c7a5`, включает хотфикс сборки и STT-фикс)
@@ -14,6 +14,7 @@
 - **ПОДСИСТЕМА РАСПОЗНАВАНИЯ РЕЧИ И АУДИОПАЙПЛАЙН СТРОГО ЗАФИКСИРОВАНЫ (FROZEN)**
 
 ## Что сейчас в работе
+- **Pair task #3 (реализация завершена, agy APPROVED):** отдельный asset manager для Nemotron 3.5 ASR Q8_0 GGUF (~708 MB): статус, скачивание с проверкой размера/SHA-256, прогресс и удаление в Settings → Engines. Модель хранится в общем каталоге моделей, но пока не выбирается как STT-движок: GGUF Nemotron не совместим с whisper-rs; подключение отдельного runtime не входит в эту задачу. Frozen audio/transcription pipeline не изменяется. Проверки: `cargo check`, `cargo fmt -- --check`, `cargo test` (151 pass), `bun run test` (57 pass/9 файлов), `bun run lint`, `git diff --check` — успешно. `cargo clippy -- -D warnings` выявляет старые lint-ошибки в `azure_speech.rs`, `elevenlabs.rs`, `speechmatics.rs`, `state.rs`; `bunx tsc --noEmit --incremental false` выявляет существующие TS-типы mock-функций только в `useKeyboardShortcuts.test.ts`. Коммит, fast-forward `dev`, production bundle и установка ещё ожидаются.
 - **Pair task #1 закрыт:** сверены API ElevenLabs, Azure, Speechmatics, NVIDIA Build и Xiaomi MiMo; отчет добавлен в `docs/STT_PROVIDERS_AUDIT.md`. Xiaomi `mimo-v2.5-asr` оставлен только в research, поскольку API не принимает live-аудио чанками. По прямой команде пользователя добавлен capture-only путь без Groq interim worker; ElevenLabs, Azure и Speechmatics подключены к realtime-маршруту, NVIDIA Build — к batch-маршруту с UUID функции NVCF; языковое поле убрано, чтобы совместимые модели автоматически определяли язык. Speechmatics использует `melia-1`, `language=multi`, `language_hints=[ru,en]`. agy подтвердил 149 успешных Rust-тестов и 52 frontend-теста после упрощения; `cargo check`, `cargo fmt --check`, `bun run lint` и `git diff --check` прошли. Live API-запросы без пользовательских ключей не выполнялись.
 - **Тестовая версия v1.6.0:** `bun run tauri build --bundles app` завершилась с кодом 0; bundle собран и установлен в `/Applications/NYX Vox.app`, версия подтверждена как 1.6.0. Ветка `dev` обновлена fast-forward до `9d8e836`. Отдельный `.dmg` не создавался.
 - **STT-фикс языка (`d20c7a5`) влит в `main`, тег `v1.5.1` перевыпущен.** Убрано форсирование

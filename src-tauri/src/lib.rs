@@ -9,6 +9,7 @@ mod elevenlabs;
 mod gigachat;
 mod history;
 mod keys;
+mod nemotron;
 mod nvidia_stt;
 mod prompts;
 mod qwen;
@@ -155,6 +156,7 @@ pub fn run() {
             app.manage(WhisperDownloadFlag::default());
             app.manage(WhisperDownloadPaused::default());
             app.manage(WhisperDownloadCancelled::default());
+            app.manage(nemotron::NemotronDownloadState::default());
             app.manage(ProcessingFlag::default());
             app.manage(RecordingFlag::default());
             app.manage(ActiveSttMode(Mutex::new(String::new())));
@@ -581,6 +583,9 @@ pub fn run() {
             commands::resume_whisper_download,
             commands::cancel_whisper_download,
             commands::delete_whisper_model,
+            commands::get_nemotron_status,
+            commands::download_nemotron_model,
+            commands::delete_nemotron_model,
             commands::reset_window_position,
             commands::get_start_minimized,
             commands::set_start_minimized,

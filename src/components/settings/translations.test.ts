@@ -19,4 +19,19 @@ describe('cloud STT settings translations', () => {
             expect(settings.azureConfigSave).toBeTruthy();
         }
     });
+
+    it('provides Nemotron asset card status and action copy in Russian and English', () => {
+        for (const language of ['ru', 'en'] as const) {
+            const settings = DICTIONARY[language].settings;
+
+            expect(settings.nemotronAssetTitle).toBeTruthy();
+            expect(settings.nemotronAssetDesc).toBeTruthy();
+            expect(settings.nemotronAssetInstalled).toBeTruthy();
+            expect(settings.nemotronAssetMissing).toBeTruthy();
+            expect(settings.nemotronAssetDownloading).toBeTruthy();
+            expect(settings.nemotronAssetProgressLabel).toBeTruthy();
+            expect(settings.nemotronAssetDownload).toBeTruthy();
+            expect(settings.nemotronAssetDelete).toBeTruthy();
+        }
+    });
 });
