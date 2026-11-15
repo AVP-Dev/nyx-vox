@@ -346,6 +346,7 @@ pub fn run() {
                                 "qwen_format",
                                 "gigachat_stt",
                                 "gigachat_format",
+                                "nvidia_stt",
                             ] {
                                 let key = format!("custom_model_{}", slot);
                                 if let Some(val) =

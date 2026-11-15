@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import type { ComponentProps } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { KeysTab } from './KeysTab';
@@ -39,17 +39,28 @@ const makeProps = (
     handleDeleteKey: vi.fn(),
     savedStatus: {},
     setTab: vi.fn(),
-    customModels: { nvidia_stt: '1598d209-5e27-4d3c-8079-4751568b1081' },
+    customModels: {},
     handleSetCustomModel: vi.fn(),
     ...overrides,
 });
 
 describe('KeysTab', () => {
-    it('does not show the manual NVIDIA function UUID input', () => {
-        render(<KeysTab {...makeProps()} />);
+    it('allows overriding the NVIDIA function UUID and shows the suggested default', () => {
+        const props = makeProps();
+        render(<KeysTab {...props} />);
 
-        expect(screen.queryByText(/function UUID/i)).toBeNull();
-        expect(screen.queryByDisplayValue('1598d209-5e27-4d3c-8079-4751568b1081')).toBeNull();
+        const field = screen.getByLabelText(DICTIONARY.en.settings.nvidiaFunctionIdLabel) as HTMLInputElement;
+        expect(field.value).toBe('');
+        expect(field.placeholder).toBe('1598d209-5e27-4d3c-8079-4751568b1081');
         expect(screen.getByText(DICTIONARY.en.settings.nvidiaSttApiKeyLabel)).toBeTruthy();
+
+        fireEvent.change(field, { target: { value: 'custom-function-id' } });
+        expect(props.handleSetCustomModel).toHaveBeenCalledWith('nvidia_stt', 'custom-function-id');
+    });
+
+    it('shows a saved NVIDIA function UUID', () => {
+        render(<KeysTab {...makeProps({ customModels: { nvidia_stt: 'saved-uuid' } })} />);
+
+        expect(screen.getByDisplayValue('saved-uuid')).toBeTruthy();
     });
 });
