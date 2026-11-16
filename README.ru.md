@@ -78,7 +78,7 @@ graph LR
 | **Sber GigaChat** | Cloud AI | **~700 мс** | Российский контур | Бесплатно разработчикам | Русскоязычная диктовка, работает в РФ без VPN |
 | **Google Gemini** | Multimodal | **~800 мс** | Google Cloud | Бесплатные квоты AI Studio | Сложный синтаксис кода, смешанные языки |
 | **Deepgram Nova** | Cloud STT | **~600 мс** | Корпоративная | $200 кредитов на старте | Шумные помещения, акустическая изоляция |
-| **NVIDIA Build** | Cloud Batch | **~400 – 700 мс** | NVIDIA Cloud | Бесплатные кредиты build.nvidia.com | Parakeet CTC 1.1B ASR, настраиваемый Function UUID |
+| **NVIDIA Build** | Cloud Batch | **~400 – 700 мс** | NVIDIA Cloud | Бесплатные кредиты build.nvidia.com | Parakeet CTC 1.1B ASR (только английский), настраиваемый Function UUID |
 | **Azure Speech** | Cloud Realtime | **~300 – 600 мс** | Корпоративная | Подписка Azure / Foundry | Microsoft Foundry Realtime API (`/mai/v1/realtime`) |
 | **NVIDIA Nemotron (Local)** | On-Device GGUF | Офлайн | **100% Приватно** | Бесплатно навсегда | Standalone менеджер модели `nemotron-3.5-asr-streaming-0.6b` (Q8_0) |
 

@@ -40,7 +40,7 @@ const ENGINE_HELP: Record<string, Record<string, EngineHelpItem>> = {
         elevenlabs: { title: 'ElevenLabs', badge: 'Scribe', type: 'Cloud', desc: 'Потоковая транскрибация и пакетный резервный запрос.' },
         azure_speech: { title: 'Azure Speech', badge: 'MAI', type: 'Cloud', desc: 'Потоковая транскрибация через Microsoft Foundry.' },
         speechmatics: { title: 'Speechmatics', badge: 'Realtime', type: 'Cloud', desc: 'Потоковое распознавание речи с частичными результатами.' },
-        nvidia: { title: 'NVIDIA Build', badge: 'NVCF', type: 'Cloud', desc: 'Пакетное распознавание через выбранную модель NVIDIA Build.' },
+        nvidia: { title: 'NVIDIA Build', badge: 'NVCF', type: 'Cloud', desc: 'Пакетное распознавание через выбранную модель NVCF (Parakeet — только английский).' },
         formatting: { title: 'Formatting', badge: 'AI', type: 'LLM', desc: '✨ AI режим: автоматически исправляет ошибки, убирает "эээ" и расставляет абзацы.' }
     },
     en: {
@@ -52,7 +52,7 @@ const ENGINE_HELP: Record<string, Record<string, EngineHelpItem>> = {
         elevenlabs: { title: 'ElevenLabs', badge: 'Scribe', type: 'Cloud', desc: 'Realtime transcription with a batch fallback request.' },
         azure_speech: { title: 'Azure Speech', badge: 'MAI', type: 'Cloud', desc: 'Realtime transcription through Microsoft Foundry.' },
         speechmatics: { title: 'Speechmatics', badge: 'Realtime', type: 'Cloud', desc: 'Realtime speech recognition with partial results.' },
-        nvidia: { title: 'NVIDIA Build', badge: 'NVCF', type: 'Cloud', desc: 'Batch recognition through a selected NVIDIA Build model.' },
+        nvidia: { title: 'NVIDIA Build', badge: 'NVCF', type: 'Cloud', desc: 'Batch recognition through a selected NVCF model (Parakeet is English-only).' },
         formatting: { title: 'Formatting', badge: 'AI', type: 'LLM', desc: '✨ AI mode: fixes typos, removes filler words, and structures text into paragraphs.' }
     }
 };

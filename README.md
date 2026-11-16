@@ -78,7 +78,7 @@ Bring your own API keys (stored locally with AES-256-GCM hardware encryption) or
 | **Sber GigaChat** | Cloud AI | **~700 ms** | Russian Cloud | Free Dev Tier | Native Russian dictation, works in РФ without VPN |
 | **Google Gemini** | Multimodal | **~800 ms** | Google Cloud | Free AI Studio Quota | Complex code syntax & multi-language dictation |
 | **Deepgram Nova** | Cloud STT | **~600 ms** | Enterprise | $200 Free Credits | Noisy backgrounds, acoustic isolation |
-| **NVIDIA Build** | Cloud Batch | **~400 – 700 ms** | NVIDIA Cloud | Free build.nvidia.com credits | Parakeet CTC 1.1B ASR, configurable Function UUID |
+| **NVIDIA Build** | Cloud Batch | **~400 – 700 ms** | NVIDIA Cloud | Free build.nvidia.com credits | Parakeet CTC 1.1B ASR (English-only), configurable Function UUID |
 | **Azure Speech** | Cloud Realtime | **~300 – 600 ms** | Enterprise | Azure / Foundry Subscription | Microsoft Foundry Realtime API (`/mai/v1/realtime`) |
 | **NVIDIA Nemotron (Local)** | On-Device GGUF | Offline | **100% Private** | Free Forever | Standalone model manager for `nemotron-3.5-asr-streaming-0.6b` (Q8_0) |
 
