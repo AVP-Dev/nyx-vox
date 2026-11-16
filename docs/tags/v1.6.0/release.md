@@ -17,7 +17,6 @@ This version expands the available cloud speech recognition engines and connects
 * **🎙️ Isolated provider capture**: the new provider capture path does not launch the unrelated Groq interim worker. Realtime audio is streamed as 16 kHz PCM through a bounded channel.
 * **⚙️ Provider settings**: added engine selection and API key fields, Azure endpoint/deployment settings, and NVIDIA function UUID. Compatible NVIDIA models detect the spoken language automatically.
 * **🌐 Offline fallback**: cloud selections can use the installed local Whisper model when connectivity is unavailable.
-* **🔎 Xiaomi MiMo research**: evaluated but not added as a selectable engine; the documented API accepts an audio file and streams text output rather than accepting live audio chunks.
 
 ### 🧪 Testing notes
 
@@ -52,7 +51,6 @@ The test build is installed directly into `/Applications/NYX Vox.app` from the `
 * **🎙️ Изолированный захват**: новый путь записи провайдеров не запускает посторонний interim-воркер Groq. Аудио для realtime передается как PCM 16 кГц через ограниченный канал.
 * **⚙️ Настройки провайдеров**: добавлены выбор движка и поля API-ключей, настройки endpoint/deployment Azure и UUID функции NVIDIA. Совместимая мультиязычная модель сама определяет язык.
 * **🌐 Офлайн-фолбек**: при отсутствии сети облачный режим может использовать установленную локальную модель Whisper.
-* **🔎 Исследование Xiaomi MiMo**: провайдер не добавлен в список движков, поскольку документированный API принимает аудиофайл и потоково возвращает текст, но не принимает live-аудио чанками.
 
 ### 🧪 Проверки
 

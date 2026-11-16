@@ -11,7 +11,6 @@
 - Added provider-specific API key and configuration fields, including Azure Foundry endpoint/deployment and NVIDIA NVCF function UUID. Compatible NVIDIA multilingual models detect the language automatically.
 - Isolated new provider capture from the Groq interim worker and connected provider-specific start/stop handling.
 - Speechmatics uses the Melia 1 multilingual model with Russian/English language hints; NVIDIA has no separate language setting.
-- Xiaomi MiMo remains research-only because its documented audio API is file-based rather than live audio streaming.
 
 ## 📅 Version 1.5.1
 

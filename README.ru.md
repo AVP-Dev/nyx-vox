@@ -36,9 +36,9 @@ graph LR
         VAD --> BUFF["300 мс Pre-speech FIFO буфер"]
     end
 
-    subgraph Step2 ["2. Сверхбыстрый STT"]
-        BUFF --> CLOUD["⚡ Облачный LPU: Groq Whisper Turbo (~500 мс)<br/>Deepgram Nova-2 / Gemini / GigaChat"]
-        BUFF -.-> LOCAL["🔒 Офлайн: Локальный Whisper<br/>(ускорение Metal и Core ML)"]
+    subgraph Step2 ["2. Сверхбыстрый STT (9 движков)"]
+        BUFF --> CLOUD["⚡ Облачный Realtime & Batch STT:<br/>Groq (Whisper Turbo) / Deepgram Nova / ElevenLabs Scribe v3<br/>Speechmatics Melia / Azure Speech / NVIDIA Build / GigaChat / Gemini"]
+        BUFF -.-> LOCAL["🔒 Офлайн: Локальный Whisper (Metal & Core ML)<br/>+ Standalone менеджер моделей Nemotron ASR (GGUF)"]
     end
 
     subgraph Step3 ["3. 100% Дословный ИИ"]
@@ -73,9 +73,14 @@ graph LR
 |---|---|---|---|---|---|
 | **Groq LPU™** | Cloud LPU | **~500 мс** | Стандартная | Щедрый бесплатный тир | **[Рекомендуется]** Повседневная работа, максимальная скорость |
 | **Whisper Local** | On-Device | **~1.2 – 2.0 с** | **100% Приватно** | Бесплатно навсегда | Конфиденциальные данные, работа в поездках/без сети |
+| **ElevenLabs Scribe v3** | Cloud Realtime / Batch | **~150 – 400 мс** | Стандартная | План ElevenLabs | 90+ языков, нативное автоопределение и мгновенный стриминг |
+| **Speechmatics Melia** | Cloud Realtime | **~200 – 500 мс** | Корпоративная | Бесплатный стартовый баланс | Мультиязычная модель Melia-1 с нативным автоопределением RU/EN |
 | **Sber GigaChat** | Cloud AI | **~700 мс** | Российский контур | Бесплатно разработчикам | Русскоязычная диктовка, работает в РФ без VPN |
 | **Google Gemini** | Multimodal | **~800 мс** | Google Cloud | Бесплатные квоты AI Studio | Сложный синтаксис кода, смешанные языки |
 | **Deepgram Nova** | Cloud STT | **~600 мс** | Корпоративная | $200 кредитов на старте | Шумные помещения, акустическая изоляция |
+| **NVIDIA Build** | Cloud Batch | **~400 – 700 мс** | NVIDIA Cloud | Бесплатные кредиты build.nvidia.com | Parakeet CTC 1.1B ASR, настраиваемый Function UUID |
+| **Azure Speech** | Cloud Realtime | **~300 – 600 мс** | Корпоративная | Подписка Azure / Foundry | Microsoft Foundry Realtime API (`/mai/v1/realtime`) |
+| **NVIDIA Nemotron (Local)** | On-Device GGUF | Офлайн | **100% Приватно** | Бесплатно навсегда | Standalone менеджер модели `nemotron-3.5-asr-streaming-0.6b` (Q8_0) |
 
 ### ✨ 100% Дословное AI-форматирование (LLM)
 NYX Vox форматирует сырой текст с полным сохранением каждого слова (без пересказа и синонимов), расставляя пунктуацию, регистр и структуру:
@@ -91,7 +96,11 @@ NYX Vox форматирует сырой текст с полным сохра�
 
 - **Groq**: Зайдите на [console.groq.com/keys](https://console.groq.com/keys) → Нажмите "Create API Key", назовите `NYX-Vox` и скопируйте.
 - **Google Gemini**: Перейдите в [aistudio.google.com](https://aistudio.google.com/) → Нажмите "Get API Key" → Create Key.
+- **ElevenLabs**: Зайдите на [elevenlabs.io/app/settings/api-keys](https://elevenlabs.io/app/settings/api-keys) → Создайте ключ с обязательным разрешением **Speech to Text**.
+- **Speechmatics**: Зарегистрируйтесь на [portal.speechmatics.com](https://portal.speechmatics.com/) → Получите бесплатные кредиты → Создайте API-ключ.
 - **Deepgram**: Зарегистрируйтесь на [console.deepgram.com](https://console.deepgram.com/) → Получите $200 на баланс → Создайте ключ.
+- **NVIDIA Build**: Перейдите на [build.nvidia.com](https://build.nvidia.com) → Сгенерируйте API-ключ (`nvapi-...`).
+- **Azure Speech**: Перейдите в [ai.azure.com](https://ai.azure.com/) / Azure Portal → Скопируйте API Key, Resource Endpoint и Deployment Name.
 - **GigaChat (SberAI)**: Перейдите на [developers.sber.ru](https://developers.sber.ru/) → Создайте проект GigaChat API → Скопируйте Client ID и Client Secret.
 </details>
 
@@ -109,12 +118,15 @@ NYX Vox форматирует сырой текст с полным сохра�
 
 ## ✨ Ключевые возможности
 
-- ⚡ **Универсальный Live-стриминг**: отображение промежуточных фраз на лету с активным курсором во всех STT-движках.
+- 🎙️ **9 мощных STT-движков**: выбор между 100% приватным офлайном (Whisper, Nemotron GGUF) и сверхбыстрыми облачными провайдерами (Groq, ElevenLabs Scribe v3, Speechmatics Melia, Deepgram Nova, Azure Speech, NVIDIA Build, GigaChat, Gemini).
+- 🌐 **Нативное автоопределение языка**: свободная диктовка на русском, английском или вперемешку без ручного выбора языков (автодетекция Whisper, Melia и Scribe v3).
+- ⚡ **Универсальный Live-стриминг**: отображение промежуточных фраз на лету с активным курсором во всех поддерживаемых STT-движках.
 - 🎯 **100% Дословное AI-форматирование**: строгий системный промпт запрещает искажать слова, додумывать факты или заменять термины синонимами, аккуратно расставляя пунктуацию, абзацы и верный регистр букв.
-- 🧠 **Поддержка множества LLM**: форматирование через DeepSeek V4, Qwen 3.7, Gemini 3.8, Groq LPU или GigaChat 2.
+- 🧠 **Поддержка множества LLM**: форматирование через DeepSeek V4, Qwen 3.7, Gemini 3.8, Groq LPU или GigaChat 2 с поддержкой кастомных слотов моделей.
 - 🎙️ **Умный VAD (автостоп по тишине)**: настраиваемый таймер паузы (3.0–15.0 сек) с калибруемым шумодавом (Noise Gate) и множителем усиления микрофона.
-- 🚀 **Нативная автовставка macOS (HID)**: текст мгновенно вводится в окно, в котором вы только что работали, через Accessibility API.
-- 🔒 **Защищенный сейф API-ключей**: локальное шифрование AES-256-GCM с уникальным аппаратным отпечатком устройства.
+- 🚀 **Нативная автовставка macOS и Windows**: текст мгновенно вводится в окно активного приложения через нативный HID/Accessibility API.
+- 🖥️ **Умное управление окном и трей**: клик по иконке в трее разворачивает и сворачивает окно, автоматическое восстановление из свёрнутого состояния и защита от выхода за пределы экрана монитора.
+- 🔒 **Защищенный сейф API-ключей**: локальное шифрование AES-256-GCM с уникальным аппаратным отпечатком устройства (HWID).
 - 🫧 **Компактный режим (Bubble Mode)**: в режиме ожидания окно сворачивается в круглый минималистичный пузырь у меню-бара.
 - 📂 **Локальная история с поиском**: сохранение всех диктовок с указанием времени, длительности и использованного движка.
 - 🔇 **Защита от галлюцинаций**: аппаратная обрезка пауз тишины (`trim_silence`) и авто-пауза мультимедиа во время диктовки.
@@ -216,13 +228,18 @@ NYX Vox разработан для максимальной производи�
 
 ## 🚀 План развития (Roadmap)
 
-**Готово в релизе v1.5.0:**
+**Готово в релизах v1.5.0 – v1.6.0:**
+- [x] Расширенная экосистема STT: интеграция **ElevenLabs Scribe v3**, **Speechmatics Melia**, **Azure Speech** и **NVIDIA Build**
+- [x] Автоопределение языка для мультиязычной диктовки без ручного переключения (Whisper, Melia, Scribe v3)
+- [x] Standalone менеджер модели **NVIDIA Nemotron 3.5 ASR GGUF** (~708 MB) со скачиванием и валидацией SHA-256
+- [x] Взаимно исключающие селекторы моделей в Настройках (Whisper vs Nemotron)
+- [x] Улучшенный трей и окно: клик по трею сворачивает/разворачивает окно, разворачивание из minimized, ограничение рабочей зоной монитора
 - [x] Кроссплатформенная нативная поддержка Windows 10/11 (Tauri 2, Win32 API, NSIS `.exe` установщик)
 - [x] Полноценный выбор движка форматирования Groq LPU™ (`llama-3.3-70b-versatile`) в настройках
-- [x] Мульти-движковый пайплайн STT (Whisper офлайн / Groq / Deepgram / Gemini / GigaChat)
+- [x] Мульти-движковый пайплайн STT (Whisper офлайн / Groq / Deepgram / Gemini / GigaChat / ElevenLabs / Speechmatics / Azure / NVIDIA)
 - [x] Универсальный live-стриминг фраз на лету
 - [x] 100% Дословное AI-форматирование (Gemini, DeepSeek, Qwen, Groq, GigaChat)
-- [x] Слот для ввода кастомных ID моделей LLM
+- [x] Слоты для ввода кастомных ID моделей LLM и STT (включая NVIDIA Function ID)
 - [x] Умный VAD-автостоп по тишине (3.0–15.0 сек) и калибровка Noise Gate
 - [x] Стеклянный интерфейс Glassmorphism и режим круглого пузыря (Bubble)
 - [x] Нативная автовставка текста в активное окно

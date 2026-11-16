@@ -36,9 +36,9 @@ graph LR
         VAD --> BUFF["300ms Pre-Speech FIFO"]
     end
 
-    subgraph Step2 ["2. Ultra-Fast STT"]
-        BUFF --> CLOUD["⚡ Cloud LPU: Groq Whisper Turbo (~500ms)<br/>Deepgram Nova-2 / Gemini / GigaChat"]
-        BUFF -.-> LOCAL["🔒 Offline: Local Whisper<br/>(Metal & Core ML accelerated)"]
+    subgraph Step2 ["2. Ultra-Fast STT (9 Engines)"]
+        BUFF --> CLOUD["⚡ Cloud Realtime & Batch STT:<br/>Groq (Whisper Turbo) / Deepgram Nova / ElevenLabs Scribe v3<br/>Speechmatics Melia / Azure Speech / NVIDIA Build / GigaChat / Gemini"]
+        BUFF -.-> LOCAL["🔒 Offline: Local Whisper (Metal & Core ML)<br/>+ Standalone Nemotron ASR Model Manager (GGUF)"]
     end
 
     subgraph Step3 ["3. 100% Verbatim Refinement"]
@@ -73,9 +73,14 @@ Bring your own API keys (stored locally with AES-256-GCM hardware encryption) or
 |---|---|---|---|---|---|
 | **Groq LPU™** | Cloud LPU | **~500 ms** | Standard Cloud | Free Generous Tier | **[Recommended]** Daily driver, extreme speed |
 | **Whisper Local** | On-Device | **~1.2 – 2.0 s** | **100% Private** | Free Forever | Confidential data, offline/travel use |
+| **ElevenLabs Scribe v3** | Cloud Realtime / Batch | **~150 – 400 ms** | Standard Cloud | ElevenLabs Plan | 90+ languages, native auto-detection & instant streaming |
+| **Speechmatics Melia** | Cloud Realtime | **~200 – 500 ms** | Enterprise | Free starter balance | Multilingual Melia-1 model with native RU/EN auto-detection |
 | **Sber GigaChat** | Cloud AI | **~700 ms** | Russian Cloud | Free Dev Tier | Native Russian dictation, works in РФ without VPN |
 | **Google Gemini** | Multimodal | **~800 ms** | Google Cloud | Free AI Studio Quota | Complex code syntax & multi-language dictation |
 | **Deepgram Nova** | Cloud STT | **~600 ms** | Enterprise | $200 Free Credits | Noisy backgrounds, acoustic isolation |
+| **NVIDIA Build** | Cloud Batch | **~400 – 700 ms** | NVIDIA Cloud | Free build.nvidia.com credits | Parakeet CTC 1.1B ASR, configurable Function UUID |
+| **Azure Speech** | Cloud Realtime | **~300 – 600 ms** | Enterprise | Azure / Foundry Subscription | Microsoft Foundry Realtime API (`/mai/v1/realtime`) |
+| **NVIDIA Nemotron (Local)** | On-Device GGUF | Offline | **100% Private** | Free Forever | Standalone model manager for `nemotron-3.5-asr-streaming-0.6b` (Q8_0) |
 
 ### ✨ 100% Verbatim AI Refinement Models (LLM)
 NYX Vox formats raw transcriptions with zero rewriting, preserving your exact words while adding punctuation, capitalization, and paragraph structure:
@@ -91,7 +96,11 @@ NYX Vox formats raw transcriptions with zero rewriting, preserving your exact wo
 
 - **Groq**: Go to [console.groq.com/keys](https://console.groq.com/keys) → Create an API key named `NYX-Vox`.
 - **Google Gemini**: Go to [aistudio.google.com](https://aistudio.google.com/) → Click "Get API Key" → Create Key.
+- **ElevenLabs**: Go to [elevenlabs.io/app/settings/api-keys](https://elevenlabs.io/app/settings/api-keys) → Create an API key with the required **Speech to Text** permission.
+- **Speechmatics**: Register at [portal.speechmatics.com](https://portal.speechmatics.com/) → Claim free credit → Create API key.
 - **Deepgram**: Go to [console.deepgram.com](https://console.deepgram.com/) → Sign up for $200 free credit → Create API Key.
+- **NVIDIA Build**: Go to [build.nvidia.com](https://build.nvidia.com) → Generate an API key (`nvapi-...`).
+- **Azure Speech**: Go to [ai.azure.com](https://ai.azure.com/) / Azure Portal → Copy API Key, Resource Endpoint, and Deployment Name.
 - **GigaChat (SberAI)**: Go to [developers.sber.ru](https://developers.sber.ru/) → Create GigaChat API project → Copy Client ID & Secret.
 </details>
 
@@ -109,13 +118,16 @@ NYX Vox formats raw transcriptions with zero rewriting, preserving your exact wo
 
 ## ✨ Key Features
 
+- 🎙️ **9 Powerful STT Engines**: Choose between 100% private offline models (Whisper, Nemotron GGUF) and ultra-fast cloud providers (Groq, ElevenLabs Scribe v3, Speechmatics Melia, Deepgram Nova, Azure Speech, NVIDIA Build, GigaChat, Gemini).
+- 🌐 **Native Language Auto-Detection**: Seamless dictation in English, Russian, or mixed multilingual speech without manual language switching (Whisper, Melia, Scribe v3).
 - ⚡ **Universal Live Streaming**: Real-time interim phrase preview with typing indicator across all STT engines.
 - 🎯 **100% Verbatim AI Refinement**: Intelligent system prompts ensure zero hallucinations, zero synonym replacement, and strict preservation of emotional intent while formatting punctuation, capital letters, and technical syntax.
-- 🧠 **Multi-LLM Formatter Support**: Format transcripts using DeepSeek V4, Qwen 3.7, Gemini 3.8, Groq LPU, or GigaChat 2.
+- 🧠 **Multi-LLM Formatter Support**: Format transcripts using DeepSeek V4, Qwen 3.7, Gemini 3.8, Groq LPU, or GigaChat 2 with custom model slot support.
 - 🎙️ **Smart Speech Activity Detection (VAD)**: Configurable silence auto-stop (3.0s – 15.0s) with calibrated Noise Gate and microphone gain multiplier.
-- 🚀 **Native macOS HID Auto-Paste**: Direct text injection via macOS Accessibility API into the active window.
-- 🔒 **Encrypted Key Vault**: API keys are locally encrypted with AES-256-GCM using unique hardware fingerprints.
-- 🫧 **Compact Bubble Mode**: Sits as a minimalist circular mic bubble next to the macOS menu bar when idle.
+- 🚀 **Native macOS & Windows HID Auto-Paste**: Direct text injection via Accessibility API (macOS) or Win32 API (Windows) into the active window.
+- 🖥️ **Smart Window & Tray Management**: Click tray icon to toggle show/hide, auto-restore from minimized state, and screen boundary clamping.
+- 🔒 **Encrypted Key Vault**: API keys are locally encrypted with AES-256-GCM using unique hardware fingerprints (HWID).
+- 🫧 **Compact Bubble Mode**: Sits as a minimalist circular mic bubble next to the menu bar when idle.
 - 📂 **Local Searchable History**: Retain and search previous voice notes with duration, timestamp, and model badges.
 - 🔇 **Anti-Hallucination Guard**: Automatic acoustic silence trimming (`trim_silence`) and media auto-pause during dictation.
 
@@ -188,7 +200,7 @@ NYX Vox is tailored for maximum performance on both desktop operating systems:
 | **Primary Global Shortcut** | `⌥ Option + Space` (or `Ctrl + Space`) | `Ctrl + Space` (system-safe) |
 | **Direct Auto-Paste** | Native HID injection via Accessibility API | Native Win32 API injection (`enigo`) |
 | **Offline Whisper Engine** | Metal GPU & Core ML accelerated | High-throughput CPU vectorized inference (AVX2/AVX512) |
-| **Cloud STT & LLMs (Groq, Deepgram, Gemini, GigaChat)** | Sub-second ultra-fast streaming | Sub-second ultra-fast streaming |
+| **Cloud STT & LLMs (Groq, Deepgram, ElevenLabs, Speechmatics, Azure, NVIDIA, Gemini, GigaChat)** | Sub-second ultra-fast streaming | Sub-second ultra-fast streaming |
 | **Permissions Required** | Accessibility + Microphone | Microphone only (no Accessibility required) |
 
 > [!IMPORTANT]
@@ -216,13 +228,18 @@ NYX Vox is tailored for maximum performance on both desktop operating systems:
 
 ## 🚀 Roadmap
 
-**Shipped in v1.5.0:**
+**Shipped in v1.5.0 – v1.6.0:**
+- [x] Expanded STT ecosystem: integration of **ElevenLabs Scribe v3**, **Speechmatics Melia**, **Azure Speech**, and **NVIDIA Build**
+- [x] Automatic language detection for multilingual dictation without manual switching (Whisper, Melia, Scribe v3)
+- [x] Standalone **NVIDIA Nemotron 3.5 ASR GGUF** model manager (~708 MB) with download and SHA-256 validation
+- [x] Mutually exclusive model selectors in Settings (Whisper vs Nemotron)
+- [x] Enhanced tray and window: tray icon click toggles show/hide, restore from minimized, monitor workspace clamping
 - [x] Cross-platform native Windows 10/11 support (Tauri 2, Win32 API, NSIS `.exe` installer)
 - [x] Full UI selector for Groq LPU™ (`llama-3.3-70b-versatile`) formatting engine in Settings
-- [x] Multi-engine STT pipeline (Whisper Offline / Groq / Deepgram / Gemini / GigaChat)
+- [x] Multi-engine STT pipeline (Whisper Offline / Groq / Deepgram / Gemini / GigaChat / ElevenLabs / Speechmatics / Azure / NVIDIA)
 - [x] Universal live interim speech streaming preview
 - [x] 100% Verbatim AI formatting (Gemini, DeepSeek, Qwen, Groq, GigaChat)
-- [x] Custom AI model ID slot and presets
+- [x] Custom AI model ID and STT slots (including NVIDIA Function ID)
 - [x] Smart VAD silence auto-stop (3.0s – 15.0s) & Noise Gate calibration
 - [x] Glassmorphism UI & Compact Bubble idle mode
 - [x] Native HID Auto-Paste into active window
