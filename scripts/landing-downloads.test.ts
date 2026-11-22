@@ -80,6 +80,12 @@ test('shows all nine speech engines and links to the installer picker from the h
         'Whisper Local', 'Groq', 'Deepgram Nova', 'Google Gemini', 'Sber GigaChat',
         'ElevenLabs Scribe', 'Speechmatics Melia', 'Azure Speech', 'NVIDIA Build',
     ]);
+    const recommended = Array.from(page.querySelectorAll('#engines .engine-card'), card =>
+        card.querySelector('.engine-badge[data-en]')?.textContent?.startsWith('Recommended')
+            ? card.querySelector('.engine-name')?.textContent
+            : null,
+    ).filter(Boolean);
+    expect(recommended).toEqual(['ElevenLabs Scribe', 'Speechmatics Melia']);
     expect(page.querySelector('#download a[href="#download-builds"]')).not.toBeNull();
     expect(page.querySelector('#download-builds #download-build')).not.toBeNull();
     expect(page.querySelector('#engines')?.textContent).toContain('The public Parakeet model supports English only.');
