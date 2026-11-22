@@ -173,6 +173,8 @@ NYX Vox formats raw transcriptions with zero rewriting, preserving your exact wo
 
 ## 📦 Installation & Setup
 
+### 🍏 macOS (Apple Silicon)
+
 On Apple Silicon, install with Homebrew or curl. The curl installer checks SHA-256, clears quarantine on the NYX Vox bundle, and opens the app.
 
 **Homebrew** · [AVP-Dev/homebrew-apps](https://github.com/AVP-Dev/homebrew-apps)
@@ -187,13 +189,13 @@ brew install --cask AVP-Dev/apps/nyx-vox
 curl -fsSL https://nyx-vox.avpdev.com/install.sh | /bin/bash
 ```
 
-### Manual DMG installation
+#### Manual DMG installation
 
-1. **Download**: Grab the latest `.dmg` from the [Releases](https://github.com/AVP-Dev/nyx-vox/releases/latest) page.
+1. **Download**: Grab the latest `.dmg` from the [version picker](https://nyx-vox.avpdev.com/#download) or [GitHub Releases](https://github.com/AVP-Dev/nyx-vox/releases/latest).
 2. **Install**: Open the `.dmg` file and drag **NYX Vox** into your `Applications` folder.
 3. **Launch**: Start NYX Vox from Applications.
 
-### 🛠️ Troubleshooting: macOS "App is damaged" Warning
+#### 🛠️ Troubleshooting: macOS "App is damaged" Warning
 Because NYX Vox is an open-source tool without a paid Apple Developer subscription, macOS Gatekeeper may flag it on first run. Open **Terminal** and run:
 
 ```bash
@@ -201,6 +203,16 @@ xattr -dr com.apple.quarantine "/Applications/NYX Vox.app"
 ```
 
 Then launch the app again.
+
+---
+
+### 🪟 Windows 10 / 11 (x64)
+
+1. **Download**: Grab the latest installer from the [version picker](https://nyx-vox.avpdev.com/#download) or [GitHub Releases](https://github.com/AVP-Dev/nyx-vox/releases/latest):
+   - **NSIS Setup (`.exe`)**: `NYX.Vox_1.6.0_x64-setup.exe` (Recommended)
+   - **MSI Installer (`.msi`)**: `NYX.Vox_1.6.0_x64_en-US.msi`
+2. **Install**: Run the installer and follow the setup wizard. All encrypted keys and settings in `%APPDATA%` are preserved across upgrades.
+3. **SmartScreen**: If Windows Defender SmartScreen displays *"Windows protected your PC"*, click **More info** &rarr; **Run anyway** (standard for unsigned open-source software).
 
 ### 🔐 Permissions Monitoring Bridge
 NYX Vox requires **Microphone** (for recording) and **Accessibility** (for automatic text paste) permissions:
