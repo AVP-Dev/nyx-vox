@@ -28,7 +28,31 @@ This version expands the available cloud speech recognition engines and connects
 
 ### 📦 Install on macOS
 
-For Apple Silicon, use Homebrew or curl from the [installation instructions](https://nyx-vox.avpdev.com/#troubleshooting) once the release assets and updated tap are published. The curl installer verifies the release's SHA-256, removes quarantine from the installed NYX Vox bundle, and opens the app. The DMG and Windows installer are available in [GitHub Releases](https://github.com/AVP-Dev/nyx-vox/releases/latest).
+Run either command below on a Mac with Apple Silicon. The curl installer verifies the DMG checksum, clears quarantine on the NYX Vox bundle and opens it.
+
+**curl**
+
+```bash
+curl -fsSL https://nyx-vox.avpdev.com/install.sh | /bin/bash
+```
+
+**Homebrew**
+
+Use Homebrew once the cask for this release is published.
+
+```bash
+brew install --cask --appdir="$HOME/Applications" AVP-Dev/apps/nyx-vox
+xattr -dr com.apple.quarantine "$HOME/Applications/NYX Vox.app"
+open "$HOME/Applications/NYX Vox.app"
+```
+
+For a manual install, download the DMG from the [version picker](https://nyx-vox.avpdev.com/#download). If macOS blocks the app after you copy it to Applications, run:
+
+```bash
+xattr -dr com.apple.quarantine "/Applications/NYX Vox.app"
+open "/Applications/NYX Vox.app"
+```
+
 
 ---
 
@@ -62,4 +86,27 @@ For Apple Silicon, use Homebrew or curl from the [installation instructions](htt
 
 ### 📦 Установка на macOS
 
-После публикации файлов релиза и обновления tap владельцы Mac с Apple Silicon смогут установить приложение через Homebrew или curl по [инструкции по установке](https://nyx-vox.avpdev.com/#troubleshooting). Установщик curl проверяет SHA-256, снимает карантин с установленного пакета NYX Vox и открывает приложение. DMG и установщик Windows доступны в [GitHub Releases](https://github.com/AVP-Dev/nyx-vox/releases/latest).
+На Mac с Apple Silicon выберите один из способов ниже. Установщик curl проверяет контрольную сумму DMG, снимает карантин с пакета NYX Vox и открывает приложение.
+
+**curl**
+
+```bash
+curl -fsSL https://nyx-vox.avpdev.com/install.sh | /bin/bash
+```
+
+**Homebrew**
+
+Homebrew доступен после публикации cask для этого релиза.
+
+```bash
+brew install --cask --appdir="$HOME/Applications" AVP-Dev/apps/nyx-vox
+xattr -dr com.apple.quarantine "$HOME/Applications/NYX Vox.app"
+open "$HOME/Applications/NYX Vox.app"
+```
+
+Для ручной установки скачайте DMG на [странице выбора версии](https://nyx-vox.avpdev.com/#download). Если после копирования в «Программы» macOS блокирует запуск, выполните:
+
+```bash
+xattr -dr com.apple.quarantine "/Applications/NYX Vox.app"
+open "/Applications/NYX Vox.app"
+```
