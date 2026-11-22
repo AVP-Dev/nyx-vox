@@ -178,9 +178,7 @@ On Apple Silicon, install with Homebrew or curl. The curl installer checks SHA-2
 **Homebrew** · [AVP-Dev/homebrew-apps](https://github.com/AVP-Dev/homebrew-apps)
 
 ```bash
-brew install --cask --appdir="$HOME/Applications" AVP-Dev/apps/nyx-vox
-xattr -dr com.apple.quarantine "$HOME/Applications/NYX Vox.app"
-open "$HOME/Applications/NYX Vox.app"
+brew install --cask AVP-Dev/apps/nyx-vox
 ```
 
 **curl** · [install.sh](https://nyx-vox.avpdev.com/install.sh)

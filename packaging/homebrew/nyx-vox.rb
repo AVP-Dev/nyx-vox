@@ -10,4 +10,13 @@ cask "nyx-vox" do
   depends_on arch: :arm64
 
   app "NYX Vox.app"
+
+  postflight do
+    bundle = appdir/"NYX Vox.app"
+    attributes = system_command "/usr/bin/xattr", args: [bundle]
+    if attributes.stdout.lines.map(&:strip).include?("com.apple.quarantine")
+      system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", bundle]
+    end
+    system_command "/usr/bin/open", args: ["-a", bundle]
+  end
 end
