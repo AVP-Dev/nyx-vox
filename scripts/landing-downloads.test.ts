@@ -67,8 +67,20 @@ test('shows the Homebrew command before the version picker and offers curl along
     const page = new DOMParser().parseFromString(html, 'text/html');
     const install = page.querySelector('#download .hero-install');
     const commands = install?.querySelectorAll('code');
-    expect(install?.nextElementSibling?.id).toBe('download-picker');
+    expect(install?.compareDocumentPosition(page.querySelector('#download-picker')!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(commands?.[0]?.textContent).toBe('brew install --cask AVP-Dev/apps/nyx-vox');
     expect(commands?.[1]?.textContent).toBe('curl -fsSL https://nyx-vox.avpdev.com/install.sh | /bin/bash');
     expect(install?.querySelectorAll('button[onclick="copyCommand(this)"]')).toHaveLength(2);
+});
+
+test('shows all nine speech engines and links to the installer picker from the hero', () => {
+    const page = new DOMParser().parseFromString(html, 'text/html');
+    const cards = Array.from(page.querySelectorAll('#engines .engine-name'), node => node.textContent);
+    expect(cards).toEqual([
+        'Whisper Local', 'Groq', 'Deepgram Nova', 'Google Gemini', 'Sber GigaChat',
+        'ElevenLabs Scribe', 'Speechmatics Melia', 'Azure Speech', 'NVIDIA Build',
+    ]);
+    expect(page.querySelector('#download a[href="#download-builds"]')).not.toBeNull();
+    expect(page.querySelector('#download-builds #download-build')).not.toBeNull();
+    expect(page.querySelector('#engines')?.textContent).toContain('The public Parakeet model supports English only.');
 });

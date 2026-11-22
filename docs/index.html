@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NYX Vox — Premium AI Voice Interface for macOS</title>
-    <meta name="description" content="Fast, private, and stunning AI voice transcription directly to your macOS desktop. Supporting Groq, Deepgram, Gemini, GigaChat, and offline Whisper.">
+    <title>NYX Vox — Voice Dictation for macOS &amp; Windows</title>
+    <meta name="description" content="Dictate into your active app on macOS and Windows. Choose local Whisper or a cloud speech engine, with optional AI formatting.">
     
     <!-- Open Graph -->
-    <meta property="og:title" content="NYX Vox — Premium AI Voice Interface for macOS">
-    <meta property="og:description" content="Zero latency, maximum elegance. Transcribe voice to text and auto-paste into any active app instantly.">
+    <meta property="og:title" content="NYX Vox — Voice Dictation for macOS &amp; Windows">
+    <meta property="og:description" content="Dictate on macOS and Windows. NYX Vox transcribes your speech and pastes text into the active app.">
     <link rel="canonical" href="https://nyx-vox.avpdev.com/">
     <meta property="og:url" content="https://nyx-vox.avpdev.com/">
     <meta property="og:image" content="https://nyx-vox.avpdev.com/hero-bg.png">
@@ -1022,15 +1022,15 @@
         <section class="hero" id="download">
             <div class="badge">
                 <span id="version-tag">NYX Vox</span> &bull;
-                <span data-en>Rust &bull; Tauri 2 &bull; macOS</span>
-                <span data-ru>Rust &bull; Tauri 2 &bull; macOS</span>
+                <span data-en>macOS &bull; Windows</span>
+                <span data-ru>macOS &bull; Windows</span>
             </div>
 
             <h1 data-en>Voice to Text.<br>At the Speed of Thought.</h1>
             <h1 data-ru>Голос в текст.<br>Быстрее, чем мысли.</h1>
 
-            <p class="lead" data-en>A premium, minimalist AI voice interface for macOS. Zero-latency streaming, 100% verbatim AI formatting, and direct auto-paste into any active app.</p>
-            <p class="lead" data-ru>Премиальный голосовой интерфейс для macOS. Стриминг с нулевой задержкой, 100% дословное AI-форматирование и прямая вставка текста в любое приложение.</p>
+            <p class="lead" data-en>Dictate on macOS and Windows. NYX Vox transcribes your speech and pastes the text into your active app.</p>
+            <p class="lead" data-ru>Диктуйте на macOS и Windows. NYX Vox распознаёт речь и вставляет текст в активное приложение.</p>
             
             <div class="hero-install">
                 <p data-en>Install on Apple Silicon with Homebrew</p>
@@ -1054,28 +1054,35 @@
                 </details>
             </div>
 
-            <div class="download-picker" id="download-picker" hidden>
-                <label>
-                    <span data-en>Version</span><span data-ru>Версия</span>
-                    <select id="download-version"></select>
-                </label>
-                <label>
-                    <span data-en>Platform and installer</span><span data-ru>Платформа и установщик</span>
-                    <select id="download-build"></select>
-                </label>
-            </div>
+            <p>
+                <a href="#download-builds" style="color: var(--text-dim);"><span data-en>Windows and other versions</span><span data-ru>Windows и другие версии</span></a>
+            </p>
 
-            <div class="cta-group">
-                <a id="download-button" href="https://github.com/AVP-Dev/nyx-vox/releases" class="btn-primary">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-                    <span data-en>View releases</span>
-                    <span data-ru>Список релизов</span>
-                </a>
-                <a href="https://github.com/AVP-Dev/nyx-vox" class="btn-secondary" target="_blank" rel="noopener noreferrer">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
-                    <span data-en>GitHub Repository</span>
-                    <span data-ru>Репозиторий GitHub</span>
-                </a>
+            <div id="download-builds" style="width: 100%; scroll-margin-top: 96px;">
+                <div class="download-picker" id="download-picker" hidden>
+                    <label>
+                        <span data-en>Version</span><span data-ru>Версия</span>
+                        <select id="download-version"></select>
+                    </label>
+                    <label>
+                        <span data-en>Platform and installer</span><span data-ru>Платформа и установщик</span>
+                        <select id="download-build"></select>
+                    </label>
+                </div>
+
+                <div class="cta-group">
+                    <a id="download-button" href="https://github.com/AVP-Dev/nyx-vox/releases" class="btn-primary">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                        <span data-en>View releases</span>
+                        <span data-ru>Список релизов</span>
+                    </a>
+                    <a href="https://github.com/AVP-Dev/nyx-vox" class="btn-secondary" target="_blank" rel="noopener noreferrer">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+                        <span data-en>GitHub Repository</span>
+                        <span data-ru>Репозиторий GitHub</span>
+                    </a>
+                </div>
+
             </div>
 
             <!-- Interactive Live Simulator -->
@@ -1149,9 +1156,9 @@
                 <div class="metric-lbl" data-ru>Задержка в облаке (Groq)</div>
             </div>
             <div class="metric-card">
-                <div class="metric-val">100%</div>
-                <div class="metric-lbl" data-en>Verbatim Formatting</div>
-                <div class="metric-lbl" data-ru>Дословная точность</div>
+                <div class="metric-val">9</div>
+                <div class="metric-lbl" data-en>Speech Recognition Engines</div>
+                <div class="metric-lbl" data-ru>Движков распознавания речи</div>
             </div>
             <div class="metric-card">
                 <div class="metric-val">AES-256</div>
@@ -1172,8 +1179,8 @@
                 <span class="section-tag" data-ru>Архитектура</span>
                 <h2 class="section-title" data-en>How NYX Vox Works</h2>
                 <h2 class="section-title" data-ru>Как это работает</h2>
-                <p class="section-sub" data-en>From your spoken voice to formatted text in your active window — engineered for raw speed and zero hallucinations.</p>
-                <p class="section-sub" data-ru>От произнесенной фразы до чистого текста в вашем окне — спроектировано для максимальной скорости и без искажения смысла.</p>
+                <p class="section-sub" data-en>From spoken words to text in your active window.</p>
+                <p class="section-sub" data-ru>От произнесённой фразы до текста в активном приложении.</p>
             </div>
 
             <div class="pipeline-grid">
@@ -1193,10 +1200,10 @@
                     <div class="step-icon">
                         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
                     </div>
-                    <h3 data-en>Lightning-Fast STT</h3>
-                    <h3 data-ru>Молниеносный STT</h3>
-                    <p data-en>Groq LPU runs Whisper Large-v3-Turbo in ~500ms. Or toggle Deepgram, Gemini, GigaChat, or 100% Offline Whisper accelerated by Metal &amp; Core ML.</p>
-                    <p data-ru>Groq LPU запускает Whisper Large-v3-Turbo за 500 мс. Также доступны Deepgram, Gemini, GigaChat и офлайн Whisper с Core ML ускорением.</p>
+                    <h3 data-en>Speech recognition</h3>
+                    <h3 data-ru>Распознавание речи</h3>
+                    <p data-en>Choose local Whisper or send audio to the cloud provider you select in Settings.</p>
+                    <p data-ru>Используйте локальный Whisper или отправляйте аудио облачному провайдеру, выбранному в настройках.</p>
                 </div>
 
                 <div class="pipeline-step">
@@ -1204,10 +1211,10 @@
                     <div class="step-icon">
                         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/></svg>
                     </div>
-                    <h3 data-en>100% Verbatim Refinement</h3>
-                    <h3 data-ru>100% Дословный ИИ</h3>
-                    <p data-en>Strict AI prompting ensures zero rewrites or synonym replacement. Adds proper punctuation, technical casing, and paragraph breaks without altering your words.</p>
-                    <p data-ru>Строгий системный промпт исключает пересказ и синонимы. Проставляет пунктуацию, регистр терминов и абзацы, сохраняя каждое ваше слово.</p>
+                    <h3 data-en>Optional AI formatting</h3>
+                    <h3 data-ru>ИИ-форматирование по желанию</h3>
+                    <p data-en>When enabled, the formatter sends the transcript to the selected AI provider to adjust punctuation, capitalization and paragraphs.</p>
+                    <p data-ru>Если включить форматтер, текст отправляется выбранному ИИ-провайдеру для расстановки знаков препинания, правки регистра и разбивки на абзацы.</p>
                 </div>
 
                 <div class="pipeline-step">
@@ -1230,96 +1237,99 @@
                 <span class="section-tag" data-ru>Гибкость</span>
                 <h2 class="section-title" data-en>Choose Your Engine</h2>
                 <h2 class="section-title" data-ru>Выберите свой движок</h2>
-                <p class="section-sub" data-en>Bring your own API keys or run completely offline. NYX Vox provides an engine-agnostic resilient architecture.</p>
-                <p class="section-sub" data-ru>Подключайте собственные API-ключи или работайте полностью офлайн. Движко-независимая архитектура гарантирует сохранность текста.</p>
+                <p class="section-sub" data-en>Local Whisper processes audio on your device. Cloud recognition sends audio to the provider you select and requires that provider’s API key.</p>
+                <p class="section-sub" data-ru>Локальный Whisper обрабатывает аудио на устройстве. Для облачного распознавания нужен API-ключ выбранного провайдера, которому отправляется аудио.</p>
             </div>
 
             <div class="engines-grid">
-                <!-- Groq -->
-                <div class="engine-card">
-                    <div class="engine-head">
-                        <span class="engine-name">Groq LPU™</span>
-                        <span class="engine-badge badge-orange" data-en>Recommended</span>
-                        <span class="engine-badge badge-orange" data-ru>Рекомендуется</span>
-                    </div>
-                    <p data-en>Whisper Large-v3-Turbo running on custom LPU silicon. Incredible speed with virtually instantaneous transcription.</p>
-                    <p data-ru>Whisper Large-v3-Turbo на специализированных процессорах LPU. Молниеносная скорость распознавания.</p>
-                    <div class="engine-specs">
-                        <div class="spec-item"><span class="spec-lbl" data-en>Speed</span><span class="spec-lbl" data-ru>Скорость</span><span class="spec-val">~500 ms</span></div>
-                        <div class="spec-item"><span class="spec-lbl" data-en>Type</span><span class="spec-lbl" data-ru>Тип</span><span class="spec-val"><span data-en>Cloud LPU</span><span data-ru>Облачный LPU</span></span></div>
-                        <div class="spec-item"><span class="spec-lbl" data-en>Cost</span><span class="spec-lbl" data-ru>Квоты</span><span class="spec-val"><span data-en>Generous Free Tier</span><span data-ru>Щедрый бесплатный тариф</span></span></div>
-                        <div class="spec-item"><span class="spec-lbl" data-en>Best For</span><span class="spec-lbl" data-ru>Для чего</span><span class="spec-val"><span data-en>Daily Driver</span><span data-ru>Основной выбор на каждый день</span></span></div>
-                    </div>
-                </div>
-
-                <!-- Whisper Local -->
                 <div class="engine-card">
                     <div class="engine-head">
                         <span class="engine-name">Whisper Local</span>
-                        <span class="engine-badge badge-green" data-en>100% Private</span>
-                        <span class="engine-badge badge-green" data-ru>Приватность</span>
+                        <span class="engine-badge badge-green" data-en>On-device</span>
+                        <span class="engine-badge badge-green" data-ru>Локально</span>
                     </div>
-                    <p data-en>Runs fully on-device via Metal &amp; Core ML acceleration. Zero bytes leave your Mac. Works perfectly without internet access.</p>
-                    <p data-ru>Работает локально на вашем Mac с ускорением Metal и Core ML. Ни одного байта в сеть. Работает без интернета.</p>
-                    <div class="engine-specs">
-                        <div class="spec-item"><span class="spec-lbl" data-en>Speed</span><span class="spec-lbl" data-ru>Скорость</span><span class="spec-val">~1.2 - 2.0 s</span></div>
-                        <div class="spec-item"><span class="spec-lbl" data-en>Type</span><span class="spec-lbl" data-ru>Тип</span><span class="spec-val"><span data-en>Local CoreML</span><span data-ru>Локально (Metal / Core ML)</span></span></div>
-                        <div class="spec-item"><span class="spec-lbl" data-en>Cost</span><span class="spec-lbl" data-ru>Квоты</span><span class="spec-val"><span data-en>100% Free Forever</span><span data-ru>Бесплатно навсегда</span></span></div>
-                        <div class="spec-item"><span class="spec-lbl" data-en>Best For</span><span class="spec-lbl" data-ru>Для чего</span><span class="spec-val"><span data-en>Confidential Data</span><span data-ru>Конфиденциальные данные</span></span></div>
-                    </div>
+                    <p data-en>Download a Whisper model to transcribe offline. Metal and Core ML acceleration is available on macOS.</p>
+                    <p data-ru>Скачайте модель Whisper для распознавания офлайн. На macOS доступно ускорение Metal и Core ML.</p>
                 </div>
 
-                <!-- GigaChat -->
                 <div class="engine-card">
                     <div class="engine-head">
-                        <span class="engine-name">Sber GigaChat</span>
-                        <span class="engine-badge badge-green" data-en>Russian AI</span>
-                        <span class="engine-badge badge-green" data-ru>Без VPN</span>
+                        <span class="engine-name">Groq</span>
+                        <span class="engine-badge badge-orange" data-en>Cloud</span>
+                        <span class="engine-badge badge-orange" data-ru>Облако</span>
                     </div>
-                    <p data-en>Native Russian AI integration with Russian Trusted CA support. Reliable and fast access from within Russia without VPN.</p>
-                    <p data-ru>Российская нейросеть с поддержкой сертификатов Минцифры. Доступна в РФ без VPN, идеальна для русской терминологии.</p>
-                    <div class="engine-specs">
-                        <div class="spec-item"><span class="spec-lbl" data-en>Speed</span><span class="spec-lbl" data-ru>Скорость</span><span class="spec-val">~700 ms</span></div>
-                        <div class="spec-item"><span class="spec-lbl" data-en>Type</span><span class="spec-lbl" data-ru>Тип</span><span class="spec-val"><span data-en>Cloud SberAI</span><span data-ru>Облако SberAI</span></span></div>
-                        <div class="spec-item"><span class="spec-lbl" data-en>Cost</span><span class="spec-lbl" data-ru>Квоты</span><span class="spec-val"><span data-en>Free Developer Tier</span><span data-ru>Бесплатный тариф разработчика</span></span></div>
-                        <div class="spec-item"><span class="spec-lbl" data-en>Best For</span><span class="spec-lbl" data-ru>Для чего</span><span class="spec-val"><span data-en>RU Dictation</span><span data-ru>Русская речь и термины</span></span></div>
-                    </div>
+                    <p data-en>Cloud recognition with Whisper Large v3 Turbo.</p>
+                    <p data-ru>Облачное распознавание на Whisper Large v3 Turbo.</p>
                 </div>
 
-                <!-- Gemini -->
-                <div class="engine-card">
-                    <div class="engine-head">
-                        <span class="engine-name">Google Gemini</span>
-                        <span class="engine-badge badge-blue" data-en>SOTA AI</span>
-                        <span class="engine-badge badge-blue" data-ru>Google AI</span>
-                    </div>
-                    <p data-en>Multimodal intelligence delivering premium accuracy across English, Russian, and technical coding terminology.</p>
-                    <p data-ru>Мультимодальная модель Google. Превосходная точность для сложного кода, пунктуации и смешанных языков.</p>
-                    <div class="engine-specs">
-                        <div class="spec-item"><span class="spec-lbl" data-en>Speed</span><span class="spec-lbl" data-ru>Скорость</span><span class="spec-val">~800 ms</span></div>
-                        <div class="spec-item"><span class="spec-lbl" data-en>Type</span><span class="spec-lbl" data-ru>Тип</span><span class="spec-val"><span data-en>Cloud Multimodal</span><span data-ru>Мультимодальное облако</span></span></div>
-                        <div class="spec-item"><span class="spec-lbl" data-en>Cost</span><span class="spec-lbl" data-ru>Квоты</span><span class="spec-val">Google AI Studio</span></div>
-                        <div class="spec-item"><span class="spec-lbl" data-en>Best For</span><span class="spec-lbl" data-ru>Для чего</span><span class="spec-val"><span data-en>Complex Syntax</span><span data-ru>Сложный синтаксис и код</span></span></div>
-                    </div>
-                </div>
-
-                <!-- Deepgram -->
                 <div class="engine-card">
                     <div class="engine-head">
                         <span class="engine-name">Deepgram Nova</span>
-                        <span class="engine-badge badge-purple" data-en>Commercial</span>
-                        <span class="engine-badge badge-purple" data-ru>Профи</span>
+                        <span class="engine-badge badge-purple" data-en>Cloud</span>
+                        <span class="engine-badge badge-purple" data-ru>Облако</span>
                     </div>
-                    <p data-en>Enterprise speech model built for noisy environments. High reliability and instant streaming transcription.</p>
-                    <p data-ru>Коммерческая модель корпоративного уровня. Устойчива к постороннему шуму и эху, высокая четкость.</p>
-                    <div class="engine-specs">
-                        <div class="spec-item"><span class="spec-lbl" data-en>Speed</span><span class="spec-lbl" data-ru>Скорость</span><span class="spec-val">~600 ms</span></div>
-                        <div class="spec-item"><span class="spec-lbl" data-en>Type</span><span class="spec-lbl" data-ru>Тип</span><span class="spec-val"><span data-en>Cloud Streaming</span><span data-ru>Потоковое облако</span></span></div>
-                        <div class="spec-item"><span class="spec-lbl" data-en>Cost</span><span class="spec-lbl" data-ru>Квоты</span><span class="spec-val"><span data-en>$200 Free Credits</span><span data-ru>$200 стартовый баланс</span></span></div>
-                        <div class="spec-item"><span class="spec-lbl" data-en>Best For</span><span class="spec-lbl" data-ru>Для чего</span><span class="spec-val"><span data-en>Noisy Rooms</span><span data-ru>Шумные помещения и фон</span></span></div>
+                    <p data-en>Nova speech recognition with live transcription.</p>
+                    <p data-ru>Потоковое распознавание речи на моделях Nova.</p>
+                </div>
+
+                <div class="engine-card">
+                    <div class="engine-head">
+                        <span class="engine-name">Google Gemini</span>
+                        <span class="engine-badge badge-blue" data-en>Cloud</span>
+                        <span class="engine-badge badge-blue" data-ru>Облако</span>
                     </div>
+                    <p data-en>Multimodal Gemini models transcribe recorded audio.</p>
+                    <p data-ru>Мультимодальные модели Gemini распознают записанное аудио.</p>
+                </div>
+
+                <div class="engine-card">
+                    <div class="engine-head">
+                        <span class="engine-name">Sber GigaChat</span>
+                        <span class="engine-badge badge-green" data-en>Cloud</span>
+                        <span class="engine-badge badge-green" data-ru>Облако</span>
+                    </div>
+                    <p data-en>Cloud recognition with support for Russian Trusted CA certificates.</p>
+                    <p data-ru>Облачное распознавание с поддержкой сертификатов Минцифры.</p>
+                </div>
+
+                <div class="engine-card">
+                    <div class="engine-head">
+                        <span class="engine-name">ElevenLabs Scribe</span>
+                        <span class="engine-badge badge-purple">1.6.0</span>
+                    </div>
+                    <p data-en>Multilingual recognition in real time, with batch fallback.</p>
+                    <p data-ru>Потоковое распознавание на нескольких языках с резервным пакетным режимом.</p>
+                </div>
+
+                <div class="engine-card">
+                    <div class="engine-head">
+                        <span class="engine-name">Speechmatics Melia</span>
+                        <span class="engine-badge badge-blue">1.6.0</span>
+                    </div>
+                    <p data-en>Melia 1 realtime recognition with Russian and English language hints.</p>
+                    <p data-ru>Потоковое распознавание Melia 1 с подсказками для русского и английского языков.</p>
+                </div>
+
+                <div class="engine-card">
+                    <div class="engine-head">
+                        <span class="engine-name">Azure Speech</span>
+                        <span class="engine-badge badge-blue">1.6.0</span>
+                    </div>
+                    <p data-en>Realtime MAI Transcribe through a configured Microsoft Foundry endpoint and deployment.</p>
+                    <p data-ru>Потоковое MAI Transcribe через настроенный endpoint и deployment в Microsoft Foundry.</p>
+                </div>
+
+                <div class="engine-card">
+                    <div class="engine-head">
+                        <span class="engine-name">NVIDIA Build</span>
+                        <span class="engine-badge badge-green">1.6.0</span>
+                    </div>
+                    <p data-en>Batch recognition using an NVCF function UUID. The public Parakeet model supports English only.</p>
+                    <p data-ru>Пакетное распознавание по UUID функции NVCF. Публичная модель Parakeet поддерживает только английский.</p>
                 </div>
             </div>
+            <p class="section-sub" style="margin-top: 20px;" data-en>AI formatting is optional and configured separately. Providers include DeepSeek, Qwen, Gemini, Groq and GigaChat.</p>
+            <p class="section-sub" style="margin-top: 20px;" data-ru>ИИ-форматтер подключается отдельно. Доступны DeepSeek, Qwen, Gemini, Groq и GigaChat.</p>
         </section>
 
         <!-- Interface Showcase Section -->
@@ -1386,8 +1396,8 @@
                                     <span data-en>RESULT FORMATTED</span><span data-ru>РЕЗУЛЬТАТ ОБРАБОТКИ</span>
                                 </span>
                             </div>
-                            <span style="font-size: 0.75rem; color: #10b981; font-weight: 700;" data-en>&check; 100% Verbatim</span>
-                            <span style="font-size: 0.75rem; color: #10b981; font-weight: 700;" data-ru>&check; 100% Дословно</span>
+                            <span style="font-size: 0.75rem; color: #10b981; font-weight: 700;" data-en>&check; Formatted</span>
+                            <span style="font-size: 0.75rem; color: #10b981; font-weight: 700;" data-ru>&check; Отформатировано</span>
                         </div>
                         <div style="background: rgba(0,0,0,0.3); border-radius: 10px; padding: 14px; font-size: 0.95rem; line-height: 1.6; margin-bottom: 14px;">
                             <span data-en>Create an async function <code>fetchUserData</code> with try-catch error handling and add strict TypeScript typing for the <code>UserResponse</code> interface.</span>
@@ -1410,8 +1420,8 @@
                                 <span data-en>Speech-to-Text (STT) Engines</span>
                                 <span data-ru>Движки распознавания речи (STT)</span>
                             </div>
-                            <span style="font-size: 0.7rem; color: #ff8533; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;" data-en>9 Engines Available</span>
-                            <span style="font-size: 0.7rem; color: #ff8533; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;" data-ru>9 движков доступно</span>
+                            <span style="font-size: 0.7rem; color: #ff8533; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;" data-en>9 Engines in 1.6.0</span>
+                            <span style="font-size: 0.7rem; color: #ff8533; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;" data-ru>9 движков в 1.6.0</span>
                         </div>
 
                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; margin-bottom: 20px;">
@@ -1463,16 +1473,40 @@
                                 <div style="font-size: 0.74rem; color: rgba(255,255,255,0.75);" data-en>Nova-2 Speech Model &bull; Ultra Noise Guard</div>
                                 <div style="font-size: 0.74rem; color: rgba(255,255,255,0.75);" data-ru>Модель Nova-2 &bull; Шумоустойчивость</div>
                             </div>
+                            <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); padding: 12px 14px; border-radius: 12px;">
+                                <div style="font-weight: 800; font-size: 0.88rem; margin-bottom: 4px;">ElevenLabs Scribe</div>
+                                <div style="font-size: 0.74rem; color: var(--text-dim);" data-en>Realtime and batch</div>
+                                <div style="font-size: 0.74rem; color: var(--text-dim);" data-ru>Потоковый и пакетный режимы</div>
+                            </div>
+
+                            <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); padding: 12px 14px; border-radius: 12px;">
+                                <div style="font-weight: 800; font-size: 0.88rem; margin-bottom: 4px;">Speechmatics Melia</div>
+                                <div style="font-size: 0.74rem; color: var(--text-dim);" data-en>Melia 1 · Russian and English hints</div>
+                                <div style="font-size: 0.74rem; color: var(--text-dim);" data-ru>Melia 1 · Подсказки для русского и английского</div>
+                            </div>
+
+                            <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); padding: 12px 14px; border-radius: 12px;">
+                                <div style="font-weight: 800; font-size: 0.88rem; margin-bottom: 4px;">Azure Speech</div>
+                                <div style="font-size: 0.74rem; color: var(--text-dim);" data-en>Microsoft Foundry · MAI Transcribe</div>
+                                <div style="font-size: 0.74rem; color: var(--text-dim);" data-ru>Microsoft Foundry · MAI Transcribe</div>
+                            </div>
+
+                            <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); padding: 12px 14px; border-radius: 12px;">
+                                <div style="font-weight: 800; font-size: 0.88rem; margin-bottom: 4px;">NVIDIA Build</div>
+                                <div style="font-size: 0.74rem; color: var(--text-dim);" data-en>Batch · Public Parakeet model is English-only</div>
+                                <div style="font-size: 0.74rem; color: var(--text-dim);" data-ru>Пакетный режим · Публичная модель Parakeet только для английского</div>
+                            </div>
+
                         </div>
 
                         <!-- Section 2: AI Formatting LLMs -->
                         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.08);">
                             <div style="font-weight: 800; font-size: 0.88rem; letter-spacing: -0.01em;">
-                                <span data-en>100% Verbatim AI Refinement &amp; Formatting</span>
-                                <span data-ru>100% Дословное AI-Форматирование</span>
+                                <span data-en>Optional AI formatting</span>
+                                <span data-ru>Дополнительное ИИ-форматирование</span>
                             </div>
-                            <span style="font-size: 0.7rem; color: #22d3ee; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;" data-en>Zero Hallucinations</span>
-                            <span style="font-size: 0.7rem; color: #22d3ee; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;" data-ru>Без синонимов</span>
+                            <span style="font-size: 0.7rem; color: #22d3ee; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;" data-en>Optional</span>
+                            <span style="font-size: 0.7rem; color: #22d3ee; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;" data-ru>По желанию</span>
                         </div>
 
                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px;">
@@ -1583,6 +1617,9 @@
                     <span data-ru>Скопировать</span>
                 </button>
             </div>
+
+            <p data-en>To start dictating, open NYX Vox, grant microphone access and enable Accessibility on macOS for auto-paste. Focus an input field and press <kbd>Option + Space</kbd> on macOS or <kbd>Ctrl + Space</kbd> on Windows.</p>
+            <p data-ru>Чтобы начать диктовку, откройте NYX Vox, разрешите доступ к микрофону и включите «Универсальный доступ» на macOS для автовставки. Поставьте курсор в поле ввода и нажмите <kbd>Option + Space</kbd> на macOS или <kbd>Ctrl + Space</kbd> на Windows.</p>
 
             <p data-en>If macOS blocks an app installed manually from the DMG</p>
             <p data-ru>Если macOS блокирует приложение после ручной установки из DMG</p>
