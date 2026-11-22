@@ -28,7 +28,7 @@ This version expands the available cloud speech recognition engines and connects
 
 ### 📦 Install on macOS
 
-For Apple Silicon, use Homebrew or curl from the [installation page](https://avp-dev.github.io/nyx-vox/#troubleshooting) once the release assets and updated tap are published. The curl installer verifies the release's SHA-256, removes quarantine from the installed NYX Vox bundle, and opens the app. The DMG and Windows installer are available in [GitHub Releases](https://github.com/AVP-Dev/nyx-vox/releases/latest).
+For Apple Silicon, use Homebrew or curl from the [installation instructions](https://github.com/AVP-Dev/nyx-vox/blob/main/README.md#install) once the release assets and updated tap are published. The curl installer verifies the release's SHA-256, removes quarantine from the installed NYX Vox bundle, and opens the app. The DMG and Windows installer are available in [GitHub Releases](https://github.com/AVP-Dev/nyx-vox/releases/latest).
 
 ---
 
@@ -62,4 +62,4 @@ For Apple Silicon, use Homebrew or curl from the [installation page](https://avp
 
 ### 📦 Установка на macOS
 
-После публикации файлов релиза и обновления tap владельцы Mac с Apple Silicon смогут установить приложение через Homebrew или curl со [страницы установки](https://avp-dev.github.io/nyx-vox/#troubleshooting). Установщик curl проверяет SHA-256, снимает карантин с установленного пакета NYX Vox и открывает приложение. DMG и установщик Windows доступны в [GitHub Releases](https://github.com/AVP-Dev/nyx-vox/releases/latest).
+После публикации файлов релиза и обновления tap владельцы Mac с Apple Silicon смогут установить приложение через Homebrew или curl по [инструкции по установке](https://github.com/AVP-Dev/nyx-vox/blob/main/README.ru.md#install). Установщик curl проверяет SHA-256, снимает карантин с установленного пакета NYX Vox и открывает приложение. DMG и установщик Windows доступны в [GitHub Releases](https://github.com/AVP-Dev/nyx-vox/releases/latest).

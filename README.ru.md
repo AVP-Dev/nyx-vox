@@ -10,7 +10,7 @@
   </p>
 
   <p>
-    <a href="https://avp-dev.github.io/nyx-vox/#troubleshooting" target="_blank" rel="noopener noreferrer">🌐 Интерактивный Лендинг</a> &nbsp;&bull;&nbsp;
+    <a href="#install" target="_blank" rel="noopener noreferrer">🌐 Команды установки</a> &nbsp;&bull;&nbsp;
     <a href="./README.md">🇬🇧 Read in English</a> &nbsp;&bull;&nbsp;
     <a href="./docs/TECHNICAL.ru.md" target="_blank" rel="noopener noreferrer">⚙️ Технические детали</a> &nbsp;&bull;&nbsp;
     <a href="./docs/CHANGELOG.ru.md" target="_blank" rel="noopener noreferrer">📝 История изменений</a>
@@ -169,6 +169,8 @@ NYX Vox форматирует сырой текст с полным сохра�
 
 ---
 
+<a id="install"></a>
+
 ## 📦 Установка и запуск
 
 На Mac с Apple Silicon доступны Homebrew и curl. Установщик curl проверяет SHA-256 перед копированием, снимает карантин только с NYX Vox и запускает приложение.
@@ -181,10 +183,10 @@ xattr -dr com.apple.quarantine "$HOME/Applications/NYX Vox.app"
 open "$HOME/Applications/NYX Vox.app"
 ```
 
-**curl** · [install.sh](https://avp-dev.github.io/nyx-vox/install.sh)
+**curl** · [install.sh](https://raw.githubusercontent.com/AVP-Dev/nyx-vox/main/docs/install.sh)
 
 ```bash
-curl -fsSL https://avp-dev.github.io/nyx-vox/install.sh | /bin/bash
+curl -fsSL https://raw.githubusercontent.com/AVP-Dev/nyx-vox/main/docs/install.sh | /bin/bash
 ```
 
 ### Ручная установка через DMG
