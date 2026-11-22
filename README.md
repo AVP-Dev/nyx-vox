@@ -10,7 +10,7 @@
   </p>
 
   <p>
-    <a href="https://avp-dev.github.io/nyx-vox/" target="_blank" rel="noopener noreferrer">🌐 Interactive Landing Page</a> &nbsp;&bull;&nbsp;
+    <a href="https://avp-dev.github.io/nyx-vox/#troubleshooting" target="_blank" rel="noopener noreferrer">🌐 Interactive Landing Page</a> &nbsp;&bull;&nbsp;
     <a href="./README.ru.md">🇷🇺 Читать на русском</a> &nbsp;&bull;&nbsp;
     <a href="./docs/TECHNICAL.md" target="_blank" rel="noopener noreferrer">⚙️ Technical Specs</a> &nbsp;&bull;&nbsp;
     <a href="./docs/CHANGELOG.md" target="_blank" rel="noopener noreferrer">📝 Changelog</a>
@@ -171,6 +171,24 @@ NYX Vox formats raw transcriptions with zero rewriting, preserving your exact wo
 
 ## 📦 Installation & Setup
 
+On Apple Silicon, install with Homebrew or curl. The curl installer checks SHA-256, clears quarantine on the NYX Vox bundle, and opens the app.
+
+**Homebrew**
+
+```bash
+brew install --cask --appdir="$HOME/Applications" AVP-Dev/apps/nyx-vox
+xattr -dr com.apple.quarantine "$HOME/Applications/NYX Vox.app"
+open "$HOME/Applications/NYX Vox.app"
+```
+
+**curl**
+
+```bash
+curl -fsSL https://avp-dev.github.io/nyx-vox/install.sh | /bin/bash
+```
+
+### Manual DMG installation
+
 1. **Download**: Grab the latest `.dmg` from the [Releases](https://github.com/AVP-Dev/nyx-vox/releases/latest) page.
 2. **Install**: Open the `.dmg` file and drag **NYX Vox** into your `Applications` folder.
 3. **Launch**: Start NYX Vox from Applications.
@@ -179,7 +197,7 @@ NYX Vox formats raw transcriptions with zero rewriting, preserving your exact wo
 Because NYX Vox is an open-source tool without a paid Apple Developer subscription, macOS Gatekeeper may flag it on first run. Open **Terminal** and run:
 
 ```bash
-xattr -cr /Applications/NYX\ Vox.app
+xattr -dr com.apple.quarantine "/Applications/NYX Vox.app"
 ```
 
 Then launch the app again.

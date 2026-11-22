@@ -962,7 +962,7 @@
         <!-- Hero Section -->
         <section class="hero">
             <div class="badge">
-                <span id="version-tag">v1.4.0</span> &bull; 
+                <span id="version-tag">NYX Vox</span> &bull;
                 <span data-en>Rust &bull; Tauri 2 &bull; macOS</span>
                 <span data-ru>Rust &bull; Tauri 2 &bull; macOS</span>
             </div>
@@ -1318,8 +1318,8 @@
                                 <span data-en>Speech-to-Text (STT) Engines</span>
                                 <span data-ru>Движки распознавания речи (STT)</span>
                             </div>
-                            <span style="font-size: 0.7rem; color: #ff8533; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;" data-en>5 Engines Available</span>
-                            <span style="font-size: 0.7rem; color: #ff8533; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;" data-ru>5 движков доступно</span>
+                            <span style="font-size: 0.7rem; color: #ff8533; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;" data-en>9 Engines Available</span>
+                            <span style="font-size: 0.7rem; color: #ff8533; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;" data-ru>9 движков доступно</span>
                         </div>
 
                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; margin-bottom: 20px;">
@@ -1468,15 +1468,34 @@
         <section class="troubleshooting" id="troubleshooting">
             <div class="troubleshooting-header">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                <h3 data-en>macOS Gatekeeper: "App is Damaged" Fix</h3>
-                <h3 data-ru>macOS Gatekeeper: Ошибка "Приложение повреждено"</h3>
+                <h3 data-en>Install on macOS</h3>
+                <h3 data-ru>Установка на macOS</h3>
             </div>
             
-            <p data-en>Because NYX Vox is an open-source tool distributed without a paid Apple Developer certificate, macOS quarantine may block first launch. Run this one-line command in Terminal:</p>
-            <p data-ru>Поскольку NYX Vox распространяется бесплатно с открытым исходным кодом без платного сертификата Apple, система безопасности macOS может заблокировать запуск. Выполните команду в Терминале:</p>
-
+            <p data-en>Apple Silicon · Homebrew</p>
+            <p data-ru>Apple Silicon · Homebrew</p>
             <div class="code-box">
-                <div class="code-content" id="magic-command">xattr -cr /Applications/NYX\ Vox.app</div>
+                <div class="code-content">brew install --cask --appdir=&quot;$HOME/Applications&quot; AVP-Dev/apps/nyx-vox<br>xattr -dr com.apple.quarantine &quot;$HOME/Applications/NYX Vox.app&quot;<br>open &quot;$HOME/Applications/NYX Vox.app&quot;</div>
+                <button class="copy-btn" onclick="copyCommand(this)">
+                    <span data-en>Copy Command</span>
+                    <span data-ru>Скопировать</span>
+                </button>
+            </div>
+
+            <p data-en>Apple Silicon · curl</p>
+            <p data-ru>Apple Silicon · curl</p>
+            <div class="code-box">
+                <div class="code-content">curl -fsSL https://avp-dev.github.io/nyx-vox/install.sh | /bin/bash</div>
+                <button class="copy-btn" onclick="copyCommand(this)">
+                    <span data-en>Copy Command</span>
+                    <span data-ru>Скопировать</span>
+                </button>
+            </div>
+
+            <p data-en>If macOS blocks an app installed manually from the DMG</p>
+            <p data-ru>Если macOS блокирует приложение после ручной установки из DMG</p>
+            <div class="code-box">
+                <div class="code-content">xattr -dr com.apple.quarantine &quot;/Applications/NYX Vox.app&quot;</div>
                 <button class="copy-btn" onclick="copyCommand(this)">
                     <span data-en>Copy Command</span>
                     <span data-ru>Скопировать</span>
@@ -1512,12 +1531,13 @@
         async function fetchVersion() {
             try {
                 const res = await fetch('https://api.github.com/repos/AVP-Dev/nyx-vox/releases/latest');
+                if (!res.ok) throw new Error(`GitHub Releases returned ${res.status}`);
                 const data = await res.json();
                 if (data.tag_name) {
                     document.getElementById('version-tag').innerText = data.tag_name;
                 }
             } catch (e) {
-                document.getElementById('version-tag').innerText = 'v1.4.0';
+                console.warn('Could not fetch the latest NYX Vox release', e);
             }
         }
 
@@ -1545,7 +1565,7 @@
         }
 
         function copyCommand(btn) {
-            const cmd = document.getElementById('magic-command').innerText;
+            const cmd = btn.previousElementSibling.innerText;
             navigator.clipboard.writeText(cmd).then(() => {
                 const oldTextEn = btn.querySelector('[data-en]') ? btn.querySelector('[data-en]').innerText : 'Copy';
                 const oldTextRu = btn.querySelector('[data-ru]') ? btn.querySelector('[data-ru]').innerText : 'Копировать';
