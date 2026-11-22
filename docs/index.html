@@ -983,10 +983,16 @@
         /* --- Updates Grid --- */
         .updates-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            grid-template-columns: repeat(2, 1fr);
             gap: 20px;
-            max-width: 1100px;
+            max-width: 1040px;
             margin: 0 auto;
+        }
+
+        @media (max-width: 820px) {
+            .updates-grid {
+                grid-template-columns: 1fr;
+            }
         }
 
         .update-card {
@@ -997,7 +1003,7 @@
             transition: all 0.3s;
             display: flex;
             flex-direction: column;
-            gap: 12px;
+            gap: 14px;
         }
 
         .update-card:hover {
@@ -1009,12 +1015,26 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            min-height: 28px;
         }
 
         .update-method {
             font-weight: 800;
             font-size: 1.05rem;
             color: white;
+        }
+
+        .update-card .code-box {
+            margin: 0;
+            min-height: 52px;
+            box-sizing: border-box;
+        }
+
+        .update-card p {
+            font-size: 0.88rem;
+            color: var(--text-dim);
+            line-height: 1.5;
+            margin: 0;
         }
 
         /* --- Footer --- */
@@ -1690,8 +1710,6 @@
                         <span class="update-method">Homebrew</span>
                         <span class="engine-badge badge-orange">macOS · Recommended</span>
                     </div>
-                    <p data-en>If installed via Homebrew, update to the latest release with a single terminal command:</p>
-                    <p data-ru>Если вы устанавливали через Homebrew, обновитесь до актуального релиза одной командой:</p>
                     <div class="code-box">
                         <div class="code-content">brew update &amp;&amp; brew upgrade --cask AVP-Dev/apps/nyx-vox</div>
                         <button class="copy-btn" onclick="copyCommand(this)">
@@ -1699,6 +1717,8 @@
                             <span data-ru>Копировать</span>
                         </button>
                     </div>
+                    <p data-en>If installed via Homebrew, upgrade to the latest release with a single terminal command. Preserves your settings and speech models.</p>
+                    <p data-ru>Если вы устанавливали через Homebrew, обновитесь до актуального релиза одной командой. Настройки и модели сохраняются.</p>
                 </div>
 
                 <div class="update-card">
@@ -1706,8 +1726,6 @@
                         <span class="update-method">curl script</span>
                         <span class="engine-badge badge-green">macOS</span>
                     </div>
-                    <p data-en>Re-run the automated installer. It verifies the latest SHA-256 DMG, replaces the app in Applications, and preserves settings:</p>
-                    <p data-ru>Повторный запуск скрипта проверяет контрольную сумму нового DMG, заменяет приложение и сохраняет ваши настройки:</p>
                     <div class="code-box">
                         <div class="code-content">curl -fsSL https://nyx-vox.avpdev.com/install.sh | /bin/bash</div>
                         <button class="copy-btn" onclick="copyCommand(this)">
@@ -1715,6 +1733,8 @@
                             <span data-ru>Копировать</span>
                         </button>
                     </div>
+                    <p data-en>Re-run the automated installer. It verifies the latest SHA-256 DMG, replaces the app in Applications, and preserves settings.</p>
+                    <p data-ru>Повторный запуск скрипта проверяет контрольную сумму нового DMG, заменяет приложение и сохраняет ваши настройки.</p>
                 </div>
 
                 <div class="update-card">
@@ -1722,8 +1742,6 @@
                         <span class="update-method">Manual DMG</span>
                         <span class="engine-badge badge-blue">macOS · Manual</span>
                     </div>
-                    <p data-en>Download the newest DMG from the version picker or GitHub Releases. Drag into <code>/Applications</code> with replacement. If macOS blocks startup, run:</p>
-                    <p data-ru>Скачайте свежий DMG в селекторе версий или на GitHub Releases. Перетащите в «Программы» с заменой. Если macOS блокирует запуск:</p>
                     <div class="code-box">
                         <div class="code-content">xattr -dr com.apple.quarantine &quot;/Applications/NYX Vox.app&quot;</div>
                         <button class="copy-btn" onclick="copyCommand(this)">
@@ -1731,8 +1749,10 @@
                             <span data-ru>Копировать</span>
                         </button>
                     </div>
-                    <p style="font-size: 0.78rem; color: var(--text-dim); margin-top: 6px;" data-en>Tip: If auto-paste stops after a manual binary replacement, toggle NYX Vox off and on in macOS System Settings &rarr; Privacy &amp; Security &rarr; Accessibility.</p>
-                    <p style="font-size: 0.78rem; color: var(--text-dim); margin-top: 6px;" data-ru>Совет: Если автовставка перестала срабатывать после ручной замены, перевключите галочку NYX Vox в Системных настройках macOS &rarr; Конфиденциальность и безопасность &rarr; Универсальный доступ.</p>
+                    <p data-en>Download the newest DMG and replace in <code>/Applications</code>. Run the command above if macOS gatekeeper blocks launch.</p>
+                    <p data-ru>Скачайте свежий DMG и замените в «Программах». Выполните команду выше, если macOS блокирует запуск приложения.</p>
+                    <p style="font-size: 0.78rem; color: var(--text-dim); margin-top: auto;" data-en>Tip: Toggle accessibility permission if auto-paste stops after replacement.</p>
+                    <p style="font-size: 0.78rem; color: var(--text-dim); margin-top: auto;" data-ru>Совет: Перевключите Универсальный доступ, если автовставка не сработала после замены.</p>
                 </div>
 
                 <div class="update-card">
@@ -1740,14 +1760,15 @@
                         <span class="update-method">Windows (x64)</span>
                         <span class="engine-badge badge-purple">Windows 10 / 11</span>
                     </div>
-                    <p data-en>Download the latest <code>.exe</code> or <code>.msi</code> installer and run it over your existing install. All encrypted keys and settings in <code>%APPDATA%</code> remain preserved.</p>
-                    <p data-ru>Скачайте актуальный установщик <code>.exe</code> или <code>.msi</code> и запустите поверх. Все зашифрованные ключи и настройки в <code>%APPDATA%</code> сохраняются.</p>
-                    <div style="margin-top: 12px;">
-                        <a href="#download-builds" class="btn-secondary" style="display: inline-flex; padding: 10px 18px; font-size: 0.85rem; text-decoration: none;">
-                            <span data-en>Windows Download Picker &darr;</span>
-                            <span data-ru>Выбрать установщик Windows &darr;</span>
+                    <div class="code-box">
+                        <div class="code-content" style="color: var(--text-main); font-weight: 600;">NYX.Vox_1.6.0_x64-setup.exe / .msi</div>
+                        <a href="#download-builds" class="copy-btn" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center;">
+                            <span data-en>Download &darr;</span>
+                            <span data-ru>Скачать &darr;</span>
                         </a>
                     </div>
+                    <p data-en>Download the latest <code>.exe</code> or <code>.msi</code> installer and run it over your existing install. All encrypted keys and settings in <code>%APPDATA%</code> remain preserved.</p>
+                    <p data-ru>Скачайте актуальный установщик <code>.exe</code> или <code>.msi</code> и запустите поверх. Все зашифрованные ключи и настройки в <code>%APPDATA%</code> сохраняются.</p>
                 </div>
             </div>
         </section>
