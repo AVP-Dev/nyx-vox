@@ -173,7 +173,7 @@ NYX Vox форматирует сырой текст с полным сохра�
 
 На Mac с Apple Silicon доступны Homebrew и curl. Установщик curl проверяет SHA-256 перед копированием, снимает карантин только с NYX Vox и запускает приложение.
 
-**Homebrew**
+**Homebrew** · [AVP-Dev/homebrew-apps](https://github.com/AVP-Dev/homebrew-apps)
 
 ```bash
 brew install --cask --appdir="$HOME/Applications" AVP-Dev/apps/nyx-vox
@@ -181,7 +181,7 @@ xattr -dr com.apple.quarantine "$HOME/Applications/NYX Vox.app"
 open "$HOME/Applications/NYX Vox.app"
 ```
 
-**curl**
+**curl** · [install.sh](https://avp-dev.github.io/nyx-vox/install.sh)
 
 ```bash
 curl -fsSL https://avp-dev.github.io/nyx-vox/install.sh | /bin/bash

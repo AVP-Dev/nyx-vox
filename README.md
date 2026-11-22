@@ -173,7 +173,7 @@ NYX Vox formats raw transcriptions with zero rewriting, preserving your exact wo
 
 On Apple Silicon, install with Homebrew or curl. The curl installer checks SHA-256, clears quarantine on the NYX Vox bundle, and opens the app.
 
-**Homebrew**
+**Homebrew** · [AVP-Dev/homebrew-apps](https://github.com/AVP-Dev/homebrew-apps)
 
 ```bash
 brew install --cask --appdir="$HOME/Applications" AVP-Dev/apps/nyx-vox
@@ -181,7 +181,7 @@ xattr -dr com.apple.quarantine "$HOME/Applications/NYX Vox.app"
 open "$HOME/Applications/NYX Vox.app"
 ```
 
-**curl**
+**curl** · [install.sh](https://avp-dev.github.io/nyx-vox/install.sh)
 
 ```bash
 curl -fsSL https://avp-dev.github.io/nyx-vox/install.sh | /bin/bash
