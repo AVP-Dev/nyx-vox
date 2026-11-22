@@ -10,7 +10,7 @@
   </p>
 
   <p>
-    <a href="#install" target="_blank" rel="noopener noreferrer">🌐 Installation Commands</a> &nbsp;&bull;&nbsp;
+    <a href="https://nyx-vox.avpdev.com/" target="_blank" rel="noopener noreferrer">🌐 Interactive Landing Page</a> &nbsp;&bull;&nbsp;
     <a href="./README.ru.md">🇷🇺 Читать на русском</a> &nbsp;&bull;&nbsp;
     <a href="./docs/TECHNICAL.md" target="_blank" rel="noopener noreferrer">⚙️ Technical Specs</a> &nbsp;&bull;&nbsp;
     <a href="./docs/CHANGELOG.md" target="_blank" rel="noopener noreferrer">📝 Changelog</a>
@@ -183,10 +183,10 @@ xattr -dr com.apple.quarantine "$HOME/Applications/NYX Vox.app"
 open "$HOME/Applications/NYX Vox.app"
 ```
 
-**curl** · [install.sh](https://raw.githubusercontent.com/AVP-Dev/nyx-vox/main/docs/install.sh)
+**curl** · [install.sh](https://nyx-vox.avpdev.com/install.sh)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/AVP-Dev/nyx-vox/main/docs/install.sh | /bin/bash
+curl -fsSL https://nyx-vox.avpdev.com/install.sh | /bin/bash
 ```
 
 ### Manual DMG installation

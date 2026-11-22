@@ -10,7 +10,7 @@
   </p>
 
   <p>
-    <a href="#install" target="_blank" rel="noopener noreferrer">🌐 Команды установки</a> &nbsp;&bull;&nbsp;
+    <a href="https://nyx-vox.avpdev.com/" target="_blank" rel="noopener noreferrer">🌐 Интерактивный лендинг</a> &nbsp;&bull;&nbsp;
     <a href="./README.md">🇬🇧 Read in English</a> &nbsp;&bull;&nbsp;
     <a href="./docs/TECHNICAL.ru.md" target="_blank" rel="noopener noreferrer">⚙️ Технические детали</a> &nbsp;&bull;&nbsp;
     <a href="./docs/CHANGELOG.ru.md" target="_blank" rel="noopener noreferrer">📝 История изменений</a>
@@ -183,10 +183,10 @@ xattr -dr com.apple.quarantine "$HOME/Applications/NYX Vox.app"
 open "$HOME/Applications/NYX Vox.app"
 ```
 
-**curl** · [install.sh](https://raw.githubusercontent.com/AVP-Dev/nyx-vox/main/docs/install.sh)
+**curl** · [install.sh](https://nyx-vox.avpdev.com/install.sh)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/AVP-Dev/nyx-vox/main/docs/install.sh | /bin/bash
+curl -fsSL https://nyx-vox.avpdev.com/install.sh | /bin/bash
 ```
 
 ### Ручная установка через DMG
