@@ -62,3 +62,13 @@ test('keeps the GitHub releases link when the API fails', async () => {
     expect(page.document.querySelector<HTMLElement>('#download-picker')?.hidden).toBe(true);
     expect(page.document.querySelector<HTMLAnchorElement>('#download-button')?.href).toBe(releaseRoot);
 });
+
+test('shows the Homebrew command before the version picker and offers curl alongside it', () => {
+    const page = new DOMParser().parseFromString(html, 'text/html');
+    const install = page.querySelector('#download .hero-install');
+    const commands = install?.querySelectorAll('code');
+    expect(install?.nextElementSibling?.id).toBe('download-picker');
+    expect(commands?.[0]?.textContent).toBe('brew install --cask AVP-Dev/apps/nyx-vox');
+    expect(commands?.[1]?.textContent).toBe('curl -fsSL https://nyx-vox.avpdev.com/install.sh | /bin/bash');
+    expect(install?.querySelectorAll('button[onclick="copyCommand(this)"]')).toHaveLength(2);
+});

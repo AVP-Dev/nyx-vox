@@ -237,6 +237,28 @@
             margin-bottom: 50px;
         }
 
+        .hero-install {
+            width: min(100%, 580px);
+            margin-bottom: 24px;
+            text-align: start;
+        }
+
+        .hero-install p, .hero-install summary {
+            color: var(--text-dim);
+            font-size: 0.85rem;
+        }
+
+        .hero-install p { margin: 0 0 8px; }
+        .hero-install details { margin-top: 8px; }
+        .hero-install summary { cursor: pointer; }
+        .hero-install details .code-box { margin-top: 8px; }
+
+        @media (max-width: 480px) {
+            .hero-install .code-box { gap: 8px; padding: 10px 12px; }
+            .hero-install .code-content { white-space: normal; overflow-wrap: anywhere; }
+            .hero-install .copy-btn { padding: 7px 10px; }
+        }
+
         .download-picker {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1010,6 +1032,28 @@
             <p class="lead" data-en>A premium, minimalist AI voice interface for macOS. Zero-latency streaming, 100% verbatim AI formatting, and direct auto-paste into any active app.</p>
             <p class="lead" data-ru>Премиальный голосовой интерфейс для macOS. Стриминг с нулевой задержкой, 100% дословное AI-форматирование и прямая вставка текста в любое приложение.</p>
             
+            <div class="hero-install">
+                <p data-en>Install on Apple Silicon with Homebrew</p>
+                <p data-ru>Установка на Apple Silicon через Homebrew</p>
+                <div class="code-box">
+                    <code class="code-content">brew install --cask AVP-Dev/apps/nyx-vox</code>
+                    <button type="button" class="copy-btn" onclick="copyCommand(this)">
+                        <span data-en>Copy</span>
+                        <span data-ru>Копировать</span>
+                    </button>
+                </div>
+                <details>
+                    <summary><span data-en>Install with curl</span><span data-ru>Установить через curl</span></summary>
+                    <div class="code-box">
+                        <code class="code-content">curl -fsSL https://nyx-vox.avpdev.com/install.sh | /bin/bash</code>
+                        <button type="button" class="copy-btn" onclick="copyCommand(this)">
+                            <span data-en>Copy</span>
+                            <span data-ru>Копировать</span>
+                        </button>
+                    </div>
+                </details>
+            </div>
+
             <div class="download-picker" id="download-picker" hidden>
                 <label>
                     <span data-en>Version</span><span data-ru>Версия</span>
