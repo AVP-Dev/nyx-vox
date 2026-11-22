@@ -4,7 +4,7 @@
   <p><strong>Премиальный голосовой интерфейс с нулевой задержкой для macOS и Windows</strong></p>
 
   <p>
-    <a href="https://github.com/AVP-Dev/nyx-vox/releases/latest"><img src="https://img.shields.io/github/v/release/AVP-Dev/nyx-vox?label=%D0%A1%D0%BA%D0%B0%D1%87%D0%B0%D1%82%D1%8C%20(DMG%20%2F%20EXE)&style=for-the-badge&color=orange" alt="Скачать свежий релиз" /></a>
+    <a href="https://nyx-vox.avpdev.com/#download"><img src="https://img.shields.io/github/v/release/AVP-Dev/nyx-vox?label=%D0%A1%D0%BA%D0%B0%D1%87%D0%B0%D1%82%D1%8C%20(DMG%20%2F%20EXE)&style=for-the-badge&color=orange" alt="Скачать свежий релиз" /></a>
     <img src="https://img.shields.io/badge/%D0%9F%D0%BB%D0%B0%D1%82%D1%84%D0%BE%D1%80%D0%BC%D1%8B-macOS%20%7C%20Windows-black?style=for-the-badge&logo=apple" alt="macOS и Windows" />
     <img src="https://img.shields.io/badge/Rust-2021%20%7C%20Tauri%202.10-orange?style=for-the-badge&logo=rust" alt="Rust Tauri" />
   </p>

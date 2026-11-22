@@ -237,6 +237,41 @@
             margin-bottom: 50px;
         }
 
+        .download-picker {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px;
+            width: min(100%, 460px);
+            margin: 0 auto 16px;
+            text-align: start;
+        }
+
+        .download-picker[hidden] { display: none; }
+
+        .download-picker label {
+            color: var(--text-dim);
+            font-size: 0.8rem;
+            font-weight: 700;
+        }
+
+        .download-picker select {
+            width: 100%;
+            margin-top: 6px;
+            padding: 10px 12px;
+            border: 1px solid var(--glass-border);
+            border-radius: 10px;
+            background: var(--glass);
+            color: white;
+            font: inherit;
+            color-scheme: dark;
+        }
+
+        .download-picker select:focus-visible { outline: 2px solid #ff8533; }
+
+        @media (max-width: 480px) {
+            .download-picker { grid-template-columns: 1fr; }
+        }
+
         .btn-primary {
             background: var(--accent-gradient);
             color: white;
@@ -962,7 +997,7 @@
 
     <main>
         <!-- Hero Section -->
-        <section class="hero">
+        <section class="hero" id="download">
             <div class="badge">
                 <span id="version-tag">NYX Vox</span> &bull;
                 <span data-en>Rust &bull; Tauri 2 &bull; macOS</span>
@@ -975,11 +1010,22 @@
             <p class="lead" data-en>A premium, minimalist AI voice interface for macOS. Zero-latency streaming, 100% verbatim AI formatting, and direct auto-paste into any active app.</p>
             <p class="lead" data-ru>Премиальный голосовой интерфейс для macOS. Стриминг с нулевой задержкой, 100% дословное AI-форматирование и прямая вставка текста в любое приложение.</p>
             
+            <div class="download-picker" id="download-picker" hidden>
+                <label>
+                    <span data-en>Version</span><span data-ru>Версия</span>
+                    <select id="download-version"></select>
+                </label>
+                <label>
+                    <span data-en>Platform and installer</span><span data-ru>Платформа и установщик</span>
+                    <select id="download-build"></select>
+                </label>
+            </div>
+
             <div class="cta-group">
-                <a href="https://github.com/AVP-Dev/nyx-vox/releases/latest" class="btn-primary">
+                <a id="download-button" href="https://github.com/AVP-Dev/nyx-vox/releases" class="btn-primary">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-                    <span data-en>Download for macOS (DMG)</span>
-                    <span data-ru>Скачать для macOS (.dmg)</span>
+                    <span data-en>View releases</span>
+                    <span data-ru>Список релизов</span>
                 </a>
                 <a href="https://github.com/AVP-Dev/nyx-vox" class="btn-secondary" target="_blank" rel="noopener noreferrer">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
@@ -1527,22 +1573,11 @@
         </div>
     </footer>
 
+    <script src="./downloads.js" defer></script>
+
     <!-- Interactive Scripts -->
     <script>
         // --- Bilingual & Version Setup ---
-        async function fetchVersion() {
-            try {
-                const res = await fetch('https://api.github.com/repos/AVP-Dev/nyx-vox/releases/latest');
-                if (!res.ok) throw new Error(`GitHub Releases returned ${res.status}`);
-                const data = await res.json();
-                if (data.tag_name) {
-                    document.getElementById('version-tag').innerText = data.tag_name;
-                }
-            } catch (e) {
-                console.warn('Could not fetch the latest NYX Vox release', e);
-            }
-        }
-
         let currentLang = 'en';
 
         function setLang(lang) {
@@ -1552,6 +1587,7 @@
             const activeBtn = document.getElementById('btn-' + lang);
             if (activeBtn) activeBtn.classList.add('active');
             localStorage.setItem('nyx_preferred_lang', lang);
+            window.updateDownloadLanguage?.(lang);
             restartSim();
         }
 
@@ -1563,7 +1599,6 @@
                 const nav = navigator.language || navigator.userLanguage;
                 setLang(nav && nav.startsWith('ru') ? 'ru' : 'en');
             }
-            fetchVersion();
         }
 
         function copyCommand(btn) {

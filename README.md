@@ -4,7 +4,7 @@
   <p><strong>Premium, Zero-Latency AI Voice Interface for macOS and Windows</strong></p>
 
   <p>
-    <a href="https://github.com/AVP-Dev/nyx-vox/releases/latest"><img src="https://img.shields.io/github/v/release/AVP-Dev/nyx-vox?label=Download%20(DMG%20%2F%20EXE)&style=for-the-badge&color=orange" alt="Download Latest Release" /></a>
+    <a href="https://nyx-vox.avpdev.com/#download"><img src="https://img.shields.io/github/v/release/AVP-Dev/nyx-vox?label=Download%20(DMG%20%2F%20EXE)&style=for-the-badge&color=orange" alt="Download Latest Release" /></a>
     <img src="https://img.shields.io/badge/Platform-macOS%20%7C%20Windows-black?style=for-the-badge&logo=apple" alt="macOS and Windows" />
     <img src="https://img.shields.io/badge/Rust-2021%20%7C%20Tauri%202.10-orange?style=for-the-badge&logo=rust" alt="Rust Tauri" />
   </p>
