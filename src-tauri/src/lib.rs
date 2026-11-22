@@ -459,6 +459,20 @@ pub fn run() {
                         }
                         show_overlay(app_handle);
                     }
+                    "website" => {
+                        let ah = app_handle.clone();
+                        tauri::async_runtime::spawn(async move {
+                            let _ =
+                                commands::open_url(ah, "https://nyx-vox.avpdev.com/".to_string())
+                                    .await;
+                        });
+                    }
+                    "check_updates" => {
+                        if let Err(error) = app_handle.emit("check-updates", ()) {
+                            log::warn!("Failed to emit check-updates from tray menu: {error}");
+                        }
+                        show_overlay(app_handle);
+                    }
                     "history" => {
                         let ah = app_handle.clone();
                         tauri::async_runtime::spawn(async move {

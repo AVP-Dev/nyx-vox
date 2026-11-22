@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Clock, Zap, Check, Github as GithubIcon, Globe } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { Clock, Zap, Check, Github as GithubIcon, Globe, ExternalLink, Copy, Terminal, ChevronDown, ChevronUp } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { invoke } from '@tauri-apps/api/core';
 import Markdown from 'react-markdown';
 
@@ -21,6 +21,8 @@ export default function UpdatePage() {
     const [dontShowAgain, setDontShowAgain] = useState(false);
     const [releaseNotes, setReleaseNotes] = useState('');
     const [loading, setLoading] = useState(true);
+    const [showGuide, setShowGuide] = useState(false);
+    const [copiedCmd, setCopiedCmd] = useState<string | null>(null);
 
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
@@ -77,26 +79,48 @@ export default function UpdatePage() {
         await invoke('open_url', { url }).catch(() => window.open(url, '_blank'));
     };
 
+    const handleOpenSite = async () => {
+        const url = 'https://nyx-vox.avpdev.com/#download';
+        await invoke('open_url', { url }).catch(() => window.open(url, '_blank'));
+    };
+
+    const handleCopy = (cmd: string) => {
+        navigator.clipboard.writeText(cmd).then(() => {
+            setCopiedCmd(cmd);
+            setTimeout(() => setCopiedCmd(null), 2000);
+        });
+    };
+
     const t = {
         ru: {
             title: 'НОВАЯ ВЕРСИЯ!',
             ver: `Версия ${latestVersion} доступна`,
             download: 'СКАЧАТЬ ИЗ GITHUB',
+            site: 'ВЫБОР ВЕРСИИ НА САЙТЕ',
+            howToUpdate: 'Как обновить?',
             later: 'Напомнить позже',
             cancel: 'Отмена',
             dontShow: 'Больше не показывать',
             notes: 'Что нового:',
             loading: 'Загрузка...',
+            copied: 'Скопировано',
+            macBrew: 'brew update && brew upgrade --cask AVP-Dev/apps/nyx-vox',
+            macCurl: 'curl -fsSL https://nyx-vox.avpdev.com/install.sh | /bin/bash',
         },
         en: {
             title: 'NEW UPDATE!',
             ver: `Version ${latestVersion} available`,
             download: 'DOWNLOAD FROM GITHUB',
+            site: 'CHOOSE ON WEBSITE',
+            howToUpdate: 'How to update?',
             later: 'Remind Later',
             cancel: 'Cancel',
             dontShow: 'Don\'t show again',
             notes: 'Release Notes:',
             loading: 'Loading...',
+            copied: 'Copied',
+            macBrew: 'brew update && brew upgrade --cask AVP-Dev/apps/nyx-vox',
+            macCurl: 'curl -fsSL https://nyx-vox.avpdev.com/install.sh | /bin/bash',
         }
     }[language];
 
@@ -143,21 +167,81 @@ export default function UpdatePage() {
                         )}
                     </div>
 
-                    {/* Actions */}
-                    <div className="flex flex-col gap-2">
+                    {/* How to Update Toggle */}
+                    <div className="mb-2">
                         <button
-                            onClick={handleDownload}
-                            className="w-full h-11 bg-orange-600 hover:bg-orange-500 text-white text-[11px] font-black uppercase tracking-[0.18em] rounded-[14px] flex items-center justify-center gap-3 shadow-[0_6px_20px_rgba(234,88,12,0.25)] transition-all active:scale-[0.98]"
+                            onClick={() => setShowGuide(!showGuide)}
+                            className="w-full flex items-center justify-between px-3 py-1.5 rounded-lg bg-surface border border-subtle hover:bg-surface-hover transition-all text-[10px] font-bold text-muted hover:text-white"
                         >
-                            <GithubIcon size={15} />
-                            <span>{t.download}</span>
+                            <span className="flex items-center gap-1.5">
+                                <Terminal size={12} className="text-orange-400" />
+                                <span>{t.howToUpdate}</span>
+                            </span>
+                            {showGuide ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
                         </button>
+
+                        <AnimatePresence>
+                            {showGuide && (
+                                <motion.div
+                                    initial={{ opacity: 0, height: 0 }}
+                                    animate={{ opacity: 1, height: 'auto' }}
+                                    exit={{ opacity: 0, height: 0 }}
+                                    className="overflow-hidden mt-1.5 space-y-1.5 bg-black/40 rounded-xl p-2.5 border border-white/5 text-[10px]"
+                                >
+                                    <div>
+                                        <div className="text-white/40 font-bold mb-1">macOS (Homebrew):</div>
+                                        <div className="flex items-center justify-between bg-surface p-1.5 rounded-lg font-mono text-[9px] text-orange-300">
+                                            <span className="truncate mr-2">{t.macBrew}</span>
+                                            <button
+                                                onClick={() => handleCopy(t.macBrew)}
+                                                className="shrink-0 text-white/50 hover:text-white px-1.5 py-0.5 rounded bg-white/5"
+                                            >
+                                                {copiedCmd === t.macBrew ? t.copied : <Copy size={11} />}
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div className="text-white/40 font-bold mb-1">macOS (curl):</div>
+                                        <div className="flex items-center justify-between bg-surface p-1.5 rounded-lg font-mono text-[9px] text-orange-300">
+                                            <span className="truncate mr-2">{t.macCurl}</span>
+                                            <button
+                                                onClick={() => handleCopy(t.macCurl)}
+                                                className="shrink-0 text-white/50 hover:text-white px-1.5 py-0.5 rounded bg-white/5"
+                                            >
+                                                {copiedCmd === t.macCurl ? t.copied : <Copy size={11} />}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex flex-col gap-1.5">
+                        <div className="grid grid-cols-2 gap-2">
+                            <button
+                                onClick={handleDownload}
+                                className="h-10 bg-orange-600 hover:bg-orange-500 text-white text-[10px] font-black uppercase tracking-wider rounded-[12px] flex items-center justify-center gap-1.5 shadow-[0_4px_12px_rgba(234,88,12,0.25)] transition-all active:scale-[0.98]"
+                            >
+                                <GithubIcon size={13} />
+                                <span>{t.download}</span>
+                            </button>
+
+                            <button
+                                onClick={handleOpenSite}
+                                className="h-10 bg-surface hover:bg-surface-hover text-white text-[10px] font-black uppercase tracking-wider rounded-[12px] flex items-center justify-center gap-1.5 border border-subtle transition-all active:scale-[0.98]"
+                            >
+                                <ExternalLink size={13} className="text-orange-400" />
+                                <span>{t.site}</span>
+                            </button>
+                        </div>
 
                         <button
                             onClick={handleLater}
-                            className="w-full h-10 bg-surface hover:bg-white/[0.08] text-white/70 hover:text-white text-[10px] font-black uppercase tracking-widest rounded-[14px] flex items-center justify-center gap-2 transition-all border border-white/[0.05]"
+                            className="w-full h-8 bg-surface/50 hover:bg-white/[0.08] text-white/60 hover:text-white text-[9px] font-black uppercase tracking-widest rounded-[10px] flex items-center justify-center gap-1.5 transition-all border border-white/[0.04]"
                         >
-                            <Clock size={13} className="opacity-40" />
+                            <Clock size={11} className="opacity-40" />
                             <span>{t.later}</span>
                         </button>
                     </div>

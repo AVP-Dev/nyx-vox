@@ -35,6 +35,16 @@ pub fn update_tray_lang(app: AppHandle, lang: String) {
         } else {
             "Settings"
         };
+        let website_label = if lang == "ru" {
+            "Сайт проекта"
+        } else {
+            "Project Website"
+        };
+        let updates_label = if lang == "ru" {
+            "Проверить обновления..."
+        } else {
+            "Check for Updates..."
+        };
         let reset_label = if lang == "ru" {
             "Сбросить позицию"
         } else {
@@ -51,6 +61,15 @@ pub fn update_tray_lang(app: AppHandle, lang: String) {
         };
         let Ok(settings_i) =
             MenuItem::with_id(&app, "settings", settings_label, true, None::<&str>)
+        else {
+            return;
+        };
+        let Ok(website_i) = MenuItem::with_id(&app, "website", website_label, true, None::<&str>)
+        else {
+            return;
+        };
+        let Ok(updates_i) =
+            MenuItem::with_id(&app, "check_updates", updates_label, true, None::<&str>)
         else {
             return;
         };
@@ -85,6 +104,8 @@ pub fn update_tray_lang(app: AppHandle, lang: String) {
                 &sep_1,
                 &settings_i,
                 &welcome_i,
+                &website_i,
+                &updates_i,
                 &sep_2,
                 &reset_pos_i,
                 &sep_3,

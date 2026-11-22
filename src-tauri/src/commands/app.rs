@@ -144,7 +144,7 @@ pub async fn show_update_window(
     }
     let _ = tauri::WebviewWindowBuilder::new(&app, "update", tauri::WebviewUrl::App(url.into()))
         .title("NYX Vox - Update")
-        .inner_size(420.0, 380.0)
+        .inner_size(360.0, 460.0)
         .resizable(false)
         .decorations(false)
         .transparent(true)

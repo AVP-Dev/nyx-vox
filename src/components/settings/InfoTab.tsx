@@ -2,7 +2,7 @@ import React from 'react';
 import { BookOpen, Zap, ExternalLink, UserCircle, ChevronRight } from 'lucide-react';
 import Image from 'next/image';
 import { SectionTitle, Card } from './Common';
-import { CREATOR_INFO, APP_DESCRIPTION, MISSION, FUTURE_ITEMS } from '@/constants/appInfo';
+import { CREATOR_INFO, PROJECT_LINKS, APP_DESCRIPTION, MISSION, FUTURE_ITEMS } from '@/constants/appInfo';
 
 interface InfoTabProps {
     c: {
@@ -67,16 +67,39 @@ export const InfoTab: React.FC<InfoTabProps> = ({
                         {c.settings.updates}
                     </div>
                 </SectionTitle>
-                <div className="p-4 rounded-xl bg-emerald-500/5 border border-emerald-500/10 flex items-center justify-between">
-                    <div>
-                        <div className="text-[13px] font-semibold text-white/90">
-                            {updateStatus === 'available' ? c.settings.updateAvailable : c.settings.noUpdate}
+                <div className="p-4 rounded-xl bg-emerald-500/5 border border-emerald-500/10 flex flex-col gap-3">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <div className="text-[13px] font-semibold text-white/90">
+                                {updateStatus === 'available' ? c.settings.updateAvailable : c.settings.noUpdate}
+                            </div>
+                            <div className="text-[11px] text-white/30 mt-0.5">v{APP_VERSION}</div>
                         </div>
-                        <div className="text-[11px] text-white/30 mt-0.5">v{APP_VERSION}</div>
+                        <button onClick={handleCheckUpdates} className="px-3 py-1.5 rounded-lg bg-surface-hover hover:bg-white/15 text-primary text-[11px] font-bold transition-all uppercase tracking-widest">
+                            {updateStatus === 'checking' ? c.settings.checking : (updateStatus === 'available' ? c.settings.checkUpdatesBtn : c.settings.checkUpdates)}
+                        </button>
                     </div>
-                    <button onClick={handleCheckUpdates} className="px-3 py-1.5 rounded-lg bg-surface-hover hover:bg-white/15 text-primary text-[11px] font-bold transition-all uppercase tracking-widest">
-                        {updateStatus === 'checking' ? c.settings.checking : (updateStatus === 'available' ? c.settings.checkUpdatesBtn : c.settings.checkUpdates)}
-                    </button>
+
+                    <div className="pt-2 border-t border-emerald-500/10 flex items-center justify-between text-[11px] flex-wrap gap-2">
+                        <a 
+                            href="https://nyx-vox.avpdev.com/#updates"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-emerald-400 hover:text-emerald-300 font-bold flex items-center gap-1 transition-colors"
+                        >
+                            <span>{lang === 'ru' ? 'Как обновлять приложение?' : 'How to update NYX Vox?'}</span>
+                            <ExternalLink size={10} />
+                        </a>
+                        <a 
+                            href="https://github.com/AVP-Dev/nyx-vox/releases"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-white/40 hover:text-white/70 font-medium flex items-center gap-1 transition-colors"
+                        >
+                            <span>{lang === 'ru' ? 'Changelog / Что нового' : 'Release Notes'}</span>
+                            <ExternalLink size={10} />
+                        </a>
+                    </div>
                 </div>
             </div>
 
@@ -102,6 +125,31 @@ export const InfoTab: React.FC<InfoTabProps> = ({
                             </div>
                         </div>
                     </div>
+
+                    {/* Project Resources */}
+                    <Card className="space-y-3">
+                        <div className="text-[10px] font-bold text-white/30 uppercase tracking-widest leading-none">
+                            {lang === 'ru' ? 'Ресурсы проекта' : 'Project Resources'}
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                            {PROJECT_LINKS.map((link, i) => (
+                                <a
+                                    key={i}
+                                    href={link.href}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-2 p-2.5 rounded-lg bg-surface border border-subtle hover:bg-surface-hover hover:border-strong transition-all group"
+                                >
+                                    <div className={`text-muted ${link.color} transition-colors shrink-0`}>
+                                        {link.icon}
+                                    </div>
+                                    <span className="text-[11px] font-bold text-white/80 group-hover:text-white truncate">
+                                        {lang === 'ru' ? link.title : link.titleEn}
+                                    </span>
+                                </a>
+                            ))}
+                        </div>
+                    </Card>
 
                     <Card className="space-y-3">
                         <div className="text-[10px] font-bold text-white/30 uppercase tracking-widest leading-none">

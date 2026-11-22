@@ -56,6 +56,10 @@ export function useTauriEvents(opts: UseTauriEventsOptions) {
                         optsRef.current.setShowWelcome(false);
                         optsRef.current.setShowSettings(true);
                     }),
+                    listen<void>('check-updates', () => {
+                        optsRef.current.setShowWelcome(false);
+                        optsRef.current.setShowSettings(true);
+                    }),
                     listen<void>('open-welcome', () => {
                         optsRef.current.setShowSettings(false);
                         optsRef.current.setShowWelcome(true);

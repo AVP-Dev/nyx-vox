@@ -647,13 +647,22 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                                     </div>
                                 )}
 
-                                <div className="flex items-center gap-3 pt-2 border-t border-subtle shrink-0">
+                                <div className="flex items-center gap-2 pt-2 border-t border-subtle shrink-0">
                                     <button 
                                         onClick={() => setShowUpdatePopup(false)}
-                                        className="flex-1 py-2.5 rounded-xl bg-surface hover:bg-surface-hover text-muted hover:text-white font-bold text-xs transition-all"
+                                        className="py-2.5 px-3 rounded-xl bg-surface hover:bg-surface-hover text-muted hover:text-white font-bold text-xs transition-all"
                                     >
                                         {c.update?.later || 'Later'}
                                     </button>
+                                    <a 
+                                        href="https://nyx-vox.avpdev.com/#download"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        onClick={() => setShowUpdatePopup(false)}
+                                        className="flex-1 py-2.5 rounded-xl bg-surface hover:bg-surface-hover text-orange-400 hover:text-orange-300 font-bold text-xs text-center border border-orange-500/20 transition-all uppercase tracking-wider"
+                                    >
+                                        {lang === 'ru' ? 'Сайт / Выбор сборки' : 'Website Picker'}
+                                    </a>
                                     <a 
                                         href={releaseData.url}
                                         target="_blank"

@@ -35,6 +35,7 @@
 .gemini/
 .qwen/
 .pair/
+.worktrees/
 
 
 # debug

@@ -176,7 +176,7 @@ async function checkUpdates(appLang: string) {
             new WebviewWindow(label, {
                 url: `/update?version=${latest}&lang=${appLang}`,
                 title: 'NYX Vox Update',
-                width: 320, height: 380,
+                width: 360, height: 460,
                 resizable: false, decorations: false,
                 transparent: true, alwaysOnTop: true,
                 shadow: false, center: true, skipTaskbar: false,

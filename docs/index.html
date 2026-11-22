@@ -134,6 +134,39 @@
             gap: 16px;
         }
 
+        .nav-github-link {
+            display: flex;
+            align-items: center;
+            color: var(--text-dim);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .nav-github-link:hover {
+            color: #ffffff;
+        }
+
+        .nav-cta-btn {
+            background: var(--accent);
+            color: white;
+            text-decoration: none;
+            padding: 6px 14px;
+            border-radius: 8px;
+            font-size: 0.78rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            transition: all 0.2s;
+            box-shadow: 0 2px 10px rgba(255, 107, 0, 0.25);
+            display: inline-flex;
+            align-items: center;
+        }
+
+        .nav-cta-btn:hover {
+            transform: scale(1.04);
+            filter: brightness(1.1);
+        }
+
         .nav-links {
             display: flex;
             align-items: center;
@@ -947,6 +980,43 @@
             background: #10b981;
         }
 
+        /* --- Updates Grid --- */
+        .updates-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 20px;
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        .update-card {
+            background: var(--bg-card);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 24px;
+            transition: all 0.3s;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .update-card:hover {
+            border-color: var(--glass-border-hover);
+            transform: translateY(-2px);
+        }
+
+        .update-card-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .update-method {
+            font-weight: 800;
+            font-size: 1.05rem;
+            color: white;
+        }
+
         /* --- Footer --- */
         footer {
             padding: 70px 5% 50px;
@@ -1006,16 +1076,25 @@
             <a href="#showcase" class="nav-link">
                 <span data-en>Interface</span><span data-ru>Интерфейс</span>
             </a>
+            <a href="#updates" class="nav-link">
+                <span data-en>Updates</span><span data-ru>Обновление</span>
+            </a>
             <a href="#troubleshooting" class="nav-link">
                 <span data-en>Install Guide</span><span data-ru>Установка</span>
             </a>
         </div>
 
         <div class="nav-right">
+            <a href="https://github.com/AVP-Dev/nyx-vox" class="nav-github-link" target="_blank" rel="noopener noreferrer" title="GitHub Repository">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+            </a>
             <div class="lang-switch">
                 <button class="lang-btn" id="btn-en" onclick="setLang('en')">EN</button>
                 <button class="lang-btn" id="btn-ru" onclick="setLang('ru')">RU</button>
             </div>
+            <a href="#download-builds" class="nav-cta-btn">
+                <span data-en>Get App</span><span data-ru>Скачать</span>
+            </a>
         </div>
     </nav>
 
@@ -1226,8 +1305,8 @@
                     </div>
                     <h3 data-en>Native HID Auto-Paste</h3>
                     <h3 data-ru>Нативная Автовставка</h3>
-                    <p data-en>Direct synthetic input injection via macOS Accessibility API. Text instantly appears in VS Code, Telegram, Slack, Word, or your browser without manual pasting.</p>
-                    <p data-ru>Прямая эмуляция ввода через Accessibility API macOS. Текст мгновенно печатается в VS Code, Telegram, Slack или браузере без нажатия Cmd+V.</p>
+                    <p data-en>Direct synthetic input injection via macOS Accessibility API and Windows Enigo. Text instantly appears in VS Code, Telegram, Slack, Word, or your browser without manual pasting.</p>
+                    <p data-ru>Прямая эмуляция ввода через Accessibility API (macOS) и Enigo (Windows). Текст мгновенно печатается в VS Code, Telegram, Slack или браузере без нажатия Cmd+V / Ctrl+V.</p>
                 </div>
             </div>
         </section>
@@ -1341,10 +1420,10 @@
             <div class="section-header">
                 <span class="section-tag" data-en>Design</span>
                 <span class="section-tag" data-ru>Интерфейс</span>
-                <h2 class="section-title" data-en>Crafted for macOS</h2>
-                <h2 class="section-title" data-ru>Создан для macOS</h2>
-                <p class="section-sub" data-en>Pure Glassmorphism aesthetics, compact idle modes, and deep system integration.</p>
-                <p class="section-sub" data-ru>Эстетика Glassmorphism, компактный круглый пузырь в простое и глубокая интеграция с системой.</p>
+                <h2 class="section-title" data-en>Crafted for macOS &amp; Windows</h2>
+                <h2 class="section-title" data-ru>Создан для macOS и Windows</h2>
+                <p class="section-sub" data-en>Pure Glassmorphism aesthetics, compact idle modes, global shortcuts (⌥+Space / Ctrl+Space), and deep system integration.</p>
+                <p class="section-sub" data-ru>Эстетика Glassmorphism, компактный круглый пузырь в простое, глобальные хоткеи (⌥+Пробел / Ctrl+Пробел) и нативная системная интеграция.</p>
             </div>
 
             <div class="showcase-tabs">
@@ -1594,6 +1673,85 @@
             </div>
         </section>
 
+        <!-- Updates Section -->
+        <section class="section-wrap" id="updates">
+            <div class="section-header">
+                <span class="section-tag" data-en>Maintenance</span>
+                <span class="section-tag" data-ru>Обновления</span>
+                <h2 class="section-title" data-en>How to Update NYX Vox</h2>
+                <h2 class="section-title" data-ru>Как обновить NYX Vox</h2>
+                <p class="section-sub" data-en>Seamlessly update to the newest release without losing your speech models, encrypted keys, or audio settings.</p>
+                <p class="section-sub" data-ru>Обновляйтесь на актуальную версию без потери настроек, ключей и загруженных моделей.</p>
+            </div>
+
+            <div class="updates-grid">
+                <div class="update-card">
+                    <div class="update-card-head">
+                        <span class="update-method">Homebrew</span>
+                        <span class="engine-badge badge-orange">macOS · Recommended</span>
+                    </div>
+                    <p data-en>If installed via Homebrew, update to the latest release with a single terminal command:</p>
+                    <p data-ru>Если вы устанавливали через Homebrew, обновитесь до актуального релиза одной командой:</p>
+                    <div class="code-box">
+                        <div class="code-content">brew update &amp;&amp; brew upgrade --cask AVP-Dev/apps/nyx-vox</div>
+                        <button class="copy-btn" onclick="copyCommand(this)">
+                            <span data-en>Copy</span>
+                            <span data-ru>Копировать</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="update-card">
+                    <div class="update-card-head">
+                        <span class="update-method">curl script</span>
+                        <span class="engine-badge badge-green">macOS</span>
+                    </div>
+                    <p data-en>Re-run the automated installer. It verifies the latest SHA-256 DMG, replaces the app in Applications, and preserves settings:</p>
+                    <p data-ru>Повторный запуск скрипта проверяет контрольную сумму нового DMG, заменяет приложение и сохраняет ваши настройки:</p>
+                    <div class="code-box">
+                        <div class="code-content">curl -fsSL https://nyx-vox.avpdev.com/install.sh | /bin/bash</div>
+                        <button class="copy-btn" onclick="copyCommand(this)">
+                            <span data-en>Copy</span>
+                            <span data-ru>Копировать</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="update-card">
+                    <div class="update-card-head">
+                        <span class="update-method">Manual DMG</span>
+                        <span class="engine-badge badge-blue">macOS · Manual</span>
+                    </div>
+                    <p data-en>Download the newest DMG from the version picker or GitHub Releases. Drag into <code>/Applications</code> with replacement. If macOS blocks startup, run:</p>
+                    <p data-ru>Скачайте свежий DMG в селекторе версий или на GitHub Releases. Перетащите в «Программы» с заменой. Если macOS блокирует запуск:</p>
+                    <div class="code-box">
+                        <div class="code-content">xattr -dr com.apple.quarantine &quot;/Applications/NYX Vox.app&quot;</div>
+                        <button class="copy-btn" onclick="copyCommand(this)">
+                            <span data-en>Copy</span>
+                            <span data-ru>Копировать</span>
+                        </button>
+                    </div>
+                    <p style="font-size: 0.78rem; color: var(--text-dim); margin-top: 6px;" data-en>Tip: If auto-paste stops after a manual binary replacement, toggle NYX Vox off and on in macOS System Settings &rarr; Privacy &amp; Security &rarr; Accessibility.</p>
+                    <p style="font-size: 0.78rem; color: var(--text-dim); margin-top: 6px;" data-ru>Совет: Если автовставка перестала срабатывать после ручной замены, перевключите галочку NYX Vox в Системных настройках macOS &rarr; Конфиденциальность и безопасность &rarr; Универсальный доступ.</p>
+                </div>
+
+                <div class="update-card">
+                    <div class="update-card-head">
+                        <span class="update-method">Windows (x64)</span>
+                        <span class="engine-badge badge-purple">Windows 10 / 11</span>
+                    </div>
+                    <p data-en>Download the latest <code>.exe</code> or <code>.msi</code> installer and run it over your existing install. All encrypted keys and settings in <code>%APPDATA%</code> remain preserved.</p>
+                    <p data-ru>Скачайте актуальный установщик <code>.exe</code> или <code>.msi</code> и запустите поверх. Все зашифрованные ключи и настройки в <code>%APPDATA%</code> сохраняются.</p>
+                    <div style="margin-top: 12px;">
+                        <a href="#download-builds" class="btn-secondary" style="display: inline-flex; padding: 10px 18px; font-size: 0.85rem; text-decoration: none;">
+                            <span data-en>Windows Download Picker &darr;</span>
+                            <span data-ru>Выбрать установщик Windows &darr;</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </section>
+
         <!-- Troubleshooting Section -->
         <section class="troubleshooting" id="troubleshooting">
             <div class="troubleshooting-header">
@@ -1637,6 +1795,11 @@
                     <span data-ru>Скопировать</span>
                 </button>
             </div>
+
+            <p data-en>Windows 10 / 11 Installation Note</p>
+            <p data-ru>Установка на Windows 10 / 11</p>
+            <p style="font-size: 0.85rem; color: var(--text-dim); margin-bottom: 20px;" data-en>When launching the unsigned installer, Windows SmartScreen may show &ldquo;Windows protected your PC&rdquo;. Click <strong>More info</strong> &rarr; <strong>Run anyway</strong>. Ensure microphone access is permitted for desktop apps in Windows Settings &rarr; Privacy &amp; Security &rarr; Microphone.</p>
+            <p style="font-size: 0.85rem; color: var(--text-dim); margin-bottom: 20px;" data-ru>При первом запуске неподписанного установщика фильтр SmartScreen может показать предупреждение. Нажмите <strong>«Подробнее»</strong> &rarr; <strong>«Выполнить в любом случае»</strong>. Убедитесь, что доступ к микрофону разрешён в Параметрах Windows &rarr; Конфиденциальность и безопасность &rarr; Микрофон.</p>
         </section>
     </main>
 
@@ -1648,12 +1811,14 @@
                     Aliaksei Patskevich (AVPDev)
                 </a>
             </div>
-            <div style="display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim);">
-                <span style="opacity: 0.9;">AI Solutions Architect</span>
+            <div style="display: flex; align-items: center; justify-content: center; gap: 12px; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim); flex-wrap: wrap;">
+                <a href="https://github.com/AVP-Dev/nyx-vox" style="color: rgba(255,255,255,0.8); text-decoration: none; transition: color 0.2s;" target="_blank" rel="noopener noreferrer" onmouseover="this.style.color='#ff6b00'" onmouseout="this.style.color='rgba(255,255,255,0.8)'">GitHub Repository</a>
                 <span style="opacity: 0.3;">•</span>
-                <a href="https://github.com/AVP-Dev" style="color: rgba(255,255,255,0.7); text-decoration: none; transition: color 0.2s;" target="_blank" rel="noopener noreferrer" onmouseover="this.style.color='#ff6b00'" onmouseout="this.style.color='rgba(255,255,255,0.7)'">GitHub</a>
+                <a href="https://github.com/AVP-Dev/nyx-vox/releases" style="color: rgba(255,255,255,0.8); text-decoration: none; transition: color 0.2s;" target="_blank" rel="noopener noreferrer" onmouseover="this.style.color='#ff6b00'" onmouseout="this.style.color='rgba(255,255,255,0.8)'">Releases &amp; Changelog</a>
                 <span style="opacity: 0.3;">•</span>
-                <a href="https://t.me/AVP_Dev" style="color: rgba(255,255,255,0.7); text-decoration: none; transition: color 0.2s;" target="_blank" rel="noopener noreferrer" onmouseover="this.style.color='#ff6b00'" onmouseout="this.style.color='rgba(255,255,255,0.7)'">Telegram</a>
+                <a href="https://github.com/AVP-Dev/nyx-vox/issues" style="color: rgba(255,255,255,0.8); text-decoration: none; transition: color 0.2s;" target="_blank" rel="noopener noreferrer" onmouseover="this.style.color='#ff6b00'" onmouseout="this.style.color='rgba(255,255,255,0.8)'">Bug Reports</a>
+                <span style="opacity: 0.3;">•</span>
+                <a href="https://t.me/AVP_Dev" style="color: rgba(255,255,255,0.8); text-decoration: none; transition: color 0.2s;" target="_blank" rel="noopener noreferrer" onmouseover="this.style.color='#ff6b00'" onmouseout="this.style.color='rgba(255,255,255,0.8)'">Telegram</a>
             </div>
             <div style="margin-top: 24px; font-size: 0.75rem; opacity: 0.3;">
                 &copy; 2026 NYX Vox Project. Open Source &bull; Rust &bull; Tauri 2 &bull; Next.js 16.
@@ -1730,8 +1895,8 @@
                     target: 'TO VS CODE'
                 },
                 {
-                    words: ["Good", "morning", "team!", "Just", "deployed", "the", "v1.4.0", "update", "to", "the", "repository.", "Please", "test", "it."],
-                    formatted: 'Good morning team! Just deployed the v1.4.0 update to the repository. Please test the Groq and local Whisper integration.',
+                    words: ["Good", "morning", "team!", "Just", "tested", "the", "v1.6.0", "release", "with", "ElevenLabs", "and", "Speechmatics.", "Speed", "is", "incredible."],
+                    formatted: 'Good morning team! Just tested the v1.6.0 release with ElevenLabs and Speechmatics. Speech recognition latency is incredible.',
                     target: 'TO SLACK'
                 }
             ],
@@ -1742,8 +1907,8 @@
                     target: 'В VS CODE'
                 },
                 {
-                    words: ["Коллеги,", "доброе", "утро!", "Залил", "обновление", "v1.4.0", "в", "репозиторий.", "Билд", "доступен", "на", "GitHub."],
-                    formatted: 'Коллеги, доброе утро! Залил обновление v1.4.0 в репозиторий. Проверьте интеграцию с Groq и локальным Whisper, билд уже доступен на GitHub.',
+                    words: ["Коллеги,", "доброе", "утро!", "Выпустили", "релиз", "v1.6.0.", "Новые", "облачные", "движки", "и", "ИИ-форматирование", "работают", "идеально."],
+                    formatted: 'Коллеги, доброе утро! Выпустили релиз v1.6.0. Новые облачные движки и ИИ-форматирование работают идеально.',
                     target: 'В TELEGRAM'
                 }
             ]

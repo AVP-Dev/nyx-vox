@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import { DICTIONARY as CONTENT } from './settings/translations';
 import { APP_VERSION } from '@/constants/version';
-import { CREATOR_INFO, APP_DESCRIPTION, MISSION, FUTURE_ITEMS } from '@/constants/appInfo';
+import { CREATOR_INFO, PROJECT_LINKS, APP_DESCRIPTION, MISSION, FUTURE_ITEMS } from '@/constants/appInfo';
 
 type Tab = 'welcome' | 'perms' | 'help' | 'quarantine' | 'about';
 
@@ -268,6 +268,34 @@ export function WelcomeOverlay({ onClose, appLanguage, onLanguageToggle, initial
                                         <span className="text-[12px] text-white/30 font-mono">v{APP_VERSION}</span>
                                     </div>
                                     <div className="text-[12px] text-muted mt-0.5 leading-relaxed font-medium">{APP_DESCRIPTION[appLanguage]}</div>
+                                </div>
+                            </div>
+
+                            <div className="p-4 rounded-2xl bg-white/4 border border-white/8 space-y-2.5">
+                                <div className="text-[10px] font-bold text-white/30 uppercase tracking-widest leading-none">
+                                    {appLanguage === 'ru' ? 'Ресурсы проекта' : 'Project Resources'}
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                    {PROJECT_LINKS.map((link, i) => (
+                                        <a
+                                            key={i}
+                                            href={link.href}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="flex items-center gap-2 p-2 rounded-xl bg-surface border border-subtle hover:bg-surface-hover hover:border-strong transition-all group"
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                invoke('open_url', { url: link.href }).catch(() => window.open(link.href, '_blank'));
+                                            }}
+                                        >
+                                            <div className={`text-muted ${link.color} transition-colors shrink-0`}>
+                                                {link.icon}
+                                            </div>
+                                            <span className="text-[10px] font-bold text-white/80 group-hover:text-white truncate">
+                                                {appLanguage === 'ru' ? link.title : link.titleEn}
+                                            </span>
+                                        </a>
+                                    ))}
                                 </div>
                             </div>
 
