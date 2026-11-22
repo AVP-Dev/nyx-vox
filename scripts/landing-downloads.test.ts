@@ -90,3 +90,12 @@ test('shows all nine speech engines and links to the installer picker from the h
     expect(page.querySelector('#download-builds #download-build')).not.toBeNull();
     expect(page.querySelector('#engines')?.textContent).toContain('The public Parakeet model supports English only.');
 });
+
+test('uses copy buttons for installation without linking to the script file', () => {
+    const page = new DOMParser().parseFromString(html, 'text/html');
+    const install = page.querySelector('#troubleshooting');
+    expect(install?.querySelector('a[href$="install.sh"]')).toBeNull();
+    expect(install?.querySelector('a[href$="homebrew-apps"]')).toBeNull();
+    expect(install?.querySelectorAll('button[onclick="copyCommand(this)"]')).toHaveLength(3);
+    expect(install?.textContent).toContain('curl -fsSL https://nyx-vox.avpdev.com/install.sh | /bin/bash');
+});
