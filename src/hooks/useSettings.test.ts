@@ -21,8 +21,8 @@ describe('useSettings', () => {
         const { invoke } = await import('@tauri-apps/api/core');
         const { result } = renderHook(() => useSettings());
 
-        // Initial audioGain is 2.0
-        expect(result.current.audioGain).toBe(2.0);
+        // Initial audioGain is 1.0 (neutral gain)
+        expect(result.current.audioGain).toBe(1.0);
 
         // User rapidly drags slider
         act(() => {
@@ -71,7 +71,7 @@ describe('useSettings', () => {
             vi.advanceTimersByTime(300);
         });
         expect(invoke).toHaveBeenCalledTimes(1);
-        expect(invoke).toHaveBeenCalledWith('set_noise_gate', { value: 0.005 });
+        expect(invoke).toHaveBeenCalledWith('set_noise_gate', { threshold: 0.005 });
     });
 
     it('updates vadSilenceTimeout state immediately and debounces IPC call (FE-8)', async () => {

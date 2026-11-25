@@ -63,6 +63,41 @@ export const InfoTab: React.FC<InfoTabProps> = ({
             <div>
                 <SectionTitle>
                     <div className="flex items-center gap-2">
+                        <BookOpen className="w-3 h-3 text-amber-400" />
+                        {lang === 'ru' ? 'Советы по звуку и распознаванию' : 'Audio & Recognition Tips'}
+                    </div>
+                </SectionTitle>
+                <div className="space-y-2.5">
+                    <div className="p-3 rounded-xl bg-white/3 border border-subtle space-y-1">
+                        <div className="text-[12px] font-bold text-primary">
+                            {lang === 'ru'
+                                ? 'Обрываются слова, теряются слоги или сбивается язык?'
+                                : 'Words get cut off or language detection slips?'}
+                        </div>
+                        <div className="text-[11px] text-muted leading-snug">
+                            {lang === 'ru'
+                                ? 'Уменьшите ползунок «Чувствительность (Шумодав)» до 0.002 или минимума («Тихая комната»). Высокий порог глушит тихие согласные и заминки.'
+                                : 'Lower the «Sensitivity (Noise Gate)» slider toward 0.002 or minimum («Quiet Room»). High thresholds can clip soft syllables and pauses.'}
+                        </div>
+                    </div>
+                    <div className="p-3 rounded-xl bg-white/3 border border-subtle space-y-1">
+                        <div className="text-[12px] font-bold text-primary">
+                            {lang === 'ru'
+                                ? 'Мешает телевизор или шум на фоне (macOS)?'
+                                : 'Background TV or room noise interfering (macOS)?'}
+                        </div>
+                        <div className="text-[11px] text-muted leading-snug">
+                            {lang === 'ru'
+                                ? 'Во время записи откройте Пункт управления macOS (значок микрофона в меню-баре) и включите режим «Изоляция голоса» (Voice Isolation), а программный шумодав оставьте ближе к минимуму.'
+                                : 'During recording, open macOS Control Center (mic icon in the menu bar) and switch Mic Mode to «Voice Isolation», keeping the in-app Noise Gate low.'}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <SectionTitle>
+                    <div className="flex items-center gap-2">
                         <Zap className="w-3 h-3 text-emerald-400" />
                         {c.settings.updates}
                     </div>

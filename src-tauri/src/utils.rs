@@ -421,6 +421,130 @@ pub fn trim_silence(samples: &[f32], threshold: f32, sample_rate: u32) -> &[f32]
     &samples[start_idx..end_idx]
 }
 
+/// Collapses characters repeated 3 or more times consecutively in words
+/// (e.g. "тооо" -> "то", "Иии" -> "И", "возможнооо" -> "возможно", "яяя" -> "я", "ввввв" -> "в", "soooo" -> "so")
+/// while keeping standard double letters like "длинный", "see", "too".
+pub fn collapse_elongated_chars(text: &str) -> String {
+    let mut result = String::with_capacity(text.len());
+    let mut chars = text.chars().peekable();
+
+    while let Some(c) = chars.next() {
+        let mut count = 1;
+        while let Some(&next_c) = chars.peek() {
+            let same_char =
+                next_c == c || (c.is_alphabetic() && next_c.to_lowercase().eq(c.to_lowercase()));
+            if same_char && c.is_alphabetic() {
+                count += 1;
+                chars.next();
+            } else {
+                break;
+            }
+        }
+        if count >= 3 {
+            result.push(c);
+        } else if count == 2 {
+            result.push(c);
+            result.push(c);
+        } else {
+            result.push(c);
+        }
+    }
+    result
+}
+
+/// Collapses hyphenated stutter syllables like "ф-форматер" -> "форматер",
+/// "в-в-в-вид" -> "вид", "«в-в-в-вид»" -> "«вид»", "w-w-what" -> "what"
+/// while preserving genuine hyphenated words like "по-русски", "из-за", "что-то".
+pub fn collapse_hyphenated_stutters(text: &str) -> String {
+    let mut result = Vec::new();
+
+    for token in text.split_whitespace() {
+        if !token.contains('-') && !token.contains('—') && !token.contains('–') {
+            result.push(token.to_string());
+            continue;
+        }
+
+        let leading_punct_end = token
+            .find(|c: char| c.is_alphanumeric() || c == '-')
+            .unwrap_or(0);
+        let trailing_punct_start = token
+            .rfind(|c: char| c.is_alphanumeric() || c == '-')
+            .map(|i| {
+                let next = token[i..].chars().next().map(|c| c.len_utf8()).unwrap_or(0);
+                i + next
+            })
+            .unwrap_or(token.len());
+
+        let leading = &token[..leading_punct_end];
+        let trailing = &token[trailing_punct_start..];
+        let core = &token[leading_punct_end..trailing_punct_start];
+
+        let parts: Vec<&str> = core
+            .split(['-', '—', '–'])
+            .filter(|p| !p.is_empty())
+            .collect();
+        if parts.len() < 2 {
+            result.push(token.to_string());
+            continue;
+        }
+
+        let last_part = parts[parts.len() - 1];
+        let last_lower = last_part.to_lowercase();
+
+        let is_stutter = parts[..parts.len() - 1].iter().all(|&p| {
+            let p_lower = p.to_lowercase();
+            !p_lower.is_empty()
+                && last_lower.starts_with(&p_lower)
+                && p_lower.chars().count() < last_lower.chars().count()
+        });
+
+        if is_stutter {
+            result.push(format!("{}{}{}", leading, last_part, trailing));
+        } else {
+            result.push(token.to_string());
+        }
+    }
+
+    result.join(" ")
+}
+
+/// Cleans pause artifacts, double dashes between words ("как-- что" -> "как что"),
+/// stray dashes attached to lone letters ("-м," -> "м,"), and double commas.
+pub fn clean_punctuation_artifacts(text: &str) -> String {
+    let mut cleaned = text.to_string();
+    for pat in ["--", "——", "––", "- -", "— —"] {
+        while cleaned.contains(pat) {
+            cleaned = cleaned.replace(pat, " ");
+        }
+    }
+
+    let mut words: Vec<String> = Vec::new();
+    for word in cleaned.split_whitespace() {
+        let w = if word.starts_with('-')
+            && word.chars().count() > 1
+            && word[1..].starts_with(|c: char| c.is_alphabetic())
+        {
+            &word[1..]
+        } else {
+            word
+        };
+        words.push(w.to_string());
+    }
+    cleaned = words.join(" ");
+
+    while cleaned.contains(",,") {
+        cleaned = cleaned.replace(",,", ",");
+    }
+    while cleaned.contains(", .") || cleaned.contains(",.") {
+        cleaned = cleaned.replace(", .", ".").replace(",.", ".");
+    }
+    while cleaned.contains(" ,") {
+        cleaned = cleaned.replace(" ,", ",");
+    }
+
+    cleaned
+}
+
 pub fn clean_repetitive_phrases(text: &str) -> String {
     use regex::Regex;
     use std::sync::OnceLock;
@@ -442,6 +566,13 @@ pub fn clean_repetitive_phrases(text: &str) -> String {
     });
 
     let text = remove_hallucinations(text);
+    // 1. Collapse letter prolongations across words ("тооо" -> "то", "Иии" -> "И", "ввввв" -> "в")
+    let text = collapse_elongated_chars(&text);
+    // 2. Collapse hyphenated stutters ("ф-форматер" -> "форматер", "«в-в-в-вид»" -> "«вид»")
+    let text = collapse_hyphenated_stutters(&text);
+    // 3. Clean pause dashes and punctuation artifacts ("как-- что" -> "как что", "-м," -> "м,")
+    let text = clean_punctuation_artifacts(&text);
+
     let text = re_prefix.replace_all(&text, "$1 $2").to_string();
     let text = re_parasites.replace_all(&text, " ").to_string();
     let text = re_stutter.replace_all(&text, " ").to_string();
@@ -455,7 +586,7 @@ pub fn clean_repetitive_phrases(text: &str) -> String {
     for i in 0..raw_words.len() {
         let prev_exists = i > 0;
         let next_exists = i + 1 < raw_words.len();
-        if prev_exists && next_exists && is_lone_filler(raw_words[i]) {
+        if (prev_exists || next_exists) && is_lone_filler(raw_words[i]) {
             continue;
         }
         filtered_words.push(raw_words[i]);
@@ -559,8 +690,8 @@ pub fn collapse_ngram_repetitions(words: &[&str]) -> Vec<String> {
     result
 }
 
-/// A standalone hesitation sound: "э", "ээ", "эээ", "мм", "ммм", "гм", "хм", "uh", "um", "er".
-/// Russian prepositions and conjunctions ("и", "а", "у", "о", "к", "в", "с") must NEVER be dropped!
+/// A standalone hesitation sound: "э", "ээ", "эээ", "м", "мм", "ммм", "гм", "хм", "uh", "um", "er", "ah", "hmm".
+/// Russian prepositions and conjunctions ("и", "а", "у", "о", "к", "в", "с", "я") must NEVER be dropped!
 fn is_lone_filler(word: &str) -> bool {
     let lower = word.to_lowercase();
     let trimmed = lower.trim_matches(|c: char| !c.is_alphabetic());
@@ -569,7 +700,18 @@ fn is_lone_filler(word: &str) -> bool {
     }
     matches!(
         trimmed,
-        "э" | "ээ" | "эээ" | "мм" | "ммм" | "гм" | "хм" | "uh" | "um" | "er" | "ah"
+        "э" | "ээ"
+            | "эээ"
+            | "м"
+            | "мм"
+            | "ммм"
+            | "гм"
+            | "хм"
+            | "uh"
+            | "um"
+            | "er"
+            | "ah"
+            | "hmm"
     )
 }
 
@@ -656,7 +798,7 @@ impl VadTracker {
 
     /// Feeds a new audio buffer and returns `true` ONLY if continuous silence
     /// has exceeded `timeout_secs` after speech was already detected.
-    pub fn update(&mut self, samples: &[f32], _noise_gate: f32, timeout_secs: f32) -> bool {
+    pub fn update(&mut self, samples: &[f32], noise_gate: f32, timeout_secs: f32) -> bool {
         if samples.is_empty() {
             return false;
         }
@@ -673,8 +815,9 @@ impl VadTracker {
         }
         self.noise_floor = self.noise_floor.clamp(0.0003, 0.004);
 
-        // 3. Speech threshold: any speech energy above the noise floor
-        let voice_threshold = (self.noise_floor * 1.8).max(0.0020);
+        // 3. Speech threshold: any speech energy above the noise floor and configured noise gate
+        let gate = noise_gate.clamp(0.0005, 0.05);
+        let voice_threshold = (self.noise_floor * 1.8).max(gate).max(0.0020);
 
         if self.smoothed_rms >= voice_threshold {
             if !self.speech_started {
@@ -1261,6 +1404,33 @@ mod tests {
         assert_eq!(result, "И, конечно, в принципе.");
     }
 
+    #[test]
+    fn clean_collapses_elongated_letters_and_stutters() {
+        let input = "Так, изучиии-- смотри, ф-форматер и «в-в-в-вид», тооо разные слова «ввввв»";
+        let result = clean_repetitive_phrases(input);
+        assert_eq!(
+            result,
+            "Так, изучи смотри, форматер и «вид», то разные слова «в»"
+        );
+    }
+
+    #[test]
+    fn clean_collapses_user_dictation_sample() {
+        let input = "Иии, возможнооо, у нас где-то сбился pipeline какой-то. как-- что -м, система, когда яяя микрофон";
+        let result = clean_repetitive_phrases(input);
+        assert_eq!(
+            result,
+            "И, возможно, у нас где-то сбился pipeline какой-то. как что система, когда я микрофон"
+        );
+    }
+
+    #[test]
+    fn clean_preserves_legitimate_hyphenated_words() {
+        let input = "по-русски из-за что-то как-нибудь во-первых";
+        let result = clean_repetitive_phrases(input);
+        assert_eq!(result, "по-русски из-за что-то как-нибудь во-первых");
+    }
+
     // ── strip_filler_phrases ─────────────────────────────────────────────────
 
     #[test]
@@ -1497,5 +1667,68 @@ mod tests {
         vad.reset_segment();
         assert!(!vad.speech_started);
         assert!(!vad.is_segment_silence(0.01));
+    }
+
+    // ── Local Formatter & Parasite Cleaner ───────────────────────────────────
+
+    #[test]
+    fn collapse_elongated_chars_handles_repetitions_and_preserves_doubles() {
+        assert_eq!(collapse_elongated_chars("тооо"), "то");
+        assert_eq!(collapse_elongated_chars("Иии"), "И");
+        assert_eq!(collapse_elongated_chars("«ввввв»"), "«в»");
+        assert_eq!(collapse_elongated_chars("возможнооо"), "возможно");
+        assert_eq!(collapse_elongated_chars("яяя"), "я");
+        assert_eq!(collapse_elongated_chars("длинный"), "длинный");
+        assert_eq!(collapse_elongated_chars("see"), "see");
+        assert_eq!(collapse_elongated_chars("soooo"), "so");
+    }
+
+    #[test]
+    fn collapse_hyphenated_stutters_removes_stutters_and_preserves_words() {
+        assert_eq!(collapse_hyphenated_stutters("ф-форматер"), "форматер");
+        assert_eq!(collapse_hyphenated_stutters("«в-в-в-вид»"), "«вид»");
+        assert_eq!(collapse_hyphenated_stutters("w-w-what"), "what");
+        assert_eq!(collapse_hyphenated_stutters("по-русски"), "по-русски");
+        assert_eq!(collapse_hyphenated_stutters("из-за"), "из-за");
+        assert_eq!(collapse_hyphenated_stutters("что-то"), "что-то");
+    }
+
+    #[test]
+    fn clean_punctuation_artifacts_cleans_dashes_and_commas() {
+        assert_eq!(clean_punctuation_artifacts("как-- что"), "как что");
+        assert_eq!(
+            clean_punctuation_artifacts("делал,, правку"),
+            "делал, правку"
+        );
+        assert_eq!(clean_punctuation_artifacts("-м, привет"), "м, привет");
+        assert_eq!(
+            clean_punctuation_artifacts("тест, . дальше"),
+            "тест. дальше"
+        );
+    }
+
+    #[test]
+    fn clean_repetitive_phrases_removes_fillers_and_stutters() {
+        let input = "тооо разные слова типа «в-в-в-вид», ф-форматер иии возможнооо как-- что";
+        let cleaned = clean_repetitive_phrases(input);
+        assert!(!cleaned.contains("тооо"));
+        assert!(!cleaned.contains("в-в-в-вид"));
+        assert!(!cleaned.contains("ф-форматер"));
+        assert!(!cleaned.contains("возможнооо"));
+        assert!(!cleaned.contains("как-- что"));
+        assert!(cleaned.contains("форматер"));
+        assert!(cleaned.contains("«вид»"));
+        assert!(cleaned.contains("как что"));
+
+        // Prepositions should never be deleted
+        let prep = "я пошел в магазин и купил хлеб";
+        assert_eq!(
+            clean_repetitive_phrases(prep),
+            "я пошел в магазин и купил хлеб"
+        );
+
+        // Hesitations should be stripped
+        let fillers = "э-э-э это эээ тест ммм";
+        assert_eq!(clean_repetitive_phrases(fillers), "это тест");
     }
 }

@@ -60,7 +60,7 @@ export function useSettings(): SettingsState & SettingsActions {
     const [alwaysOnTop, setAlwaysOnTop] = useState(true);
     const [autoPauseMedia, setAutoPauseMedia] = useState(false);
     const [noiseGate, setNoiseGate] = useState(0.002);
-    const [audioGain, setAudioGain] = useState(2.0);
+    const [audioGain, setAudioGain] = useState(1.0);
     const [formattingMode, setFormattingMode] = useState<FormattingMode>('none');
     const [lastActiveFormatting, setLastActiveFormatting] = useState<Exclude<FormattingMode, 'none'>>('gemini');
     const [formattingStyle, setFormattingStyle] = useState<FormattingStyle>('casual');
@@ -108,7 +108,7 @@ export function useSettings(): SettingsState & SettingsActions {
         setNoiseGate(value);
         if (noiseGateTimer.current) clearTimeout(noiseGateTimer.current);
         noiseGateTimer.current = setTimeout(() => {
-            invoke('set_noise_gate', { value }).catch(console.error);
+            invoke('set_noise_gate', { threshold: value }).catch(console.error);
         }, 300);
     }, []);
 
