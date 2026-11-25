@@ -209,8 +209,8 @@ xattr -dr com.apple.quarantine "/Applications/NYX Vox.app"
 ### 🪟 Windows 10 / 11 (x64)
 
 1. **Скачивание**: Скачайте актуальный установщик в [селекторе версий на сайте](https://nyx-vox.avpdev.com/#download) или на странице [Релизов](https://github.com/AVP-Dev/nyx-vox/releases/latest):
-   - **NSIS Setup (`.exe`)**: `NYX.Vox_1.6.0_x64-setup.exe` (Рекомендуется)
-   - **MSI-пакет (`.msi`)**: `NYX.Vox_1.6.0_x64_en-US.msi`
+   - **NSIS Setup (`.exe`)**: `NYX.Vox_1.6.1_x64-setup.exe` (Рекомендуется)
+   - **MSI-пакет (`.msi`)**: `NYX.Vox_1.6.1_x64_en-US.msi`
 2. **Установка**: Запустите файл и следуйте подсказкам мастера установки. Все зашифрованные ключи и настройки в `%APPDATA%` сохраняются при обновлении.
 3. **SmartScreen**: Если Windows Defender SmartScreen выдаст предупреждение *"Система Windows защитила ваш компьютер"*, нажмите **Подробнее** &rarr; **Выполнить в любом случае** (стандартно для бесплатного ПО с открытым исходным кодом).
 
@@ -258,7 +258,7 @@ NYX Vox разработан для максимальной производи�
 
 ## 🚀 План развития (Roadmap)
 
-**Готово в релизах v1.5.0 – v1.6.0:**
+**Готово в релизах v1.5.0 – v1.6.1:**
 - [x] Расширенная экосистема STT: интеграция **ElevenLabs Scribe v3**, **Speechmatics Melia**, **Azure Speech** и **NVIDIA Build**
 - [x] Автоопределение языка для мультиязычной диктовки без ручного переключения (Whisper, Melia, Scribe v3)
 - [x] Standalone менеджер модели **NVIDIA Nemotron 3.5 ASR GGUF** (~708 MB) со скачиванием и валидацией SHA-256
