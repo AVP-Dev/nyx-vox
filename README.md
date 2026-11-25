@@ -290,7 +290,7 @@ NYX Vox is tailored for maximum performance on both desktop operating systems:
 
 NYX Vox is an open-heart project created by **Aliaksei Patskevich (AVPDev)** as a personal daily driver and a learning expedition into Rust and system-level audio engineering.
 
-If you have architectural suggestions, code reviews, or bug reports, feel free to [Open an Issue](https://github.com/AVP-Dev/nyx-vox/issues) or reach out directly:
+If you have architectural suggestions, code reviews, or bug reports, check [CONTRIBUTING.md](./CONTRIBUTING.md), [Open an Issue](https://github.com/AVP-Dev/nyx-vox/issues), or reach out directly:
 
 <p align="center">
   <img src="https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript" />
