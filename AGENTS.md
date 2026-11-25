@@ -11,7 +11,7 @@ NYX Vox — a macOS & Windows desktop app for AI-assisted voice dictation. Speak
 microphone, get speech transcribed (locally via Whisper, or in the cloud via
 Deepgram / Groq / Gemini / GigaChat / ElevenLabs / Azure Speech / Speechmatics /
 NVIDIA Build), and have the result formatted by AI (Gemini, DeepSeek, Qwen,
-Groq, GigaChat). Status: active development, v1.6.0 test build.
+Groq, GigaChat). Status: active development, v1.6.1.
 
 ## Stack
 - Languages: Rust 2021 (backend) + TypeScript / Next.js 16 / React 19 (frontend)

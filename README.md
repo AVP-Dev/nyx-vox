@@ -209,8 +209,8 @@ Then launch the app again.
 ### 🪟 Windows 10 / 11 (x64)
 
 1. **Download**: Grab the latest installer from the [version picker](https://nyx-vox.avpdev.com/#download) or [GitHub Releases](https://github.com/AVP-Dev/nyx-vox/releases/latest):
-   - **NSIS Setup (`.exe`)**: `NYX.Vox_1.6.0_x64-setup.exe` (Recommended)
-   - **MSI Installer (`.msi`)**: `NYX.Vox_1.6.0_x64_en-US.msi`
+   - **NSIS Setup (`.exe`)**: `NYX.Vox_1.6.1_x64-setup.exe` (Recommended)
+   - **MSI Installer (`.msi`)**: `NYX.Vox_1.6.1_x64_en-US.msi`
 2. **Install**: Run the installer and follow the setup wizard. All encrypted keys and settings in `%APPDATA%` are preserved across upgrades.
 3. **SmartScreen**: If Windows Defender SmartScreen displays *"Windows protected your PC"*, click **More info** &rarr; **Run anyway** (standard for unsigned open-source software).
 
@@ -258,7 +258,7 @@ NYX Vox is tailored for maximum performance on both desktop operating systems:
 
 ## 🚀 Roadmap
 
-**Shipped in v1.5.0 – v1.6.0:**
+**Shipped in v1.5.0 – v1.6.1:**
 - [x] Expanded STT ecosystem: integration of **ElevenLabs Scribe v3**, **Speechmatics Melia**, **Azure Speech**, and **NVIDIA Build**
 - [x] Automatic language detection for multilingual dictation without manual switching (Whisper, Melia, Scribe v3)
 - [x] Standalone **NVIDIA Nemotron 3.5 ASR GGUF** model manager (~708 MB) with download and SHA-256 validation
