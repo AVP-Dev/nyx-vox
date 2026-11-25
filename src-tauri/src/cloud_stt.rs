@@ -19,9 +19,11 @@ pub async fn pipe_audio_chunks(
     source: Arc<Mutex<AudioBuffer>>,
     recording_flag: Arc<AtomicBool>,
     sender: mpsc::Sender<Vec<u8>>,
+    noise_gate: f32,
 ) -> Result<(), String> {
     let mut copied_len = 0usize;
     let mut stopped_empty_ticks = 0u8;
+    let mut speech_hangover_frames = 0u8;
 
     loop {
         let (delta, sample_rate) = {
@@ -48,7 +50,27 @@ pub async fn pipe_audio_chunks(
 
         stopped_empty_ticks = 0;
         let resampled = crate::utils::resample_to_16k(&delta, sample_rate, 16_000);
-        let pcm = crate::utils::samples_to_i16_pcm(&resampled);
+        let chunk_rms =
+            (resampled.iter().map(|s| s * s).sum::<f32>() / resampled.len().max(1) as f32).sqrt();
+
+        // If chunk energy is above noise gate, maintain a ~320ms (4 frames @ 80ms) speech hangover
+        // to ensure trailing consonants, pauses and fading syllables are never clipped.
+        let is_speech = chunk_rms >= noise_gate;
+        if is_speech {
+            speech_hangover_frames = 4;
+        } else if speech_hangover_frames > 0 {
+            speech_hangover_frames -= 1;
+        }
+
+        // If speech is active or within hangover window, stream true audio.
+        // Otherwise, stream clean digital silence (16-bit zeros) so background TV or ambient
+        // noise does not bleed into realtime cloud STT while preserving timing & socket sync.
+        let pcm = if is_speech || speech_hangover_frames > 0 || noise_gate <= 0.0005 {
+            crate::utils::samples_to_i16_pcm(&resampled)
+        } else {
+            vec![0u8; resampled.len() * 2]
+        };
+
         sender
             .send(pcm)
             .await

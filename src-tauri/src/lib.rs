@@ -30,7 +30,13 @@ use crate::state::*;
 use crate::tray::*;
 use crate::window::*;
 
+static QUITTING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
 fn quit_app_safely(app_handle: &tauri::AppHandle) {
+    if QUITTING.swap(true, std::sync::atomic::Ordering::SeqCst) {
+        return;
+    }
+
     if let Some(recording) = app_handle.try_state::<RecordingFlag>() {
         recording
             .0
@@ -42,6 +48,7 @@ fn quit_app_safely(app_handle: &tauri::AppHandle) {
             .store(false, std::sync::atomic::Ordering::SeqCst);
     }
 
+    #[cfg(not(target_os = "macos"))]
     whisper::unload_all_models();
 
     // Flush persisted stores (settings.json, history.json) BEFORE terminating,
@@ -61,8 +68,8 @@ fn quit_app_safely(app_handle: &tauri::AppHandle) {
         // whisper.cpp/ggml Metal owns process-global resources. On some macOS
         // builds, regular process teardown can run C++ destructors while Metal
         // resource-set initialization is still unwinding, which triggers
-        // ggml_abort() and shows a crash dialog on quit. We unload our contexts
-        // first, then terminate without running those fragile global destructors.
+        // ggml_abort() and shows a crash dialog on quit.
+        // We terminate without running those fragile global destructors.
         unsafe { libc::_exit(0) };
     }
 
@@ -169,7 +176,7 @@ pub fn run() {
             app.manage(AutoPause(Mutex::new(false)));
             app.manage(AutoPaste(Mutex::new(true)));
             app.manage(NoiseGateThreshold(Mutex::new(0.002)));
-            app.manage(AudioGain(Mutex::new(2.0)));
+            app.manage(AudioGain(Mutex::new(1.0)));
             app.manage(AlwaysOnTop(Mutex::new(true)));
             app.manage(TargetApp(Mutex::new((
                 "Unknown".to_string(),
@@ -649,17 +656,32 @@ pub fn run() {
         })
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
-        .run(|app_handle, event| {
+        .run(|app_handle, event| match event {
             #[cfg(target_os = "macos")]
-            if let tauri::RunEvent::Reopen { .. } = event {
+            tauri::RunEvent::Reopen { .. } => {
                 if let Some(w) = app_handle.get_webview_window("main") {
                     let _ = w.show();
                     let _ = w.set_focus();
                 }
             }
-            #[cfg(not(target_os = "macos"))]
-            {
-                let _ = (app_handle, event);
+            tauri::RunEvent::ExitRequested { api, .. } => {
+                #[cfg(target_os = "macos")]
+                {
+                    api.prevent_exit();
+                    quit_app_safely(app_handle);
+                }
+                #[cfg(not(target_os = "macos"))]
+                {
+                    let _ = api;
+                    quit_app_safely(app_handle);
+                }
             }
+            tauri::RunEvent::Exit => {
+                #[cfg(target_os = "macos")]
+                unsafe {
+                    libc::_exit(0);
+                };
+            }
+            _ => {}
         });
 }

@@ -198,12 +198,17 @@ fn spawn_provider_stream(
     api_key: String,
     azure_config: AzureSpeechConfig,
 ) -> tokio::task::JoinHandle<Result<String, String>> {
+    let noise_gate = app
+        .try_state::<crate::state::NoiseGateThreshold>()
+        .and_then(|s| s.0.lock().ok().map(|l| *l))
+        .unwrap_or(0.002);
     let (sender, receiver) = tokio::sync::mpsc::channel(24);
     tokio::spawn(async move {
         let pipe = cloud_stt::pipe_audio_chunks(
             Arc::clone(&audio_state),
             Arc::clone(&recording_flag),
             sender,
+            noise_gate,
         );
         let stream = stream_provider(app, &mode, &api_key, &azure_config, receiver);
         let (pipe_result, stream_result) = tokio::join!(pipe, stream);

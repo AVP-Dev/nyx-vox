@@ -4,7 +4,15 @@
 
 ---
 
-## 📅 Version 1.6.0 (Current test build)
+## 📅 Version 1.6.1
+
+### 🐛 Bug Fixes & Audio Polishing
+- **macOS Exit Stability**: Fixed `SIGABRT` (`ggml_metal_rsets_free`) on `Cmd+Q` / Dock quit by saving state cleanly and bypassing problematic C++ static destructors via `libc::_exit(0)`.
+- **Audio & Noise Gate**: Fixed the `set_noise_gate` IPC parameter mismatch (`{ threshold }` vs `{ value }`), lowered default `AudioGain` to `1.0`, and added `noise_gate` digital-silence gating with 320ms hangover for streaming cloud STT.
+- **Local Formatter**: Added deterministic collapsing of elongated characters, hyphenated stutters, and pause dash artifacts in `utils.rs`.
+- **In-App Audio Tips**: Added a concise Audio & Recognition FAQ in Settings → Info covering Noise Gate sensitivity and macOS Voice Isolation.
+
+## 📅 Version 1.6.0
 
 ### ☁️ Expanded Cloud STT Providers
 - Added selectable ElevenLabs Scribe realtime transcription with batch fallback, Azure MAI Transcribe realtime, Speechmatics Realtime, and NVIDIA Build batch transcription.
