@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     X, Globe, Cpu, Key, History as HistoryIcon, Info,
     Settings as SettingsIcon,
@@ -6,7 +6,6 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import Markdown from 'react-markdown';
 
 // Internal Components
 import { DICTIONARY } from './settings/translations';
@@ -147,16 +146,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
     // Updates
     const [updateStatus, setUpdateStatus] = useState('idle');
-    const [showUpdatePopup, setShowUpdatePopup] = useState(false);
-    const [releaseData, setReleaseData] = useState<{ version: string; url: string; notes: string } | null>(null);
-    const [notesLang, setNotesLang] = useState<'ru' | 'en'>('ru');
-
-    const parsedNotes = useMemo(() => {
-        if (!releaseData?.notes) return { en: '', ru: '' };
-        const parts = releaseData.notes.split(/\n---\n/);
-        if (parts.length < 2) return { en: releaseData.notes, ru: releaseData.notes };
-        return { en: parts[0].trim(), ru: parts.slice(1).join('\n---\n').trim() };
-    }, [releaseData?.notes]);
 
     const c = DICTIONARY[lang as keyof typeof DICTIONARY] || DICTIONARY.en;
 
@@ -424,33 +413,17 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     const handleOpenHistory = () => invoke('open_history_window');
     
     const handleCheckUpdates = async () => {
-        if (updateStatus === 'available' && releaseData) {
-            setShowUpdatePopup(true);
-            return;
-        }
         setUpdateStatus('checking');
         try {
-            const res = await fetch('https://api.github.com/repos/AVP-Dev/nyx-vox/releases/latest', {
-                headers: { 'Accept': 'application/vnd.github.v3+json' }
-            });
-            if (res.ok) {
-                const data = await res.json();
-                const latestTag = (data.tag_name || '').replace(/^v/, '');
-                if (latestTag && latestTag !== APP_VERSION) {
-                    setUpdateStatus('available');
-                    setReleaseData({
-                        version: latestTag,
-                        url: data.html_url || 'https://github.com/AVP-Dev/nyx-vox/releases/latest',
-                        notes: data.body || ''
-                    });
-                    setShowUpdatePopup(true);
-                } else {
-                    setUpdateStatus('idle');
-                    addToast(lang === 'ru' ? 'У вас установлена самая актуальная версия!' : 'You have the latest version installed!', 'success');
-                }
+            const { checkAppUpdate, normalizeVersion } = await import('@/lib/updater');
+            const update = await checkAppUpdate();
+            if (update) {
+                const cleanVersion = normalizeVersion(update.version);
+                setUpdateStatus('available');
+                await invoke('show_update_window', { version: cleanVersion, lang });
             } else {
                 setUpdateStatus('idle');
-                addToast(lang === 'ru' ? 'Не удалось проверить обновления.' : 'Failed to check for updates.', 'error');
+                addToast(lang === 'ru' ? 'У вас установлена самая актуальная версия!' : 'You have the latest version installed!', 'success');
             }
         } catch {
             setUpdateStatus('idle');
@@ -590,93 +563,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                     <div className="absolute top-0 inset-x-0 h-4 bg-gradient-to-b from-[#18181B] to-transparent pointer-events-none z-10" />
                     <div className="absolute bottom-0 inset-x-0 h-8 bg-gradient-to-t from-[#18181B] to-transparent pointer-events-none z-10" />
                 </div>
-
-                {/* Update Modal Popup Notification */}
-                <AnimatePresence>
-                    {showUpdatePopup && releaseData && (
-                        <motion.div 
-                            initial={{ opacity: 0 }} 
-                            animate={{ opacity: 1 }} 
-                            exit={{ opacity: 0 }} 
-                            className="absolute inset-0 z-50 bg-black/80 backdrop-blur-xl flex items-center justify-center p-6"
-                        >
-                            <motion.div 
-                                initial={{ scale: 0.9, y: 20 }} 
-                                animate={{ scale: 1, y: 0 }} 
-                                exit={{ scale: 0.9, y: 20 }}
-                                className="w-full max-w-md bg-panel border border-emerald-500/30 rounded-3xl p-6 shadow-2xl flex flex-col relative max-h-[90%]"
-                            >
-                                <button 
-                                    onClick={() => setShowUpdatePopup(false)}
-                                    className="absolute top-4 right-4 w-8 h-8 rounded-full bg-surface flex items-center justify-center text-muted hover:text-white hover:bg-surface-hover transition-all"
-                                >
-                                    <X className="w-4 h-4" />
-                                </button>
-                                
-                                <div className="flex items-center gap-3 mb-4">
-                                    <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
-                                        <Globe className="w-6 h-6" />
-                                    </div>
-                                    <div>
-                                        <h3 className="text-lg font-black text-white leading-tight">{c.update?.title || 'New Update!'}</h3>
-                                        <p className="text-xs text-emerald-400 font-mono mt-0.5">v{releaseData.version}</p>
-                                    </div>
-                                </div>
-
-                                <p className="text-xs text-white/70 mb-4 font-medium leading-relaxed">
-                                    {c.update?.desc || 'A newer version of NYX Vox is available for download.'}
-                                </p>
-
-                                {releaseData.notes && (
-                                    <div className="mb-5 flex-1 overflow-y-auto custom-scrollbar bg-black/30 rounded-xl p-3 border border-subtle">
-                                        <div className="flex items-center justify-between mb-2">
-                                            <div className="text-[10px] font-bold text-white/30 uppercase tracking-wider">
-                                                {c.update?.notes || 'Release Notes:'}
-                                            </div>
-                                            <button
-                                                onClick={() => setNotesLang(l => l === 'ru' ? 'en' : 'ru')}
-                                                className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-surface border border-subtle hover:bg-surface-hover transition-all"
-                                            >
-                                                <Globe size={10} className="text-white/30" />
-                                                <span className="text-[9px] font-black text-muted uppercase tracking-wider">{notesLang.toUpperCase()}</span>
-                                            </button>
-                                        </div>
-                                        <div className="prose-update">
-                                            <Markdown>{notesLang === 'ru' ? parsedNotes.ru : parsedNotes.en}</Markdown>
-                                        </div>
-                                    </div>
-                                )}
-
-                                <div className="flex items-center gap-2 pt-2 border-t border-subtle shrink-0">
-                                    <button 
-                                        onClick={() => setShowUpdatePopup(false)}
-                                        className="py-2.5 px-3 rounded-xl bg-surface hover:bg-surface-hover text-muted hover:text-white font-bold text-xs transition-all"
-                                    >
-                                        {c.update?.later || 'Later'}
-                                    </button>
-                                    <a 
-                                        href="https://nyx-vox.avpdev.com/#download"
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        onClick={() => setShowUpdatePopup(false)}
-                                        className="flex-1 py-2.5 rounded-xl bg-surface hover:bg-surface-hover text-orange-400 hover:text-orange-300 font-bold text-xs text-center border border-orange-500/20 transition-all uppercase tracking-wider"
-                                    >
-                                        {lang === 'ru' ? 'Сайт / Выбор сборки' : 'Website Picker'}
-                                    </a>
-                                    <a 
-                                        href={releaseData.url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        onClick={() => setShowUpdatePopup(false)}
-                                        className="flex-1 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs text-center shadow-lg shadow-emerald-500/20 transition-all uppercase tracking-wider"
-                                    >
-                                        {c.update?.download || 'Download'}
-                                    </a>
-                                </div>
-                            </motion.div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
 
                 {/* Toast Notifications */}
                 <ToastContainer toasts={toasts} onDismiss={dismissToast} />

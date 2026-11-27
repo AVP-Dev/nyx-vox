@@ -133,18 +133,28 @@ pub async fn open_url(_app: AppHandle, url: String) -> Result<(), String> {
 #[tauri::command]
 pub async fn show_update_window(
     app: AppHandle,
-    version: String,
+    version: Option<String>,
     lang: String,
 ) -> Result<(), String> {
-    let url = format!("/update?version={}&lang={}", version, lang);
+    let clean_version = version
+        .unwrap_or_default()
+        .trim()
+        .trim_start_matches('v')
+        .to_string();
+    let url = if clean_version.is_empty() {
+        format!("/update?lang={}&manual=1", lang)
+    } else {
+        format!("/update?version={}&lang={}", clean_version, lang)
+    };
     if let Some(win) = app.get_webview_window("update") {
+        let _ = win.eval(format!("window.location.replace({:?})", url));
         let _ = win.show();
         let _ = win.set_focus();
         return Ok(());
     }
     let _ = tauri::WebviewWindowBuilder::new(&app, "update", tauri::WebviewUrl::App(url.into()))
         .title("NYX Vox - Update")
-        .inner_size(360.0, 460.0)
+        .inner_size(360.0, 480.0)
         .resizable(false)
         .decorations(false)
         .transparent(true)

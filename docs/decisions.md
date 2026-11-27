@@ -14,6 +14,17 @@
 
 ---
 
+### [2026-11-27] Автообновление через tauri-plugin-updater без Apple Developer ID
+Контекст: прежняя схема обновлений проверяла GitHub API вручную и отправляла пользователя скачивать релиз на GitHub или копировать команды `brew`/`curl`, а пункт в трее «Проверить обновления...» просто открывал настройки.
+Решение:
+1. Подключены `tauri-plugin-updater` и `tauri-plugin-process` с `createUpdaterArtifacts: true` и `endpoints: ["https://github.com/AVP-Dev/nyx-vox/releases/latest/download/latest.json"]`.
+2. Для криптоподписи обновлений используется бесплатная пара ключей Tauri (`minisign`: pubkey в `tauri.conf.json`, приватный ключ в `TAURI_SIGNING_PRIVATE_KEY` в GitHub Secrets).
+3. Пункт в трее (`tray.rs`) динамически меняется на «Доступно обновление vX.Y.Z» и по клику сразу открывает компактное окно `/update`, которое умеет проверять, скачивать с прогресс-баром, устанавливать и перезапускать приложение (`relaunch()`).
+Альтернативы: покупка Apple Developer ID ради нотаризации — отложено, но учтено в UI: без Developer ID на macOS после автообновления может сбрасываться разрешение Accessibility (добавлена подсказка в `/update`).
+Последствия: пользователи получают автообновление в 1 клик без ручного скачивания; для работы в CI необходимо прописать `TAURI_SIGNING_PRIVATE_KEY` в секретах репозитория и публиковать релиз (снять Draft).
+
+---
+
 ### [2026-11-23] Перехват ExitRequested в macOS run-loop для предотвращения крэша ggml Metal при закрытии приложения
 Контекст: при выходе из приложения на macOS по Cmd+Q, через пункт Dock «Завершить» или сигнал OS `NSApplication terminate:`, процесс аварийно завершался с `SIGABRT` (Abort trap: 6, `ggml_abort` в `ggml_metal_rsets_free`). В crash report видно, что AppKit вызывал стандартный `exit(0)`, который запускал деструкторы C++ статических объектов (`__cxa_finalize_ranges`) в момент, когда фоновые потоки инициализации или инференса Whisper/ggml Metal ещё не завершили раскрутку. При этом функция `quit_app_safely` с прямым `libc::_exit(0)` была привязана только к меню трея.
 Решение:
