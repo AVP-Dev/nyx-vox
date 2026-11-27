@@ -46,6 +46,22 @@ jobs:
         if: matrix.platform == 'macos-latest'
         run: sudo mdutil -a -i off || true
 
+      - name: load release notes
+        id: notes
+        shell: bash
+        run: |
+          NOTES_FILE="docs/tags/${GITHUB_REF_NAME}/release.md"
+          if [ -f "$NOTES_FILE" ]; then
+            {
+              echo "body<<EOF_NOTES"
+              cat "$NOTES_FILE"
+              echo ""
+              echo "EOF_NOTES"
+            } >> "$GITHUB_OUTPUT"
+          else
+            echo "body=See the assets below to download the latest version." >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -55,6 +71,6 @@ jobs:
         with:
           tagName: v__VERSION__ # the action automatically replaces \_\_VERSION\_\_ with the app version
           releaseName: "NYX-Vox v__VERSION__"
-          releaseBody: "See the assets below to download the latest version."
+          releaseBody: ${{ steps.notes.outputs.body }}
           releaseDraft: false
           prerelease: false

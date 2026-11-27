@@ -38,8 +38,10 @@ export default function UpdatePage() {
                 updateRef.current = update;
                 const cleanVer = normalizeVersion(update.version);
                 setLatestVersion(cleanVer);
-                if (update.body) {
-                    setReleaseNotes(update.body);
+                const rawBody = (update.body || '').trim();
+                const isPlaceholder = rawBody === 'See the assets below to download the latest version.';
+                if (rawBody && !isPlaceholder) {
+                    setReleaseNotes(rawBody);
                 } else {
                     fetch(`https://api.github.com/repos/AVP-Dev/nyx-vox/releases/tags/v${cleanVer}`, {
                         headers: { Accept: 'application/vnd.github.v3+json' },
@@ -47,8 +49,11 @@ export default function UpdatePage() {
                         .then((r) => (r.ok ? r.json() : null))
                         .then((data) => {
                             if (data?.body) setReleaseNotes(data.body);
+                            else if (rawBody) setReleaseNotes(rawBody);
                         })
-                        .catch(() => {});
+                        .catch(() => {
+                            if (rawBody) setReleaseNotes(rawBody);
+                        });
                 }
                 setStage('available');
             } else if (expectedVersion) {
