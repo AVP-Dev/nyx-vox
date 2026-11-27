@@ -1,6 +1,6 @@
 [package]
 name = "app"
-version = "1.6.2"
+version = "1.6.3"
 description = "A Tauri App"
 authors = ["you"]
 license = ""
@@ -51,7 +51,7 @@ regex = "1.12.3"
 uuid = { version = "1.10", features = ["v4", "serde"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
-whisper-rs = { version = "0.16", features = ["metal", "coreml"] }
+whisper-rs = { version = "0.16", features = ["metal"] }
 core-graphics = "0.23.2"
 objc2-app-kit = { version = "0.3.2", features = ["NSWorkspace", "NSRunningApplication", "NSApplication"] }
 objc2-foundation = { version = "0.3.2", features = ["NSDate", "NSString"] }

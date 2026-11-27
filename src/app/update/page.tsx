@@ -128,6 +128,9 @@ export default function UpdatePage() {
             });
 
             setStage('installing');
+            if (isMac) {
+                await invoke('reset_accessibility_cache').catch(() => {});
+            }
             const { relaunch } = await import('@tauri-apps/plugin-process');
             await relaunch();
         } catch (err) {
@@ -162,7 +165,7 @@ export default function UpdatePage() {
             retry: 'ПОВТОРИТЬ',
             close: 'ЗАКРЫТЬ',
             downloadManual: 'СКАЧАТЬ С GITHUB',
-            howToUpdate: 'Как обновить вручную?',
+            howToUpdate: 'Проблемы с обновлением? (ручной способ)',
             later: 'Напомнить позже',
             cancel: 'Отмена',
             dontShow: 'Больше не показывать',
@@ -184,7 +187,7 @@ export default function UpdatePage() {
             retry: 'RETRY',
             close: 'CLOSE',
             downloadManual: 'DOWNLOAD FROM GITHUB',
-            howToUpdate: 'Manual update options',
+            howToUpdate: 'Having trouble updating? (manual fallback)',
             later: 'Remind Later',
             cancel: 'Cancel',
             dontShow: "Don't show again",

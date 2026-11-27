@@ -196,6 +196,29 @@ pub async fn set_welcome_seen(app: AppHandle, version: String, seen: bool) -> Re
 }
 
 #[tauri::command]
+pub async fn reset_accessibility_cache(app: AppHandle) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        let identifier = app.config().identifier.clone();
+        let status = std::process::Command::new("tccutil")
+            .arg("reset")
+            .arg("Accessibility")
+            .arg(&identifier)
+            .status();
+        match status {
+            Ok(s) if s.success() => Ok(()),
+            Ok(s) => Err(format!("tccutil failed with exit code: {:?}", s.code())),
+            Err(e) => Err(format!("Failed to execute tccutil: {}", e)),
+        }
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = app;
+        Ok(())
+    }
+}
+
+#[tauri::command]
 pub fn debug_log(msg: String) {
     log::debug!("{}", msg);
 }

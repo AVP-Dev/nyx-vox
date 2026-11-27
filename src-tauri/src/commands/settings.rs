@@ -48,8 +48,7 @@ pub async fn get_all_settings(
         .unwrap_or(false);
     let app_lang = store
         .get("app_language")
-        .and_then(|v| v.as_str().map(|s| s.to_string()))
-        .unwrap_or_else(|| "ru".to_string());
+        .and_then(|v| v.as_str().map(|s| s.to_string()));
     let model_available = whisper::is_model_available(wm);
 
     Ok(serde_json::json!({

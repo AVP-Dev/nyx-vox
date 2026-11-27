@@ -117,6 +117,14 @@ export function useInitialSettings(setters: Setters) {
                     if (typeof allSettings.appLanguage === 'string') {
                         savedLang = allSettings.appLanguage as AppLanguage;
                         setters.setAppLanguage(savedLang);
+                    } else {
+                        const sysLang: AppLanguage =
+                            typeof navigator !== 'undefined' && navigator.language?.toLowerCase().startsWith('ru')
+                                ? 'ru'
+                                : 'en';
+                        savedLang = sysLang;
+                        setters.setAppLanguage(sysLang);
+                        void invoke('set_app_language', { lang: sysLang }).catch(() => {});
                     }
                 }
 

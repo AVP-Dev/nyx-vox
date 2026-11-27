@@ -645,6 +645,7 @@ pub fn run() {
             commands::get_custom_models,
             commands::open_url,
             commands::show_update_window,
+            commands::reset_accessibility_cache,
             commands::resize_window,
             commands::debug_log,
             diag::run_self_diagnosis,
