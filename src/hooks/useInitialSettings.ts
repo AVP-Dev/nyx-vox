@@ -159,29 +159,18 @@ export function useInitialSettings(setters: Setters) {
 async function checkUpdates(appLang: string) {
     if (typeof window === 'undefined' || !window.__TAURI_INTERNALS__) return;
     try {
-        const current = `v${APP_VERSION}`;
-        const ignored = await invoke<string>('get_ignored_update').catch(() => '');
+        const { checkAppUpdate, normalizeVersion } = await import('@/lib/updater');
+        const update = await checkAppUpdate();
+        if (!update) return;
+
+        const latest = normalizeVersion(update.version);
+        const ignored = normalizeVersion(await invoke<string>('get_ignored_update').catch(() => ''));
         const dismissedAt = await invoke<number>('get_update_dismissed_at').catch(() => 0);
 
+        if (ignored && latest === ignored) return;
         if (dismissedAt && Date.now() - dismissedAt < 2 * 60 * 60 * 1000) return;
 
-        const response = await fetch('https://api.github.com/repos/AVP-Dev/nyx-vox/releases/latest');
-        if (!response.ok) return;
-        const data = await response.json();
-        const latest = data.tag_name;
-
-        if (latest && latest !== current && latest !== ignored) {
-            const { WebviewWindow } = await import('@tauri-apps/api/webviewWindow');
-            const label = `update-${latest.replace(/\./g, '-')}`;
-            new WebviewWindow(label, {
-                url: `/update?version=${latest}&lang=${appLang}`,
-                title: 'NYX Vox Update',
-                width: 360, height: 460,
-                resizable: false, decorations: false,
-                transparent: true, alwaysOnTop: true,
-                shadow: false, center: true, skipTaskbar: false,
-            });
-        }
+        await invoke('show_update_window', { version: latest, lang: appLang });
     } catch (e) {
         console.error('[UpdateCheck] Error:', e);
     }

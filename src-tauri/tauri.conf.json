@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "NYX Vox",
-  "version": "1.6.1",
+  "version": "1.6.2",
   "identifier": "com.nyx.vox2",
   "build": {
     "frontendDist": "../out",
@@ -37,6 +37,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "createUpdaterArtifacts": true,
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -51,6 +52,14 @@
       "nsis": {
         "installMode": "currentUser"
       }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEJDQTE3N0Y2MjI3RkI0RDUKUldUVnRIOGk5bmVodkVmUTVTUDE2TTRJRU5rd2tQazQyTnowSXRic3pRN1dERm5majUwR1NjbnAK",
+      "endpoints": [
+        "https://github.com/AVP-Dev/nyx-vox/releases/latest/download/latest.json"
+      ]
     }
   }
 }

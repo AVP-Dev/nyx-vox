@@ -5,12 +5,12 @@
 > Держи компактно: не история навсегда, а срез "что сейчас".
 
 ## Последнее обновление
-Дата: 2026-11-26
-Кто/что обновило: Antigravity, добавлен `CONTRIBUTING.md` (по образцу `talos` / `pair-mailbox`) и ссылки на него в `README.md` и `README.ru.md`.
+Дата: 2026-11-27
+Кто/что обновило: Antigravity, версия повышена до `1.6.2`, добавлен `docs/tags/v1.6.2/release.md` (English-only), внедрён нативный автоапдейтер (`tauri-plugin-updater` + `tauri-plugin-process`), индикатор обновления в трее и подпись артефактов в `.github/workflows/release.yml`.
 
 ## Предыдущее обновление
 Дата: 2026-11-26
-Кто/что обновило: Antigravity, добавлен блок советов по звуку/чувствительности в `InfoTab.tsx`, версия повышена до `1.6.1`, обновлены `CHANGELOG*.md` и `docs/tags/v1.6.1/release.md`, выполнена проверка тестов и подготовка релиза `v1.6.1`.
+Кто/что обновило: Antigravity, добавлен `CONTRIBUTING.md` (по образцу `talos` / `pair-mailbox`) и ссылки на него в `README.md` и `README.ru.md`.
 
 ## Версии (важно)
 - Патч-релиз **v1.6.1** зафиксирован в `main` и теге `v1.6.1` (macOS exit SIGABRT fix, Noise Gate IPC + cloud_stt gating, локальный форматер `utils.rs`, советы по звуку в `InfoTab.tsx`, обновлены манифесты, README и `docs/tags/v1.6.1/release.md`). Предыдущий релиз **v1.6.0** опубликован на GitHub Releases.

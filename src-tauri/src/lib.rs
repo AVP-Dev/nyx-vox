@@ -135,6 +135,8 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
                 .with_handler(move |app, shortcut, event| {
@@ -475,10 +477,17 @@ pub fn run() {
                         });
                     }
                     "check_updates" => {
-                        if let Err(error) = app_handle.emit("check-updates", ()) {
-                            log::warn!("Failed to emit check-updates from tray menu: {error}");
-                        }
-                        show_overlay(app_handle);
+                        let ah = app_handle.clone();
+                        let known_version = tray::get_tray_available_update();
+                        let lang = app_handle
+                            .store("settings.json")
+                            .ok()
+                            .and_then(|s| s.get("app_language"))
+                            .and_then(|v| v.as_str().map(String::from))
+                            .unwrap_or_else(|| "ru".to_string());
+                        tauri::async_runtime::spawn(async move {
+                            let _ = commands::show_update_window(ah, known_version, lang).await;
+                        });
                     }
                     "history" => {
                         let ah = app_handle.clone();
@@ -595,6 +604,7 @@ pub fn run() {
             commands::get_target_app,
             commands::update_target_app,
             tray::update_tray_lang,
+            tray::set_tray_update_available,
             commands::set_auto_pause,
             commands::get_auto_pause,
             commands::set_auto_paste,
