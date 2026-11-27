@@ -96,7 +96,13 @@
         if (!available.length) return;
         releases = available;
         const stable = releases.find(({ beta }) => !beta);
-        if (stable) document.getElementById('version-tag').textContent = stable.tag;
+        if (stable) {
+            document.getElementById('version-tag').textContent = stable.tag;
+            const cleanVer = stable.tag.replace(/^v/i, '');
+            document.querySelectorAll('[data-latest-win-installer]').forEach((el) => {
+                el.textContent = `NYX.Vox_${cleanVer}_x64-setup.exe / .msi`;
+            });
+        }
         localizeVersions();
         updateBuilds();
         picker.hidden = false;

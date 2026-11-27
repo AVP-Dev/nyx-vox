@@ -42,6 +42,7 @@ test('selects a stable release, switches builds and preserves selection across l
     const build = page.document.querySelector<HTMLSelectElement>(buildPicker)!;
     const download = page.document.querySelector<HTMLAnchorElement>('#download-button')!;
     await vi.waitFor(() => expect(version.value).toBe('v1.5.1'));
+    expect(page.document.querySelector('[data-latest-win-installer]')?.textContent).toBe('NYX.Vox_1.5.1_x64-setup.exe / .msi');
     expect(Array.from(version.options, option => option.value)).toEqual(['v1.5.1', 'v1.4.0', 'v1.6.0-beta.1']);
     expect(Array.from(build.options, option => option.text)).toEqual(['macOS · Apple Silicon · DMG', 'Windows · x64 · EXE']);
     build.value = exe.browser_download_url;
