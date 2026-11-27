@@ -4,15 +4,15 @@ import { useKeyboardShortcuts } from './useKeyboardShortcuts';
 import type { Phase } from '@/lib/types';
 
 describe('useKeyboardShortcuts', () => {
-    let handlePaste: ReturnType<typeof vi.fn>;
-    let setTranscript: ReturnType<typeof vi.fn>;
-    let setPhase: ReturnType<typeof vi.fn>;
+    let handlePaste: ReturnType<typeof vi.fn<() => Promise<void>>>;
+    let setTranscript: ReturnType<typeof vi.fn<(text: string) => void>>;
+    let setPhase: ReturnType<typeof vi.fn<(phase: Phase) => void>>;
     let phaseRef: { current: Phase };
 
     beforeEach(() => {
-        handlePaste = vi.fn().mockResolvedValue(undefined);
-        setTranscript = vi.fn();
-        setPhase = vi.fn();
+        handlePaste = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
+        setTranscript = vi.fn<(text: string) => void>();
+        setPhase = vi.fn<(phase: Phase) => void>();
         phaseRef = { current: 'idle' };
     });
 

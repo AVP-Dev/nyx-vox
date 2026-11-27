@@ -49,8 +49,10 @@ pub struct RecordingFlag(pub Arc<AtomicBool>);
 pub struct ActiveSttMode(pub Mutex<String>);
 
 /// Join handle for the current provider-owned cloud STT stream, when active.
+pub type CloudSttJoinHandle = Arc<Mutex<Option<tokio::task::JoinHandle<Result<String, String>>>>>;
+
 #[derive(Clone)]
-pub struct CloudSttTask(pub Arc<Mutex<Option<tokio::task::JoinHandle<Result<String, String>>>>>);
+pub struct CloudSttTask(pub CloudSttJoinHandle);
 
 impl Default for CloudSttTask {
     fn default() -> Self {

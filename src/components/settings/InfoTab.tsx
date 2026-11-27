@@ -106,7 +106,11 @@ export const InfoTab: React.FC<InfoTabProps> = ({
                     <div className="flex items-center justify-between">
                         <div>
                             <div className="text-[13px] font-semibold text-white/90">
-                                {updateStatus === 'available' ? c.settings.updateAvailable : c.settings.noUpdate}
+                                {updateStatus === 'available'
+                                    ? c.settings.updateAvailable
+                                    : updateStatus === 'up-to-date'
+                                        ? c.settings.noUpdate
+                                        : (lang === 'ru' ? 'Нажмите для проверки обновлений' : 'Click to check for updates')}
                             </div>
                             <div className="text-[11px] text-white/30 mt-0.5">v{APP_VERSION}</div>
                         </div>

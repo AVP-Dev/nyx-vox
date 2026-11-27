@@ -68,8 +68,8 @@ describe('useTauriEvents', () => {
 
         expect(opts.setShowWelcome).toHaveBeenCalledWith(false);
         expect(opts.setShowSettings).toHaveBeenCalledWith(true);
-        expect(opts.setShowWelcome.mock.invocationCallOrder[0]).toBeLessThan(
-            opts.setShowSettings.mock.invocationCallOrder[0]
+        expect(vi.mocked(opts.setShowWelcome).mock.invocationCallOrder[0]).toBeLessThan(
+            vi.mocked(opts.setShowSettings).mock.invocationCallOrder[0]
         );
     });
 

@@ -422,7 +422,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 setUpdateStatus('available');
                 await invoke('show_update_window', { version: cleanVersion, lang });
             } else {
-                setUpdateStatus('idle');
+                setUpdateStatus('up-to-date');
                 addToast(lang === 'ru' ? 'У вас установлена самая актуальная версия!' : 'You have the latest version installed!', 'success');
             }
         } catch {
